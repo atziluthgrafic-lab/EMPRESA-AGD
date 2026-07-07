@@ -1,0 +1,6 @@
+{
+  "name": "Atziluth Grafic Digital",
+  "description": "Agencia de marketing digital, creación de sitios web y publicidad en los 125 municipios de Antioquia. Incluye mapa interactivo y suites de Inteligencia Artificial para marcas locales.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
