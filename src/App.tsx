@@ -431,7 +431,7 @@ export default function App() {
           >
             <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-md flex items-center justify-center bg-slate-50 group-hover:border-brand-magenta/50 transition-colors">
               <img 
-                src="/src/assets/images/logo_atziluth_1781713306778.jpg" 
+                src="/logo_atziluth.jpg" 
                 alt="Logo Atziluth" 
                 className="w-full h-full object-cover scale-110"
                 referrerPolicy="no-referrer"
@@ -1177,7 +1177,7 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center bg-slate-100">
               <img 
-                src="/src/assets/images/logo_atziluth_1781713306778.jpg" 
+                src="/logo_atziluth.jpg" 
                 alt="Logo Atziluth" 
                 className="w-full h-full object-cover scale-110"
                 referrerPolicy="no-referrer"
@@ -1241,7 +1241,7 @@ export default function App() {
               </p>
 
               <a
-                href="https://wa.me/573001254321?text=Hola%20Atziluth%20Digital!%20Me%20interesa%20conocer%20los%20planes%20y%20precios%20para%20crear%20mi%20sitio%20web%20en%20Antioquia."
+                href="https://wa.me/573207115878?text=Hola%20Atziluth%20Digital!%20Me%20interesa%20conocer%20los%20planes%20y%20precios%20para%20crear%20mi%20sitio%20web%20en%20Antioquia."
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-white font-bold rounded-lg text-[10px] flex items-center justify-center gap-1.5 transition-colors uppercase tracking-wider text-center"

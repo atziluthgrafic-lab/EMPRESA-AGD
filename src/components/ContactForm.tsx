@@ -33,7 +33,7 @@ export default function ContactForm() {
         ? "Publicidad Digital / Ads"
         : "Sitio Web + Estrategia de IA"
     }. Me gustaría una asesoría gratuita.`;
-    return `https://wa.me/573001254321?text=${encodeURIComponent(text)}`;
+    return `https://wa.me/573207115878?text=${encodeURIComponent(text)}`;
   };
 
   return (

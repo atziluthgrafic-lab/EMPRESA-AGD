@@ -1,0 +1,35 @@
+# --- CONFIGURACIÓN DE ATZILUTH GRAFIC DIGITAL PARA HOSTINGER ---
+
+# 1. EVITAR LISTADO DE DIRECTORIOS (Seguridad)
+Options -Indexes
+
+# 2. CONFIGURACIÓN DE MIME-TYPES (Evita errores de carga de CSS/JS en Apache/Hostinger)
+<IfModule mod_mime.c>
+  AddType application/javascript .js
+  AddType text/css .css
+  AddType image/svg+xml .svg
+  AddType image/webp .webp
+  AddType image/jpeg .jpg .jpeg
+  AddType image/png .png
+  AddType image/x-icon .ico
+</IfModule>
+
+# 3. REDIRECCIÓN SPA (SINGLE PAGE APPLICATION)
+# Redirige todas las peticiones que no corresponden a un archivo o carpeta física hacia index.html
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Si el archivo o directorio solicitado existe físicamente, sírvelo directamente
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+  
+  # Si no existe, redirige todo el tráfico a index.html para que el enrutador de React tome el control
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# 4. COMPRESIÓN GZIP (Optimización de velocidad de carga en Hostinger)
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json image/svg+xml
+</IfModule>

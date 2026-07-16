@@ -156,7 +156,7 @@ export default function LitografiaSection() {
   const handleQuoteOnWhatsApp = (itemTitle: string) => {
     const text = `Hola Atziluth Digital! Me interesa cotizar el servicio de publicidad litográfica para: *${itemTitle}*. Quisiera recibir asesoría y opciones de precios de impresión.`;
     const encodedText = encodeURIComponent(text);
-    window.open(`https://wa.me/573001254321?text=${encodedText}`, "_blank");
+    window.open(`https://wa.me/573207115878?text=${encodedText}`, "_blank");
   };
 
   return (
