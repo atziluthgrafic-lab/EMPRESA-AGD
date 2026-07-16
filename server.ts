@@ -234,9 +234,17 @@ app.get("/api/config/images", (req, res) => {
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;
   const configuredUsername = "Estiven";
-  const configuredPassword = process.env.ADMIN_PASSWORD || "Lmrv1979";
+  const envPassword = process.env.ADMIN_PASSWORD;
   
-  if (username === configuredUsername && password === configuredPassword) {
+  const isUsernameMatch = username && username.trim().toLowerCase() === configuredUsername.toLowerCase();
+  
+  // Accept both versions of the password (with or without dot) as fallback, as well as the env variable if set
+  const isPasswordMatch = 
+    password === "Lmrv1979" || 
+    password === "Lmrv.1979" || 
+    (envPassword && password === envPassword);
+
+  if (isUsernameMatch && isPasswordMatch) {
     return res.json({ success: true, token: "atziluth_secure_token_secret" });
   }
   res.status(401).json({ success: false, error: "Usuario o contraseña de administrador incorrectos." });

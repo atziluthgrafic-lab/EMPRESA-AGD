@@ -18,7 +18,8 @@ import {
   ArrowRight,
   Clock,
   ThumbsUp,
-  ShieldCheck
+  ShieldCheck,
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -32,6 +33,7 @@ interface LithoItem {
   badge?: string;
   tagline: string;
   estimatedTime: string;
+  imageUrl: string;
 }
 
 export default function LitografiaSection() {
@@ -51,7 +53,8 @@ export default function LitografiaSection() {
       category: "Corporativo & Editorial",
       badge: "Más Vendido",
       tagline: "Folletería Profesional",
-      estimatedTime: "2-4 días hábiles"
+      estimatedTime: "2-4 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "talonarios",
@@ -62,18 +65,32 @@ export default function LitografiaSection() {
       category: "Corporativo & Editorial",
       badge: "Obligatorio Pyme",
       tagline: "Papel Autocopiante Químico",
-      estimatedTime: "3-5 días hábiles"
+      estimatedTime: "3-5 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "tarjetas",
       title: "Tarjetas de Presentación Personal",
-      description: "Tarjetas de presentación personal que consolidan la primera impresión. Diseñadas para dejar huella memorables en tus clientes en Antioquia.",
+      description: "Tarjetas de presentación personal que consolidan la primera impresión. Diseñadas para dejar huellas memorables en tus clientes en Antioquia.",
       details: "Papel propalcote premium de 350g, plastificado premium mate o brillante, cortes de esquinas redondeadas opcionales, acabados con brillo UV parcial ultra premium.",
       icon: Contact,
       category: "Corporativo & Editorial",
       badge: "Presentación Premium",
       tagline: "Con Brillo UV Parcial de Alto Brillo",
-      estimatedTime: "1-3 días hábiles"
+      estimatedTime: "1-3 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1598257006458-087169a1f08d?auto=format&fit=crop&w=600&q=80"
+    },
+    {
+      id: "almanaques",
+      title: "Almanaques y Calendarios",
+      description: "Almanaques de pared, calendarios de escritorio anillados y programadores personalizados con tu marca para promocionar tu marca los 365 días del año.",
+      details: "Impresión full color en propalcote de alta densidad, soporte de cartón industrial rígido o base de madera artesanal, anillado doble O metálico premium.",
+      icon: Calendar,
+      category: "Dotación & Souvenirs",
+      badge: "Fidelización Anual",
+      tagline: "Publicidad Todo el Año",
+      estimatedTime: "4-6 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1603513492128-ba7bc9b3e143?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "pendones",
@@ -84,7 +101,8 @@ export default function LitografiaSection() {
       category: "Gran Formato & Avisos",
       badge: "Gran Alcance",
       tagline: "Soportes Fuertes y Duraderos",
-      estimatedTime: "1-2 días hábiles"
+      estimatedTime: "1-2 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1531403009284-440f080d1e12?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "avisos",
@@ -95,7 +113,8 @@ export default function LitografiaSection() {
       category: "Gran Formato & Avisos",
       badge: "Vitrinas Fuertes",
       tagline: "Avisos Luminosos e Interiores",
-      estimatedTime: "5-9 días hábiles"
+      estimatedTime: "5-9 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1543087903-1ac2ec7aa8c5?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "souvenirs",
@@ -106,7 +125,8 @@ export default function LitografiaSection() {
       category: "Dotación & Souvenirs",
       badge: "Fidelización",
       tagline: "Recordación de Marca Diaria",
-      estimatedTime: "4-7 días hábiles"
+      estimatedTime: "4-7 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "dotacion",
@@ -117,7 +137,8 @@ export default function LitografiaSection() {
       category: "Dotación & Souvenirs",
       badge: "Imagen Corporativa",
       tagline: "Presencia de Equipo Unificada",
-      estimatedTime: "5-10 días hábiles"
+      estimatedTime: "5-10 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1578932750294-f5075e85f44a?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "adhesivos",
@@ -128,7 +149,8 @@ export default function LitografiaSection() {
       category: "Gran Formato & Avisos",
       badge: "Branding de Empaque",
       tagline: "Etiquetas Autoadhesivas a Medida",
-      estimatedTime: "1-3 días hábiles"
+      estimatedTime: "1-3 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1612817288484-6f916006741a?auto=format&fit=crop&w=600&q=80"
     },
     {
       id: "diseno",
@@ -139,7 +161,8 @@ export default function LitografiaSection() {
       category: "Diseño & Marca",
       badge: "Atziluth Sello Creación",
       tagline: "Identidad Visual Exclusiva",
-      estimatedTime: "3-7 días hábiles"
+      estimatedTime: "3-7 días hábiles",
+      imageUrl: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?auto=format&fit=crop&w=600&q=80"
     }
   ];
 
@@ -272,6 +295,17 @@ export default function LitografiaSection() {
                             {item.badge}
                           </span>
                         )}
+                      </div>
+
+                      {/* Real watermark-free preview image of the litho product */}
+                      <div className="w-full h-44 rounded-xl overflow-hidden relative border border-blue-950 bg-slate-950/40">
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.title} 
+                          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent opacity-60" />
                       </div>
 
                       {/* Title & Tagline info */}

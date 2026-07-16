@@ -27,7 +27,6 @@ import {
   Menu,
   Utensils,
   ArrowLeft,
-  Lock,
   X,
   Printer,
   BookOpen,
@@ -45,7 +44,6 @@ import { motion, AnimatePresence } from "motion/react";
 import imageWebDesign from "./assets/images/web_design_mockup_1781555140934.jpg";
 // @ts-ignore
 import imageRestaurantApp from "./assets/images/restaurant_app_mockup_1781556838053.jpg";
-import AdminPanel from "./components/AdminPanel";
 
 export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
@@ -85,9 +83,6 @@ export default function App() {
     customAds: [],
     categories: []
   });
-
-  // Admin panel open/close state
-  const [adminPanelOpen, setAdminPanelOpen] = useState(false);
 
   // Home portfolio showcase slider state
   const [activeSlide, setActiveSlide] = useState(0);
@@ -1193,27 +1188,9 @@ export default function App() {
             <p>© 2026 Atziluth Grafic Digital S.A.S. Todos los derechos reservados.</p>
             <p className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-1.5 sm:gap-3">
               <span>Monitoreando telecomunicaciones y conversiones desde Medellín en tiempo de red.</span>
-              <button
-                onClick={() => setAdminPanelOpen(true)}
-                type="button"
-                className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-700 hover:text-brand-orange border border-slate-200 rounded-lg px-2.5 py-1 bg-white hover:bg-slate-50 transition-all cursor-pointer shadow-sm"
-                title="Acceso exclusivo administración"
-              >
-                <Lock className="w-2.5 h-2.5 text-slate-500" />
-                Panel de Control
-              </button>
             </p>
           </div>
         </div>
-
-        <AdminPanel
-          isOpen={adminPanelOpen}
-          onClose={() => setAdminPanelOpen(false)}
-          currentConfig={imageConfig}
-          onConfigUpdated={(newConfig) => {
-            setImageConfig(newConfig);
-          }}
-        />
       </footer>
 
       {/* 11. FLOATING WHATSAPP CHAT WIDGET */}
