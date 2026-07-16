@@ -10,7 +10,6 @@ interface MunicipalDirectoryProps {
   selectedSubregion: SubregionId | null;
   selectedMunicipality: string | null;
   onSelectMunicipality: (municipality: string | null) => void;
-  onTriggerAIWorkspace: (municipality: string, subregion: SubregionId) => void;
   customBannerUrl?: string | null;
   customBusinesses?: Array<{
     id: string;
@@ -28,7 +27,6 @@ export default function MunicipalDirectory({
   selectedSubregion,
   selectedMunicipality,
   onSelectMunicipality,
-  onTriggerAIWorkspace,
   customBannerUrl,
   customBusinesses,
 }: MunicipalDirectoryProps) {
@@ -258,13 +256,15 @@ export default function MunicipalDirectory({
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-3">
-                    <button
-                      onClick={() => onTriggerAIWorkspace(activeMuniData.name, activeMuniData.subregion)}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-yellow-400 text-neutral-950 rounded-xl text-xs font-bold hover:bg-yellow-300 transition-colors shadow-lg shadow-yellow-400/10 cursor-pointer"
+                    <a
+                      href={`https://wa.me/573207115878?text=Hola%20Atziluth%20Digital!%20Me%20interesa%20crear%20una%20estrategia%20comercial%20para%20mi%20negocio%20en%20el%20municipio%20de%20${encodeURIComponent(activeMuniData.name)}.`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-4 py-2 bg-yellow-400 text-neutral-950 rounded-xl text-xs font-bold hover:bg-yellow-300 transition-colors shadow-lg shadow-yellow-400/10 text-center"
                     >
-                      <Bot className="w-4 h-4" />
-                      Crear Estrategia Hyper-Local con Gemini
-                    </button>
+                      <Send className="w-4 h-4" />
+                      Cotizar Estrategia Local
+                    </a>
                   </div>
                 </div>
 

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import InteractiveMap from "./components/InteractiveMap";
 import MunicipalDirectory from "./components/MunicipalDirectory";
-import AIWorkspace from "./components/AIWorkspace";
 import PricingCalculator from "./components/PricingCalculator";
 import ContactForm from "./components/ContactForm";
 import LitografiaSection from "./components/LitografiaSection";
@@ -49,7 +48,7 @@ export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
-  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "ia" | "tarifas">("servicios");
+  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "tarifas">("servicios");
 
   // Mobile menu expand/collapse state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -365,23 +364,7 @@ export default function App() {
     }
   ];
 
-  const handleTriggerAIWorkspace = (muni: string, subregion: SubregionId) => {
-    setActiveMuni(muni);
-    setActiveSub(subregion);
-    setActiveTab("ia");
-    // Scroll directly to AI Workspace smoothly
-    setTimeout(() => {
-      const target = document.getElementById("seccion-activa-contenedor");
-      if (target) {
-        target.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 100);
-  };
 
-  const handleClearPreselections = () => {
-    setActiveMuni(null);
-    setActiveSub(null);
-  };
 
   const nextTestimonial = () => {
     setTestimonialIndex((prev) => (prev + 1) % testimonials.length);
@@ -507,20 +490,7 @@ export default function App() {
             >
               DIRECTORIO PYME
             </button>
-            <button
-              onClick={() => {
-                setActiveTab("ia");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className={`transition-colors cursor-pointer flex items-center gap-1 py-1.5 px-0.5 border-b-2 ${
-                activeTab === "ia" 
-                  ? "text-brand-magenta border-brand-magenta" 
-                  : "text-slate-600 border-transparent hover:text-brand-magenta hover:border-brand-magenta/35"
-              }`}
-            >
-              <span className="w-1.5 h-1.5 rounded-full bg-brand-cyan animate-pulse" />
-              IA WORKSPACE
-            </button>
+
             <button
               onClick={() => {
                 setActiveTab("tarifas");
@@ -573,7 +543,6 @@ export default function App() {
                   { id: "litografia", label: "🖨️ PUBLICIDAD LITOGRÁFICA" },
                   { id: "mapa", label: "🗺️ MAPA INTERACTIVO" },
                   { id: "directorio", label: "📂 DIRECTORIO PYME" },
-                  { id: "ia", label: "✨ IA WORKSPACE", glow: true },
                   { id: "tarifas", label: "📊 TARIFAS / PRECIOS" },
                 ].map((item) => {
                   const isSelected = activeTab === item.id;
@@ -592,7 +561,6 @@ export default function App() {
                       }`}
                     >
                       <span className="flex items-center gap-2">
-                        {item.glow && <span className="w-2 h-2 rounded-full bg-[#fcd116] animate-pulse" />}
                         {item.label}
                       </span>
                       {isSelected && (
@@ -686,13 +654,13 @@ export default function App() {
                     </button>
                     <button
                       onClick={() => {
-                        setActiveTab("ia");
+                        setActiveTab("tarifas");
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className="w-full sm:w-auto px-6 py-3.5 bg-white hover:bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold font-mono text-slate-700 flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm"
                     >
-                      <Bot className="w-4 h-4 text-brand-magenta animate-bounce" />
-                      Probar Atziluth IA Studio
+                      <Sliders className="w-4 h-4 text-brand-orange" />
+                      Calcular Tarifas
                     </button>
                   </div>
                 </section>
@@ -1125,33 +1093,8 @@ export default function App() {
                   selectedSubregion={activeSub}
                   selectedMunicipality={activeMuni}
                   onSelectMunicipality={setActiveMuni}
-                  onTriggerAIWorkspace={handleTriggerAIWorkspace}
                   customBannerUrl={imageConfig.municipalDirectoryBanner}
                   customBusinesses={imageConfig.customBusinesses}
-                />
-              </div>
-            )}
-
-            {activeTab === "ia" && (
-              <div className="space-y-8" id="ia-espacio">
-                {/* Header block for Context Separation */}
-                <div className="text-center space-y-2.5 max-w-3xl mx-auto">
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-brand-orange/10 border border-brand-orange/20 rounded-full text-[10px] font-mono text-brand-orange">
-                    <Bot className="w-3.5 h-3.5 text-brand-orange animate-bounce" />
-                    Atziluth IA Marketing Space (Powered by Gemini)
-                  </span>
-                  <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-                    Copiloto Inteligente de Ventas Locales
-                  </h2>
-                  <p className="text-slate-650 text-xs leading-relaxed max-w-2xl mx-auto font-sans">
-                    Genera de forma instantánea copywriting comercial, descripciones de productos de catálogo, e ideas estratégicas adaptadas a la geografía y cultura antioqueña.
-                  </p>
-                </div>
-
-                <AIWorkspace
-                  preselectedMuni={activeMuni}
-                  preselectedSub={activeSub}
-                  onClearPreselections={handleClearPreselections}
                 />
               </div>
             )}
