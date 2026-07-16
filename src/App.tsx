@@ -165,23 +165,27 @@ export default function App() {
         const data = await response.json();
         if (response.ok && data.success && data.config) {
           const serverConfig = data.config;
+          const hasLitho = serverConfig.customLithoImages && Object.values(serverConfig.customLithoImages).some(v => v);
           const hasServerData = 
             (serverConfig.customBusinesses && serverConfig.customBusinesses.length > 0) ||
             (serverConfig.customAds && serverConfig.customAds.length > 0) ||
             serverConfig.webDesignMockup ||
             serverConfig.restaurantAppMockup ||
-            serverConfig.municipalDirectoryBanner;
+            serverConfig.municipalDirectoryBanner ||
+            hasLitho;
 
           const localStored = localStorage.getItem("atziluth_custom_config");
           if (localStored) {
             try {
               const parsedLocal = JSON.parse(localStored);
+              const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
               const hasLocalData = 
                 (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
                 (parsedLocal.customAds && parsedLocal.customAds.length > 0) ||
                 parsedLocal.webDesignMockup ||
                 parsedLocal.restaurantAppMockup ||
-                parsedLocal.municipalDirectoryBanner;
+                parsedLocal.municipalDirectoryBanner ||
+                hasLocalLitho;
 
               // If the server was recently restarted (contains defaults / no custom data) but local storage has data, restore it!
               if (!hasServerData && hasLocalData) {
@@ -207,6 +211,7 @@ export default function App() {
             }
           }
           setImageConfig(serverConfig);
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(serverConfig));
         }
       } catch (err) {
         console.error("Error fetching dynamic image configurations:", err);

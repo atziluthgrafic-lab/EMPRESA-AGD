@@ -678,6 +678,57 @@
         if (response.ok && data.config) {
           state.config = data.config;
           state.config.customLithoImages = state.config.customLithoImages || {};
+
+          // Local storage sync/recovery
+          const hasLitho = state.config.customLithoImages && Object.values(state.config.customLithoImages).some(v => v);
+          const hasServerData = 
+            (state.config.customBusinesses && state.config.customBusinesses.length > 0) ||
+            (state.config.customAds && state.config.customAds.length > 0) ||
+            state.config.webDesignMockup ||
+            state.config.restaurantAppMockup ||
+            state.config.municipalDirectoryBanner ||
+            hasLitho;
+
+          const localStored = localStorage.getItem("atziluth_custom_config");
+          if (localStored) {
+            try {
+              const parsedLocal = JSON.parse(localStored);
+              const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
+              const hasLocalData = 
+                (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
+                (parsedLocal.customAds && parsedLocal.customAds.length > 0) ||
+                parsedLocal.webDesignMockup ||
+                parsedLocal.restaurantAppMockup ||
+                parsedLocal.municipalDirectoryBanner ||
+                hasLocalLitho;
+
+              if (!hasServerData && hasLocalData) {
+                console.log("Restoring admin configuration from local browser storage due to container reset...");
+                state.config = parsedLocal;
+                state.config.customLithoImages = state.config.customLithoImages || {};
+                
+                // Silently sync back to server
+                if (state.token) {
+                  fetch('/api/admin/config', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'Authorization': 'Bearer ' + state.token
+                    },
+                    body: JSON.stringify(state.config)
+                  }).catch(console.error);
+                }
+              } else if (hasServerData) {
+                // Server has newer/active data, update our local storage backup
+                localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+              }
+            } catch (err) {
+              console.error("Failed to parse local storage config in admin:", err);
+            }
+          } else if (hasServerData) {
+            localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+          }
+
           renderAll();
         } else {
           showToast('Error', 'No se pudo cargar la configuración', 'error');
@@ -1147,6 +1198,7 @@
 
           const data = await response.json();
           if (response.ok && data.success) {
+            localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
             showToast('Guardado Exitoso', 'Los cambios se aplicaron globalmente en el sitio web.');
           } else {
             showToast('Error de Servidor', data.error || 'No se pudieron almacenar los cambios.', 'error');
