@@ -677,7 +677,9 @@
         const data = await response.json();
         if (response.ok && data.config) {
           state.config = data.config;
-          state.config.customLithoImages = state.config.customLithoImages || {};
+          if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
+            state.config.customLithoImages = {};
+          }
 
           // Local storage sync/recovery
           const hasLitho = state.config.customLithoImages && Object.values(state.config.customLithoImages).some(v => v);
@@ -693,6 +695,9 @@
           if (localStored) {
             try {
               const parsedLocal = JSON.parse(localStored);
+              if (!parsedLocal.customLithoImages || Array.isArray(parsedLocal.customLithoImages)) {
+                parsedLocal.customLithoImages = {};
+              }
               const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
               const hasLocalData = 
                 (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
@@ -705,7 +710,9 @@
               if (!hasServerData && hasLocalData) {
                 console.log("Restoring admin configuration from local browser storage due to container reset...");
                 state.config = parsedLocal;
-                state.config.customLithoImages = state.config.customLithoImages || {};
+                if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
+                  state.config.customLithoImages = {};
+                }
                 
                 // Silently sync back to server
                 if (state.token) {
@@ -1177,7 +1184,9 @@
         state.config.municipalDirectoryBanner = document.getElementById('url-municipalDirectoryBanner').value.trim();
 
         // Sync litografia inputs back
-        if (!state.config.customLithoImages) state.config.customLithoImages = {};
+        if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
+          state.config.customLithoImages = {};
+        }
         const lithoIds = ['brochures', 'talonarios', 'tarjetas', 'almanaques', 'pendones', 'avisos', 'souvenirs', 'dotacion', 'adhesivos', 'diseno'];
         lithoIds.forEach(itemId => {
           const inputEl = document.getElementById(`url-litografia-${itemId}`);

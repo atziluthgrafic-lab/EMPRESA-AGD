@@ -49,7 +49,7 @@ function loadImagesConfig($configFile) {
         "municipalDirectoryBanner" => "",
         "customBusinesses" => [],
         "customAds" => [],
-        "customLithoImages" => [],
+        "customLithoImages" => (object)[],
         "categories" => [
             "Ferreterías",
             "Parqueaderos",
@@ -65,7 +65,11 @@ function loadImagesConfig($configFile) {
         $info = file_get_contents($configFile);
         $decoded = json_decode($info, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
-            return array_merge($defaults, $decoded);
+            $merged = array_merge($defaults, $decoded);
+            if (empty($merged['customLithoImages']) || is_array($merged['customLithoImages']) && count($merged['customLithoImages']) === 0) {
+                $merged['customLithoImages'] = (object)[];
+            }
+            return $merged;
         }
     }
     return $defaults;
@@ -146,6 +150,10 @@ if ($route === 'config/images') {
                 "Peluquerías",
                 "Almacenes"
             ];
+        }
+
+        if (empty($customLithoImages) || is_array($customLithoImages) && count($customLithoImages) === 0) {
+            $customLithoImages = (object)[];
         }
         
         $newConfig = [

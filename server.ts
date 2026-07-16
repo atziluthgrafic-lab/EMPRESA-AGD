@@ -217,7 +217,11 @@ function loadImagesConfig() {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const info = fs.readFileSync(CONFIG_FILE, "utf-8");
-      return { ...defaults, ...JSON.parse(info) };
+      const parsed = JSON.parse(info);
+      if (parsed && Array.isArray(parsed.customLithoImages)) {
+        parsed.customLithoImages = {};
+      }
+      return { ...defaults, ...parsed };
     }
   } catch (err) {
     console.error("Error reading images configuration, using defaults:", err);
@@ -265,13 +269,18 @@ app.post("/api/admin/config", requireAdmin, (req, res) => {
   try {
     const { webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages } = req.body;
     
+    let finalLitho = customLithoImages || {};
+    if (Array.isArray(finalLitho)) {
+      finalLitho = {};
+    }
+    
     const newConfig = {
       webDesignMockup: webDesignMockup || "",
       restaurantAppMockup: restaurantAppMockup || "",
       municipalDirectoryBanner: municipalDirectoryBanner || "",
       customBusinesses: customBusinesses || [],
       customAds: customAds || [],
-      customLithoImages: customLithoImages || {},
+      customLithoImages: finalLitho,
       categories: categories && categories.length > 0 ? categories : [
         "Ferreterías",
         "Parqueaderos",

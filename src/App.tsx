@@ -165,6 +165,9 @@ export default function App() {
         const data = await response.json();
         if (response.ok && data.success && data.config) {
           const serverConfig = data.config;
+          if (!serverConfig.customLithoImages || Array.isArray(serverConfig.customLithoImages)) {
+            serverConfig.customLithoImages = {};
+          }
           const hasLitho = serverConfig.customLithoImages && Object.values(serverConfig.customLithoImages).some(v => v);
           const hasServerData = 
             (serverConfig.customBusinesses && serverConfig.customBusinesses.length > 0) ||
@@ -178,6 +181,9 @@ export default function App() {
           if (localStored) {
             try {
               const parsedLocal = JSON.parse(localStored);
+              if (!parsedLocal.customLithoImages || Array.isArray(parsedLocal.customLithoImages)) {
+                parsedLocal.customLithoImages = {};
+              }
               const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
               const hasLocalData = 
                 (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
