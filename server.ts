@@ -247,7 +247,7 @@ app.post("/api/admin/login", (req, res) => {
   if (isUsernameMatch && isPasswordMatch) {
     return res.json({ success: true, token: "atziluth_secure_token_secret" });
   }
-  res.status(401).json({ success: false, error: "Usuario o contraseña de administrador incorrectos." });
+  res.json({ success: false, error: "Usuario o contraseña de administrador incorrectos." });
 });
 
 // Helper validation middleware to verify Admin session

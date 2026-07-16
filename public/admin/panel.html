@@ -1029,19 +1029,28 @@
             body: JSON.stringify({ username: usernameInput, password: passwordInput })
           });
 
-          const data = await response.json();
-          if (response.ok && data.success) {
-            state.token = data.token;
-            localStorage.setItem('atziluth_admin_token', data.token);
-            document.getElementById('header-username').textContent = usernameInput;
-            showDashboard();
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const data = await response.json();
+            if (response.ok && data.success) {
+              state.token = data.token;
+              localStorage.setItem('atziluth_admin_token', data.token);
+              document.getElementById('header-username').textContent = usernameInput;
+              showDashboard();
+            } else {
+              errorDiv.classList.remove('hidden');
+              document.getElementById('login-error-text').textContent = data.error || 'Credenciales inválidas.';
+            }
           } else {
+            const textResponse = await response.text();
+            console.error('Non-JSON server response:', textResponse);
             errorDiv.classList.remove('hidden');
-            document.getElementById('login-error-text').textContent = data.error || 'Credenciales inválidas.';
+            document.getElementById('login-error-text').textContent = `Respuesta inesperada del servidor (Estado: ${response.status}).`;
           }
         } catch (err) {
+          console.error('Login request failed:', err);
           errorDiv.classList.remove('hidden');
-          document.getElementById('login-error-text').textContent = 'Error de conexión con el servidor.';
+          document.getElementById('login-error-text').textContent = 'Error de conexión: ' + (err.message || 'Fallo de red.');
         } finally {
           btnText.textContent = 'Iniciar Sesión';
           submitBtn.disabled = false;
