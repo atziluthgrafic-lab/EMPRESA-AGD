@@ -14,11 +14,14 @@ Options -Indexes
   AddType image/x-icon .ico
 </IfModule>
 
-# 3. REDIRECCIÓN SPA (SINGLE PAGE APPLICATION)
-# Redirige todas las peticiones que no corresponden a un archivo o carpeta física hacia index.html
+# 3. REDIRECCIÓN SPA (SINGLE PAGE APPLICATION) Y API
+# Redirige todas las peticiones de API a nuestro backend de PHP, y el resto no existente a index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # Redirigir peticiones de la API a api/index.php de manera limpia
+  RewriteRule ^api/(.*)$ api/index.php?route=$1 [QSA,L]
   
   # Si el archivo o directorio solicitado existe físicamente, sírvelo directamente
   RewriteCond %{REQUEST_FILENAME} -f [OR]

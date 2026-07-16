@@ -36,7 +36,11 @@ interface LithoItem {
   imageUrl: string;
 }
 
-export default function LitografiaSection() {
+interface LitografiaSectionProps {
+  customLithoImages?: Record<string, string>;
+}
+
+export default function LitografiaSection({ customLithoImages }: LitografiaSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [activeItem, setActiveItem] = useState<string | null>(null);
@@ -166,15 +170,27 @@ export default function LitografiaSection() {
     }
   ];
 
+  const lithoItemsWithCustom = useMemo(() => {
+    return lithoItems.map(item => {
+      if (customLithoImages && customLithoImages[item.id]) {
+        return {
+          ...item,
+          imageUrl: customLithoImages[item.id]
+        };
+      }
+      return item;
+    });
+  }, [customLithoImages]);
+
   const filteredItems = useMemo(() => {
-    return lithoItems.filter((item) => {
+    return lithoItemsWithCustom.filter((item) => {
       const matchSearch = item.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           item.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
                           item.tagline.toLowerCase().includes(searchQuery.toLowerCase());
       const matchCategory = selectedCategory === "Todos" || item.category === selectedCategory;
       return matchSearch && matchCategory;
     });
-  }, [searchQuery, selectedCategory]);
+  }, [lithoItemsWithCustom, searchQuery, selectedCategory]);
 
   const handleQuoteOnWhatsApp = (itemTitle: string) => {
     const text = `Hola Atziluth Digital! Me interesa cotizar el servicio de publicidad litográfica para: *${itemTitle}*. Quisiera recibir asesoría y opciones de precios de impresión.`;

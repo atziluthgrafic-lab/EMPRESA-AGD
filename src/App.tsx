@@ -74,6 +74,7 @@ export default function App() {
       caption: string;
       imageUrl: string;
     }>;
+    customLithoImages?: Record<string, string>;
     categories?: string[];
   }>({
     webDesignMockup: "",
@@ -81,6 +82,7 @@ export default function App() {
     municipalDirectoryBanner: "",
     customBusinesses: [],
     customAds: [],
+    customLithoImages: {},
     categories: []
   });
 
@@ -1063,7 +1065,7 @@ export default function App() {
 
             {activeTab === "litografia" && (
               <div className="space-y-8" id="litografia-seccion">
-                <LitografiaSection />
+                <LitografiaSection customLithoImages={imageConfig.customLithoImages} />
               </div>
             )}
 

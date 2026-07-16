@@ -178,6 +178,10 @@
           <i data-lucide="image" class="w-4 h-4"></i>
           Banners Principales
         </button>
+        <button data-tab="litografia" class="tab-btn px-5 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-2 flex-shrink-0 cursor-pointer">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          Publicidad Litográfica
+        </button>
         <button data-tab="anuncios" class="tab-btn px-5 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-2 flex-shrink-0 cursor-pointer">
           <i data-lucide="megaphone" class="w-4 h-4"></i>
           Anuncios Publicitarios
@@ -312,6 +316,26 @@
               </div>
             </div>
 
+          </div>
+        </div>
+
+
+        <!-- TAB: LITOGRAFIA -->
+        <div id="tab-content-litografia" class="tab-panel space-y-6 hidden">
+          <div class="bg-gradient-to-r from-slate-900 via-brand-darkCard to-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2">
+            <h3 class="text-sm font-bold text-white font-display flex items-center gap-2">
+              <i data-lucide="printer" class="w-4 h-4 text-brand-orange"></i>
+              Imágenes de Publicidad Litográfica
+            </h3>
+            <p class="text-xs text-slate-400">Modifica las imágenes de cada uno de los productos de la sección Publicidad Litográfica Premium. Recuerda hacer clic en "Guardar Cambios Globalmente" arriba para guardar.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn" id="litografia-items-container">
+            <!-- Se poblará dinámicamente con JS -->
+            <div class="text-center py-12 text-slate-500 text-xs flex flex-col items-center justify-center gap-2 col-span-full">
+              <i data-lucide="loader-2" class="w-8 h-8 text-brand-orange animate-spin"></i>
+              Cargando sección de litografía...
+            </div>
           </div>
         </div>
 
@@ -556,6 +580,7 @@
         municipalDirectoryBanner: '',
         customBusinesses: [],
         customAds: [],
+        customLithoImages: {},
         categories: []
       }
     };
@@ -652,6 +677,7 @@
         const data = await response.json();
         if (response.ok && data.config) {
           state.config = data.config;
+          state.config.customLithoImages = state.config.customLithoImages || {};
           renderAll();
         } else {
           showToast('Error', 'No se pudo cargar la configuración', 'error');
@@ -691,6 +717,9 @@
 
       // 4. Render Directorio
       renderBusinessesList();
+
+      // 5. Render Litografía
+      renderLitografiaList();
 
       lucide.createIcons();
     }
@@ -1096,6 +1125,16 @@
         state.config.restaurantAppMockup = document.getElementById('url-restaurantAppMockup').value.trim();
         state.config.municipalDirectoryBanner = document.getElementById('url-municipalDirectoryBanner').value.trim();
 
+        // Sync litografia inputs back
+        if (!state.config.customLithoImages) state.config.customLithoImages = {};
+        const lithoIds = ['brochures', 'talonarios', 'tarjetas', 'almanaques', 'pendones', 'avisos', 'souvenirs', 'dotacion', 'adhesivos', 'diseno'];
+        lithoIds.forEach(itemId => {
+          const inputEl = document.getElementById(`url-litografia-${itemId}`);
+          if (inputEl) {
+            state.config.customLithoImages[itemId] = inputEl.value.trim();
+          }
+        });
+
         try {
           const response = await fetch('/api/admin/config', {
             method: 'POST',
@@ -1333,6 +1372,178 @@
               prevImg.classList.remove('hidden');
               emptyDiv.classList.add('hidden');
             }
+          } else {
+            alert('Error al subir: ' + (data.error || 'Error desconocido'));
+          }
+        } catch (err) {
+          alert('Fallo de red al procesar el archivo subido.');
+        } finally {
+          overlay.classList.add('hidden');
+        }
+      };
+    }
+
+    // Render Litografía Items dynamically
+    function renderLitografiaList() {
+      const container = document.getElementById('litografia-items-container');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      const items = [
+        { id: "brochures", title: "Brochures y Catálogos", desc: "Dípticos, trípticos y catálogos premium.", icon: "book-open" },
+        { id: "talonarios", title: "Talonarios y Factureros", desc: "Cuentas de cobro, recibos de caja y facturación.", icon: "receipt" },
+        { id: "tarjetas", title: "Tarjetas de Presentación", desc: "Tarjetas personales premium de 350g con acabados.", icon: "contact" },
+        { id: "almanaques", title: "Almanaques y Calendarios", desc: "Almanaques de pared, escritorio y calendarios anillados.", icon: "calendar" },
+        { id: "pendones", title: "Pendones y Banners", desc: "Estructuras de gran formato, pasacalles y displays.", icon: "flag" },
+        { id: "avisos", title: "Avisos Publicitarios", desc: "Letreros comerciales, acrílicos y cajas de luz.", icon: "megaphone" },
+        { id: "souvenirs", title: "Souvenirs y Regalos de Marca", desc: "Mugs, bolígrafos, llaveros y termos corporativos marcados.", icon: "gift" },
+        { id: "dotacion", title: "Dotación para Empresas", desc: "Camisetas tipo polo, gorras bordadas y uniformes corporativos.", icon: "shirt" },
+        { id: "adhesivos", title: "Adhesivos y Etiquetas", desc: "Stickers corporativos, etiquetas de productos y vinilos.", icon: "tag" },
+        { id: "diseno", title: "Diseño Digital y Marcas", desc: "Creación de logotipos, manuales de marca y diseños digitales.", icon: "palette" }
+      ];
+
+      const customLitho = state.config.customLithoImages || {};
+
+      items.forEach(item => {
+        const val = customLitho[item.id] || '';
+        const itemEl = document.createElement('div');
+        itemEl.className = 'bg-brand-darkCard border border-slate-800 rounded-2xl p-5 space-y-4 flex flex-col justify-between';
+        
+        itemEl.innerHTML = `
+          <div class="space-y-2">
+            <div class="flex justify-between items-start">
+              <span class="p-2 bg-yellow-500/10 text-yellow-400 rounded-xl border border-yellow-500/20">
+                <i data-lucide="${item.icon}" class="w-5 h-5"></i>
+              </span>
+              <span class="text-[9px] font-mono font-bold text-yellow-400 uppercase tracking-widest bg-yellow-500/5 px-2 py-0.5 rounded">Litografía</span>
+            </div>
+            <h3 class="text-sm font-bold text-white font-display">${item.title}</h3>
+            <p class="text-xs text-slate-400">${item.desc}</p>
+          </div>
+          
+          <div class="space-y-3 pt-4 border-t border-slate-800">
+            <div class="relative w-full h-36 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden flex items-center justify-center">
+              <img id="prev-litografia-${item.id}" src="${val}" class="w-full h-full object-cover ${val ? '' : 'hidden'}">
+              <div id="empty-litografia-${item.id}" class="text-center p-4 ${val ? 'hidden' : ''}">
+                <i data-lucide="image-off" class="w-8 h-8 text-slate-700 mx-auto mb-1"></i>
+                <span class="text-[10px] text-slate-500 block">Imagen por defecto</span>
+              </div>
+            </div>
+            
+            <div class="space-y-2">
+              <label class="block text-[10px] font-mono text-slate-500 uppercase">URL de Imagen</label>
+              <input type="text" id="url-litografia-${item.id}" value="${val}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-orange" placeholder="Dejar vacío para usar defecto">
+            </div>
+
+            <div class="upload-dropzone border-2 border-dashed border-slate-800 hover:border-brand-orange rounded-xl p-4 text-center cursor-pointer transition-colors relative" data-field="litografia-${item.id}">
+              <input type="file" class="hidden file-input-litografia" accept="image/*">
+              <i data-lucide="upload" class="w-5 h-5 text-slate-500 mx-auto mb-1"></i>
+              <p class="text-[10px] text-slate-400 font-medium">Arrastra o sube una imagen</p>
+              <p class="text-[8px] text-slate-500 mt-0.5">JPG, PNG o WEBP</p>
+              <div class="uploading-overlay hidden absolute inset-0 bg-brand-darkCard/90 flex items-center justify-center rounded-xl">
+                <span class="text-[10px] font-mono text-brand-orange animate-pulse">Subiendo...</span>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        container.appendChild(itemEl);
+      });
+
+      // Bind events
+      items.forEach(item => {
+        const inputEl = document.getElementById(`url-litografia-${item.id}`);
+        inputEl.addEventListener('input', (e) => {
+          const url = e.target.value.trim();
+          const prevImg = document.getElementById(`prev-litografia-${item.id}`);
+          const emptyDiv = document.getElementById(`empty-litografia-${item.id}`);
+          
+          if (url) {
+            prevImg.src = url;
+            prevImg.classList.remove('hidden');
+            emptyDiv.classList.add('hidden');
+          } else {
+            prevImg.classList.add('hidden');
+            emptyDiv.classList.remove('hidden');
+          }
+          if (!state.config.customLithoImages) state.config.customLithoImages = {};
+          state.config.customLithoImages[item.id] = url;
+        });
+
+        const zone = container.querySelector(`[data-field="litografia-${item.id}"]`);
+        const fileInput = zone.querySelector('.file-input-litografia');
+        
+        zone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+          if (e.target.files && e.target.files[0]) {
+            handleFileUploadLitografia(item.id, e.target.files[0], zone);
+          }
+        });
+
+        zone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          zone.classList.add('border-brand-orange');
+        });
+
+        zone.addEventListener('dragleave', () => {
+          zone.classList.remove('border-brand-orange');
+        });
+
+        zone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          zone.classList.remove('border-brand-orange');
+          if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+            handleFileUploadLitografia(item.id, e.dataTransfer.files[0], zone);
+          }
+        });
+      });
+
+      lucide.createIcons();
+    }
+
+    // Handle Upload for Litografia images
+    function handleFileUploadLitografia(itemId, file, zoneEl) {
+      if (!file.type.startsWith('image/')) {
+        alert('Por favor selecciona un archivo de imagen válido.');
+        return;
+      }
+
+      const overlay = zoneEl.querySelector('.uploading-overlay');
+      overlay.classList.remove('hidden');
+
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onloadend = async () => {
+        const base64Data = reader.result;
+        
+        try {
+          const response = await fetch('/api/admin/upload-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${state.token}`
+            },
+            body: JSON.stringify({
+              fileName: file.name,
+              base64Data: base64Data
+            })
+          });
+
+          const data = await response.json();
+          if (response.ok && data.success) {
+            showToast('Imagen Subida', 'La imagen de litografía se subió y cargó exitosamente.');
+            
+            document.getElementById(`url-litografia-${itemId}`).value = data.url;
+            const prevImg = document.getElementById(`prev-litografia-${itemId}`);
+            const emptyDiv = document.getElementById(`empty-litografia-${itemId}`);
+            prevImg.src = data.url;
+            prevImg.classList.remove('hidden');
+            emptyDiv.classList.add('hidden');
+            
+            if (!state.config.customLithoImages) state.config.customLithoImages = {};
+            state.config.customLithoImages[itemId] = data.url;
           } else {
             alert('Error al subir: ' + (data.error || 'Error desconocido'));
           }
