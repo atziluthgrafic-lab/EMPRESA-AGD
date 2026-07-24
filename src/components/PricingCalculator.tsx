@@ -18,7 +18,7 @@ export default function PricingCalculator() {
       id: "emprendedor",
       name: "Plan Emprendedor",
       description: "Ideal para pymes, artesanos y marcas locales en municipios pequeños que inician su aventura digital.",
-      monthlyCostCOP: 150000,
+      monthlyCostCOP: 280000,
       annualCostCOP: 250000, // 3.000.000 / 12 = 250.000 COP / mes
       totalAnnualCostCOP: 3000000,
       badge: "Esencial",
@@ -37,7 +37,7 @@ export default function PricingCalculator() {
       id: "crecimiento",
       name: "Crecimiento Digital",
       description: "La opción preferida de hoteles en Guatapé, cafés en Jardín y marcas en expansión regional.",
-      monthlyCostCOP: 320000,
+      monthlyCostCOP: 400000,
       annualCostCOP: 350000, // 4.200.000 / 12 = 350.000 COP / mes
       totalAnnualCostCOP: 4200000,
       badge: "Recomendado",
