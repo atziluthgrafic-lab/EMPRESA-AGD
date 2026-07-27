@@ -50,6 +50,7 @@ function loadImagesConfig($configFile) {
         "customBusinesses" => [],
         "customAds" => [],
         "customLithoImages" => (object)[],
+        "clients" => [],
         "categories" => [
             "Ferreterías",
             "Parqueaderos",
@@ -139,6 +140,7 @@ if ($route === 'config/images') {
         $customAds = isset($input['customAds']) ? $input['customAds'] : [];
         $categories = isset($input['categories']) ? $input['categories'] : [];
         $customLithoImages = isset($input['customLithoImages']) ? $input['customLithoImages'] : [];
+        $clients = isset($input['clients']) ? $input['clients'] : [];
         
         if (empty($categories)) {
             $categories = [
@@ -163,7 +165,8 @@ if ($route === 'config/images') {
             "customBusinesses" => $customBusinesses,
             "customAds" => $customAds,
             "categories" => $categories,
-            "customLithoImages" => $customLithoImages
+            "customLithoImages" => $customLithoImages,
+            "clients" => $clients
         ];
         
         // Ensure parent directory of configuration exists

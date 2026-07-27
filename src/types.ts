@@ -27,14 +27,27 @@ export interface Municipality {
   adTip: string;
 }
 
-export interface Business {
+export interface ClientPayment {
   id: string;
-  name: string;
-  niche: string;
-  municipality: string;
-  subregion: SubregionId;
+  concept: string;
+  period: string;
+  amount: number;
+  date: string;
+  method: string;
+  paid: boolean;
+  notes?: string;
+}
+
+export interface ClientRecord {
+  id: string;
+  clientName: string;
+  projectName: string;
   phone: string;
-  website: string;
-  usesAI: boolean;
-  servicesCompleted: string[];
+  startDate: string;
+  hostingDomainFee: number;
+  hostingDomainPaid: boolean;
+  monthlyFee: number;
+  billingDay: number;
+  notes: string;
+  payments: ClientPayment[];
 }

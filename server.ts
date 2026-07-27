@@ -203,6 +203,7 @@ function loadImagesConfig() {
     customBusinesses: [],
     customAds: [],
     customLithoImages: {},
+    clients: [],
     categories: [
       "Ferreterías",
       "Parqueaderos",
@@ -267,7 +268,7 @@ function requireAdmin(req: any, res: any, next: any) {
 // 6. API: Secure Save Custom Images Configuration
 app.post("/api/admin/config", requireAdmin, (req, res) => {
   try {
-    const { webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages } = req.body;
+    const { webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages, clients } = req.body;
     
     let finalLitho = customLithoImages || {};
     if (Array.isArray(finalLitho)) {
@@ -281,6 +282,7 @@ app.post("/api/admin/config", requireAdmin, (req, res) => {
       customBusinesses: customBusinesses || [],
       customAds: customAds || [],
       customLithoImages: finalLitho,
+      clients: clients || [],
       categories: categories && categories.length > 0 ? categories : [
         "Ferreterías",
         "Parqueaderos",

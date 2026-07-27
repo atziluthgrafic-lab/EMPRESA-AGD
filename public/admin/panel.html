@@ -190,6 +190,10 @@
           <i data-lucide="briefcase" class="w-4 h-4"></i>
           Directorio de Comercios
         </button>
+        <button data-tab="clientes" class="tab-btn px-5 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-2 flex-shrink-0 cursor-pointer">
+          <i data-lucide="users" class="w-4 h-4"></i>
+          Clientes y Contabilidad
+        </button>
       </div>
 
       <!-- Tab Content Area -->
@@ -558,6 +562,201 @@
           </div>
         </div>
 
+        <!-- TAB: CLIENTES Y CONTABILIDAD -->
+        <div id="tab-content-clientes" class="tab-panel hidden space-y-6">
+          
+          <!-- KPI Cards for Financial Overview -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+              <div class="flex justify-between items-center text-slate-400">
+                <span class="text-xs font-mono uppercase">Clientes Activos</span>
+                <span class="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                </span>
+              </div>
+              <div id="kpi-total-clients" class="text-2xl font-display font-bold text-white">0</div>
+              <p class="text-[10px] text-slate-400 font-mono">Proyectos cerrados activos</p>
+            </div>
+
+            <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+              <div class="flex justify-between items-center text-slate-400">
+                <span class="text-xs font-mono uppercase">Recaudo Hosting + Dominio</span>
+                <span class="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl">
+                  <i data-lucide="server" class="w-4 h-4"></i>
+                </span>
+              </div>
+              <div id="kpi-hosting-revenue" class="text-2xl font-display font-bold text-emerald-400">$ 0</div>
+              <p class="text-[10px] text-slate-400 font-mono">Pago inicial de $400.000 por cliente</p>
+            </div>
+
+            <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+              <div class="flex justify-between items-center text-slate-400">
+                <span class="text-xs font-mono uppercase">Recaudo Mensualidades</span>
+                <span class="p-2 bg-teal-500/10 text-teal-400 rounded-xl">
+                  <i data-lucide="wallet" class="w-4 h-4"></i>
+                </span>
+              </div>
+              <div id="kpi-monthly-revenue" class="text-2xl font-display font-bold text-teal-300">$ 0</div>
+              <p class="text-[10px] text-slate-400 font-mono">Total cobrado en mensualidades</p>
+            </div>
+
+            <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden">
+              <div class="flex justify-between items-center text-slate-400">
+                <span class="text-xs font-mono uppercase">Pendiente Por Cobrar</span>
+                <span class="p-2 bg-brand-magenta/10 text-brand-magenta rounded-xl">
+                  <i data-lucide="alert-circle" class="w-4 h-4"></i>
+                </span>
+              </div>
+              <div id="kpi-pending-amount" class="text-2xl font-display font-bold text-brand-magenta">$ 0</div>
+              <p class="text-[10px] text-slate-400 font-mono">Cuotas o Hosting no pagados</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- FORMULARIO: REGISTRAR NUEVO CLIENTE / PROYECTO -->
+            <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-6 space-y-5">
+              <div class="flex items-center gap-3 pb-3 border-b border-slate-800">
+                <div class="p-2.5 bg-brand-orange/10 text-brand-orange rounded-xl border border-brand-orange/20">
+                  <i data-lucide="user-plus" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="text-base font-display font-bold text-white">Registrar Nuevo Cliente</h3>
+                  <p class="text-xs text-slate-400">Registra un nuevo negocio o proyecto cerrado.</p>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Nombre del Cliente / Razón Social *</label>
+                  <input type="text" id="new-client-name" placeholder="Ej: Hotel Guatapé Real / Carlos Restrepo"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Nombre del Proyecto / Sitio Web *</label>
+                  <input type="text" id="new-client-project" placeholder="Ej: Portal Web & Reservas Guatapé"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">WhatsApp / Teléfono</label>
+                    <input type="text" id="new-client-phone" placeholder="3001234567"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Fecha de Cierre</label>
+                    <input type="date" id="new-client-startdate"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Hosting + Dominio ($ COP)</label>
+                    <input type="number" id="new-client-hostingfee" value="400000"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">¿Hosting Pagado?</label>
+                    <select id="new-client-hostingpaid"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                      <option value="true">Sí (Pagado $400.000)</option>
+                      <option value="false" selected>No (Pendiente)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Valor Mensualidad ($ COP)</label>
+                    <input type="number" id="new-client-monthlyfee" value="280000" placeholder="Ej: 280000 o 400000"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Día de Cobro Mensual</label>
+                    <input type="number" id="new-client-billingday" min="1" max="31" value="5"
+                      class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Notas u Observaciones</label>
+                  <textarea id="new-client-notes" rows="2" placeholder="Ej: Incluye mantenimiento web mensual y 2 actualizaciones de contenido."
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"></textarea>
+                </div>
+
+                <button type="button" id="add-client-btn"
+                  class="w-full py-3 bg-gradient-to-r from-brand-orange to-brand-magenta text-white font-bold rounded-xl text-xs uppercase tracking-wider hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+                  <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                  Registrar Cliente y Guardar
+                </button>
+              </div>
+            </div>
+
+            <!-- LISTA DE CLIENTES Y GESTIÓN DE CONTABILIDAD -->
+            <div class="lg:col-span-2 bg-brand-darkCard border border-slate-800 rounded-2xl p-6 space-y-5 flex flex-col">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div>
+                  <h3 class="text-base font-display font-bold text-white">Directorio de Clientes y Cobros</h3>
+                  <p class="text-xs text-slate-400">Organiza los pagos mensuales de cada cliente y genera cobros directo por WhatsApp.</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <div class="relative max-w-xs">
+                    <input type="text" id="client-search" placeholder="Buscar cliente o proyecto..."
+                      class="w-full bg-slate-950 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-brand-orange">
+                    <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+                      <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    </span>
+                  </div>
+
+                  <select id="client-filter-status" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-brand-orange">
+                    <option value="all">Todos los Clientes</option>
+                    <option value="pending_hosting">Hosting Pendiente</option>
+                    <option value="pending_monthly">Mensualidad Pendiente</option>
+                    <option value="up_to_date">Al Día</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Container where dynamic Client cards with Payment Loggers will be rendered -->
+              <div id="clients-list" class="space-y-4 overflow-y-auto max-h-[700px] custom-scrollbar pr-1 flex-grow">
+                <div class="text-center py-10 text-slate-500 text-xs">Cargando directorio de clientes...</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RESUMEN GENERAL DE CONTABILIDAD MENSUAL CONSOLIDADA -->
+          <div class="bg-brand-darkCard border border-slate-800 rounded-2xl p-6 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+                </div>
+                <div>
+                  <h3 class="text-base font-display font-bold text-white">Historial General de Contabilidad</h3>
+                  <p class="text-xs text-slate-400">Registro consolidado de todos los pagos ingresados en la plataforma.</p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-3">
+                <label class="text-xs font-mono text-slate-400">Filtrar Período:</label>
+                <select id="accounting-period-filter" class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                  <option value="all">Todos los registros</option>
+                </select>
+              </div>
+            </div>
+
+            <div id="accounting-summary-table" class="overflow-x-auto">
+              <!-- Will be rendered dynamically -->
+            </div>
+          </div>
+
+        </div>
+
       </div>
 
     </main>
@@ -581,6 +780,7 @@
         customBusinesses: [],
         customAds: [],
         customLithoImages: {},
+        clients: [],
         categories: []
       }
     };
@@ -680,6 +880,9 @@
           if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
             state.config.customLithoImages = {};
           }
+          if (!Array.isArray(state.config.clients)) {
+            state.config.clients = [];
+          }
 
           // Local storage sync/recovery
           const hasLitho = state.config.customLithoImages && Object.values(state.config.customLithoImages).some(v => v);
@@ -778,6 +981,10 @@
 
       // 5. Render Litografía
       renderLitografiaList();
+
+      // 6. Render Clientes y Contabilidad
+      renderClientsList();
+      renderAccountingSummary();
 
       lucide.createIcons();
     }
@@ -1376,6 +1583,28 @@
       document.getElementById('biz-search').addEventListener('input', () => {
         renderBusinessesList();
       });
+
+      // 11. REGISTER NEW CLIENT BUTTON
+      const addClientBtn = document.getElementById('add-client-btn');
+      if (addClientBtn) {
+        addClientBtn.addEventListener('click', registerNewClient);
+      }
+
+      // 12. CLIENT SEARCH & FILTERS
+      const clientSearch = document.getElementById('client-search');
+      if (clientSearch) {
+        clientSearch.addEventListener('input', renderClientsList);
+      }
+
+      const clientFilterStatus = document.getElementById('client-filter-status');
+      if (clientFilterStatus) {
+        clientFilterStatus.addEventListener('change', renderClientsList);
+      }
+
+      const accountingPeriodFilter = document.getElementById('accounting-period-filter');
+      if (accountingPeriodFilter) {
+        accountingPeriodFilter.addEventListener('change', renderAccountingSummary);
+      }
     }
 
     // Handle Local File Upload Convert Base64 & Upload
@@ -1614,6 +1843,555 @@
           overlay.classList.add('hidden');
         }
       };
+    }
+
+    // ==================== GESTIÓN DE CLIENTES Y CONTABILIDAD ====================
+
+    function formatCOP(amount) {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        maximumFractionDigits: 0
+      }).format(amount || 0);
+    }
+
+    function generateWhatsAppBillingUrl(clientName, projectName, phone, concept, period, amount) {
+      const cleanPhone = (phone || '').replace(/\D/g, '');
+      const fullPhone = cleanPhone.length === 10 ? '57' + cleanPhone : cleanPhone;
+      const msg = `Hola *${clientName}*, ¡te saludamos desde *Atziluth Gráfic Digital*! 🚀\n\nTe compartimos el recordatorio de facturación de *${concept || 'Mensualidad'}* para el proyecto *${projectName}* correspondiente al período *${period || 'actual'}*.\n\n💰 *Valor:* ${formatCOP(amount)}\n\n📌 *Medios de Pago Disponibles:*\n- Bancolombia / Nequi / Daviplata\n\nQuedamos atentos al envío del comprobante de transferencia. ¡Muchas gracias por tu confianza!`;
+      return `https://wa.me/${fullPhone}?text=${encodeURIComponent(msg)}`;
+    }
+
+    function registerNewClient() {
+      const name = document.getElementById('new-client-name').value.trim();
+      const project = document.getElementById('new-client-project').value.trim();
+      const phone = document.getElementById('new-client-phone').value.trim();
+      const startDate = document.getElementById('new-client-startdate').value;
+      const hostingFee = parseFloat(document.getElementById('new-client-hostingfee').value) || 400000;
+      const hostingPaid = document.getElementById('new-client-hostingpaid').value === 'true';
+      const monthlyFee = parseFloat(document.getElementById('new-client-monthlyfee').value) || 280000;
+      const billingDay = parseInt(document.getElementById('new-client-billingday').value) || 5;
+      const notes = document.getElementById('new-client-notes').value.trim();
+
+      if (!name || !project) {
+        alert('Por favor complete el nombre del cliente y el nombre del proyecto.');
+        return;
+      }
+
+      if (!state.config.clients) {
+        state.config.clients = [];
+      }
+
+      const clientId = 'cli_' + Date.now().toString();
+      const initialPayments = [];
+
+      if (hostingPaid) {
+        initialPayments.push({
+          id: 'pay_' + Date.now().toString(),
+          concept: 'Hosting + Dominio Inicial',
+          period: 'Inicial',
+          amount: hostingFee,
+          date: startDate || new Date().toISOString().split('T')[0],
+          method: 'Transferencia Bancolombia',
+          paid: true,
+          notes: 'Pago inicial al cierre de contrato'
+        });
+      }
+
+      const newClient = {
+        id: clientId,
+        clientName: name,
+        projectName: project,
+        phone: phone || '',
+        startDate: startDate || new Date().toISOString().split('T')[0],
+        hostingDomainFee: hostingFee,
+        hostingDomainPaid: hostingPaid,
+        monthlyFee: monthlyFee,
+        billingDay: billingDay,
+        notes: notes || '',
+        payments: initialPayments
+      };
+
+      state.config.clients.push(newClient);
+
+      // Reset inputs
+      document.getElementById('new-client-name').value = '';
+      document.getElementById('new-client-project').value = '';
+      document.getElementById('new-client-phone').value = '';
+      document.getElementById('new-client-notes').value = '';
+
+      renderAll();
+      showToast('Cliente Registrado', `Se agregó "${name}" (${project}). Haz clic en "Guardar Cambios" para sincronizar.`);
+    }
+
+    function toggleHostingPaid(clientId) {
+      const client = (state.config.clients || []).find(c => c.id === clientId);
+      if (!client) return;
+
+      client.hostingDomainPaid = !client.hostingDomainPaid;
+      
+      if (client.hostingDomainPaid) {
+        const hasHostingLog = (client.payments || []).some(p => p.concept.includes('Hosting'));
+        if (!hasHostingLog) {
+          if (!client.payments) client.payments = [];
+          client.payments.push({
+            id: 'pay_' + Date.now().toString(),
+            concept: 'Hosting + Dominio Inicial',
+            period: 'Inicial',
+            amount: client.hostingDomainFee || 400000,
+            date: new Date().toISOString().split('T')[0],
+            method: 'Transferencia Bancolombia',
+            paid: true,
+            notes: 'Marcado como pagado desde el panel'
+          });
+        }
+      }
+
+      renderAll();
+      showToast('Estado Actualizado', `Estado de Hosting + Dominio actualizado para ${client.clientName}.`);
+    }
+
+    function addPaymentToClient(clientId) {
+      const client = (state.config.clients || []).find(c => c.id === clientId);
+      if (!client) return;
+
+      const conceptInput = document.getElementById(`pay-concept-${clientId}`);
+      const periodInput = document.getElementById(`pay-period-${clientId}`);
+      const amountInput = document.getElementById(`pay-amount-${clientId}`);
+      const dateInput = document.getElementById(`pay-date-${clientId}`);
+      const methodInput = document.getElementById(`pay-method-${clientId}`);
+
+      const concept = conceptInput ? conceptInput.value.trim() : 'Mensualidad';
+      const period = periodInput ? periodInput.value.trim() : 'Mes Actual';
+      const amount = parseFloat(amountInput ? amountInput.value : 0) || client.monthlyFee || 280000;
+      const date = (dateInput && dateInput.value) ? dateInput.value : new Date().toISOString().split('T')[0];
+      const method = methodInput ? methodInput.value : 'Transferencia Bancolombia';
+
+      if (!client.payments) client.payments = [];
+
+      const newPayment = {
+        id: 'pay_' + Date.now().toString(),
+        concept: concept || 'Mensualidad',
+        period: period || 'Mes Actual',
+        amount: amount,
+        date: date,
+        method: method,
+        paid: true,
+        notes: ''
+      };
+
+      client.payments.push(newPayment);
+
+      renderAll();
+      showToast('Pago Registrado', `Se agregó la entrada de pago (${formatCOP(amount)}) para ${client.clientName}.`);
+    }
+
+    function togglePaymentPaidStatus(clientId, paymentId) {
+      const client = (state.config.clients || []).find(c => c.id === clientId);
+      if (!client || !client.payments) return;
+
+      const payment = client.payments.find(p => p.id === paymentId);
+      if (!payment) return;
+
+      payment.paid = !payment.paid;
+      renderAll();
+      showToast('Estado de Pago', `El pago fue marcado como ${payment.paid ? 'PAGADO' : 'PENDIENTE'}.`);
+    }
+
+    function deletePaymentFromClient(clientId, paymentId) {
+      const client = (state.config.clients || []).find(c => c.id === clientId);
+      if (!client || !client.payments) return;
+
+      if (!confirm('¿Seguro que deseas eliminar este registro de pago?')) return;
+
+      client.payments = client.payments.filter(p => p.id !== paymentId);
+      renderAll();
+      showToast('Pago Eliminado', 'El registro de pago fue eliminado.');
+    }
+
+    function deleteClient(clientId) {
+      const client = (state.config.clients || []).find(c => c.id === clientId);
+      if (!client) return;
+
+      if (!confirm(`¿Eliminar definitivamente al cliente "${client.clientName}" (${client.projectName})?`)) return;
+
+      state.config.clients = state.config.clients.filter(c => c.id !== clientId);
+      renderAll();
+      showToast('Cliente Eliminado', 'El cliente y su historial fueron eliminados.');
+    }
+
+    function renderClientsList() {
+      const container = document.getElementById('clients-list');
+      if (!container) return;
+
+      const clients = state.config.clients || [];
+
+      let totalActive = clients.length;
+      let totalHostingRev = 0;
+      let totalMonthlyRev = 0;
+      let totalPending = 0;
+
+      clients.forEach(c => {
+        if (c.hostingDomainPaid) {
+          totalHostingRev += (c.hostingDomainFee || 400000);
+        } else {
+          totalPending += (c.hostingDomainFee || 400000);
+        }
+
+        (c.payments || []).forEach(p => {
+          if (p.paid) {
+            totalMonthlyRev += (p.amount || 0);
+          } else {
+            totalPending += (p.amount || 0);
+          }
+        });
+      });
+
+      const totalClientsEl = document.getElementById('kpi-total-clients');
+      const hostingRevEl = document.getElementById('kpi-hosting-revenue');
+      const monthlyRevEl = document.getElementById('kpi-monthly-revenue');
+      const pendingEl = document.getElementById('kpi-pending-amount');
+
+      if (totalClientsEl) totalClientsEl.textContent = totalActive;
+      if (hostingRevEl) hostingRevEl.textContent = formatCOP(totalHostingRev);
+      if (monthlyRevEl) monthlyRevEl.textContent = formatCOP(totalMonthlyRev);
+      if (pendingEl) pendingEl.textContent = formatCOP(totalPending);
+
+      const searchQuery = (document.getElementById('client-search')?.value || '').toLowerCase().trim();
+      const statusFilter = document.getElementById('client-filter-status')?.value || 'all';
+
+      const filteredClients = clients.filter(c => {
+        const matchesQuery = !searchQuery || 
+          c.clientName.toLowerCase().includes(searchQuery) || 
+          c.projectName.toLowerCase().includes(searchQuery) ||
+          c.phone.includes(searchQuery);
+
+        if (!matchesQuery) return false;
+
+        if (statusFilter === 'pending_hosting') {
+          return !c.hostingDomainPaid;
+        } else if (statusFilter === 'pending_monthly') {
+          return (c.payments || []).some(p => !p.paid);
+        } else if (statusFilter === 'up_to_date') {
+          return c.hostingDomainPaid && !(c.payments || []).some(p => !p.paid);
+        }
+
+        return true;
+      });
+
+      if (filteredClients.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-500 text-xs flex flex-col items-center justify-center gap-2">
+            <i data-lucide="users" class="w-8 h-8 text-slate-700"></i>
+            ${clients.length === 0 ? 'No hay clientes registrados en el sistema.' : 'No se encontraron clientes con el filtro seleccionado.'}
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = '';
+
+      const currentMonthName = new Intl.DateTimeFormat('es-CO', { month: 'long', year: 'numeric' }).format(new Date());
+      const capitalizedMonth = currentMonthName.charAt(0).toUpperCase() + currentMonthName.slice(1);
+
+      filteredClients.forEach(client => {
+        const card = document.createElement('div');
+        card.className = 'bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 relative group hover:border-slate-700 transition-colors';
+
+        const hostingBadge = client.hostingDomainPaid 
+          ? `<span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1">
+               <i data-lucide="check-circle-2" class="w-3 h-3"></i> PAGADO (${formatCOP(client.hostingDomainFee || 400000)})
+             </span>`
+          : `<span class="px-2.5 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1">
+               <i data-lucide="clock" class="w-3 h-3"></i> PENDIENTE (${formatCOP(client.hostingDomainFee || 400000)})
+             </span>`;
+
+        const waUrl = generateWhatsAppBillingUrl(
+          client.clientName, 
+          client.projectName, 
+          client.phone, 
+          `Mensualidad de Servicio Web`, 
+          capitalizedMonth, 
+          client.monthlyFee || 280000
+        );
+
+        const paymentsList = client.payments || [];
+
+        let paymentsRows = '';
+        if (paymentsList.length === 0) {
+          paymentsRows = `
+            <tr>
+              <td colspan="7" class="text-center py-4 text-slate-500 text-[11px] italic">
+                No hay pagos registrados para este cliente. Utiliza el formulario de abajo para agregar uno.
+              </td>
+            </tr>
+          `;
+        } else {
+          paymentsList.forEach(p => {
+            const statusBadge = p.paid
+              ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono rounded font-bold">PAGADO</span>`
+              : `<span class="px-2 py-0.5 bg-rose-500/10 text-rose-400 text-[10px] font-mono rounded font-bold">PENDIENTE</span>`;
+
+            paymentsRows += `
+              <tr class="border-b border-slate-800/50 hover:bg-slate-900/40 text-xs">
+                <td class="py-2 px-3 text-slate-200 font-medium">${p.concept}</td>
+                <td class="py-2 px-3 text-slate-400 font-mono text-[11px]">${p.period}</td>
+                <td class="py-2 px-3 font-mono font-bold text-slate-200">${formatCOP(p.amount)}</td>
+                <td class="py-2 px-3 text-slate-400 font-mono text-[11px]">${p.date}</td>
+                <td class="py-2 px-3 text-slate-400 text-[11px]">${p.method}</td>
+                <td class="py-2 px-3">${statusBadge}</td>
+                <td class="py-2 px-3 text-right space-x-1">
+                  <button onclick="togglePaymentPaidStatus('${client.id}', '${p.id}')" title="Cambiar Estado de Pago"
+                    class="p-1 bg-slate-900 hover:bg-slate-800 text-slate-300 rounded border border-slate-700 transition-colors cursor-pointer">
+                    <i data-lucide="${p.paid ? 'x-circle' : 'check-circle'}" class="w-3.5 h-3.5 text-${p.paid ? 'rose' : 'emerald'}-400"></i>
+                  </button>
+                  <button onclick="deletePaymentFromClient('${client.id}', '${p.id}')" title="Eliminar Registro de Pago"
+                    class="p-1 bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 rounded border border-slate-700 transition-colors cursor-pointer">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+            `;
+          });
+        }
+
+        card.innerHTML = `
+          <!-- Header del Cliente -->
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+            <div>
+              <div class="flex items-center gap-2">
+                <h4 class="text-base font-bold text-white">${client.clientName}</h4>
+                <span class="text-xs text-brand-orange font-mono font-semibold">(${client.projectName})</span>
+              </div>
+              <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-400 mt-1">
+                <span class="flex items-center gap-1"><i data-lucide="calendar" class="w-3.5 h-3.5 text-slate-500"></i> Cierre: ${client.startDate}</span>
+                <span class="flex items-center gap-1"><i data-lucide="phone" class="w-3.5 h-3.5 text-slate-500"></i> ${client.phone || 'Sin número'}</span>
+                <span class="flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 text-slate-500"></i> Día de Cobro: <b>Día ${client.billingDay} de cada mes</b></span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 flex-wrap">
+              ${client.phone ? `
+                <a href="${waUrl}" target="_blank" rel="noopener noreferrer"
+                  class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors shadow-sm">
+                  <i data-lucide="message-square" class="w-3.5 h-3.5"></i> Recordar Cobro WA
+                </a>
+              ` : ''}
+
+              <button onclick="deleteClient('${client.id}')" title="Eliminar Cliente"
+                class="px-2.5 py-1.5 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg text-xs border border-slate-800 transition-colors cursor-pointer">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Badges de Hosting y Valor Mensual -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-800/60">
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-mono uppercase text-slate-500 block">Hosting y Dominio Inicial</span>
+                <div class="mt-0.5">${hostingBadge}</div>
+              </div>
+              <button onclick="toggleHostingPaid('${client.id}')"
+                class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-[10px] font-mono rounded-lg border border-slate-700 transition-colors cursor-pointer">
+                ${client.hostingDomainPaid ? 'Marcar Pendiente' : 'Marcar Pagado'}
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <div>
+                <span class="text-[10px] font-mono uppercase text-slate-500 block">Mensualidad Pactada</span>
+                <span class="text-sm font-bold font-mono text-white">${formatCOP(client.monthlyFee || 280000)} / mes</span>
+              </div>
+              <span class="text-[11px] text-slate-400 font-mono">Día ${client.billingDay}</span>
+            </div>
+          </div>
+
+          ${client.notes ? `<p class="text-xs text-slate-400 italic bg-slate-900/40 p-2.5 rounded-lg border border-slate-800/40">${client.notes}</p>` : ''}
+
+          <!-- Bitácora de Pagos de este Cliente -->
+          <div class="space-y-3 pt-2">
+            <div class="flex items-center justify-between">
+              <h5 class="text-xs font-mono font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="receipt" class="w-3.5 h-3.5 text-brand-orange"></i> Bitácora de Pagos del Cliente
+              </h5>
+            </div>
+
+            <div class="overflow-x-auto border border-slate-800 rounded-xl bg-slate-950">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-slate-800 bg-slate-900/80 text-[10px] font-mono text-slate-400 uppercase">
+                    <th class="py-2 px-3">Concepto</th>
+                    <th class="py-2 px-3">Período</th>
+                    <th class="py-2 px-3">Monto</th>
+                    <th class="py-2 px-3">Fecha</th>
+                    <th class="py-2 px-3">Método</th>
+                    <th class="py-2 px-3">Estado</th>
+                    <th class="py-2 px-3 text-right">Acción</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${paymentsRows}
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Formulario Inline para Registrar Nuevo Pago de este Cliente -->
+            <div class="bg-slate-900/50 p-3.5 rounded-xl border border-slate-800 space-y-3">
+              <span class="text-[11px] font-mono text-brand-orange uppercase font-bold block">+ Registrar Nuevo Pago de Mensualidad</span>
+              <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+                <div>
+                  <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Concepto</label>
+                  <input type="text" id="pay-concept-${client.id}" value="Mensualidad" placeholder="Ej: Mensualidad"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div>
+                  <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Período / Mes</label>
+                  <input type="text" id="pay-period-${client.id}" value="${capitalizedMonth}" placeholder="Ej: Julio 2026"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div>
+                  <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Monto ($ COP)</label>
+                  <input type="number" id="pay-amount-${client.id}" value="${client.monthlyFee || 280000}"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div>
+                  <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Fecha de Pago</label>
+                  <input type="date" id="pay-date-${client.id}" value="${new Date().toISOString().split('T')[0]}"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                </div>
+
+                <div>
+                  <label class="block text-[9px] font-mono text-slate-400 uppercase mb-0.5">Método</label>
+                  <select id="pay-method-${client.id}"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-lg px-1.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange">
+                    <option value="Transferencia Bancolombia">Bancolombia</option>
+                    <option value="Nequi">Nequi</option>
+                    <option value="Daviplata">Daviplata</option>
+                    <option value="Efectivo">Efectivo</option>
+                    <option value="MercadoPago">MercadoPago</option>
+                    <option value="Otro">Otro</option>
+                  </select>
+                </div>
+
+                <div class="flex items-end">
+                  <button onclick="addPaymentToClient('${client.id}')"
+                    class="w-full py-1 px-2 bg-brand-orange hover:bg-orange-600 text-white font-bold rounded-lg text-xs uppercase transition-all flex items-center justify-center gap-1 cursor-pointer">
+                    <i data-lucide="plus" class="w-3.5 h-3.5"></i> Agregar
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function renderAccountingSummary() {
+      const container = document.getElementById('accounting-summary-table');
+      const periodSelect = document.getElementById('accounting-period-filter');
+      if (!container) return;
+
+      const clients = state.config.clients || [];
+      const allPayments = [];
+
+      clients.forEach(client => {
+        (client.payments || []).forEach(p => {
+          allPayments.push({
+            ...p,
+            clientName: client.clientName,
+            projectName: client.projectName,
+            phone: client.phone
+          });
+        });
+      });
+
+      const uniquePeriods = Array.from(new Set(allPayments.map(p => p.period))).filter(Boolean);
+      
+      if (periodSelect) {
+        const currentSelected = periodSelect.value;
+        periodSelect.innerHTML = '<option value="all">Todos los registros</option>';
+        uniquePeriods.forEach(period => {
+          const opt = document.createElement('option');
+          opt.value = period;
+          opt.textContent = period;
+          if (period === currentSelected) opt.selected = true;
+          periodSelect.appendChild(opt);
+        });
+      }
+
+      const selectedPeriod = periodSelect ? periodSelect.value : 'all';
+      const filteredPayments = allPayments.filter(p => selectedPeriod === 'all' || p.period === selectedPeriod);
+
+      if (filteredPayments.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 text-slate-500 text-xs italic">
+            No se han registrado pagos en la plataforma aún.
+          </div>
+        `;
+        return;
+      }
+
+      let totalCollectedInFilter = 0;
+      let rowsHtml = '';
+
+      filteredPayments.forEach(p => {
+        if (p.paid) totalCollectedInFilter += (p.amount || 0);
+
+        const statusBadge = p.paid
+          ? `<span class="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 text-[10px] font-mono rounded font-bold">PAGADO</span>`
+          : `<span class="px-2 py-0.5 bg-rose-500/10 text-rose-400 text-[10px] font-mono rounded font-bold">PENDIENTE</span>`;
+
+        rowsHtml += `
+          <tr class="border-b border-slate-800/60 hover:bg-slate-900/50 text-xs">
+            <td class="py-2.5 px-3 font-semibold text-slate-200">${p.clientName}</td>
+            <td class="py-2.5 px-3 text-brand-orange font-mono text-[11px]">${p.projectName}</td>
+            <td class="py-2.5 px-3 text-slate-300">${p.concept}</td>
+            <td class="py-2.5 px-3 text-slate-400 font-mono text-[11px]">${p.period}</td>
+            <td class="py-2.5 px-3 font-mono font-bold text-white">${formatCOP(p.amount)}</td>
+            <td class="py-2.5 px-3 text-slate-400 font-mono text-[11px]">${p.date}</td>
+            <td class="py-2.5 px-3 text-slate-400 text-[11px]">${p.method}</td>
+            <td class="py-2.5 px-3">${statusBadge}</td>
+          </tr>
+        `;
+      });
+
+      container.innerHTML = `
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 bg-slate-900/90 text-[10px] font-mono text-slate-400 uppercase">
+              <th class="py-2.5 px-3">Cliente</th>
+              <th class="py-2.5 px-3">Proyecto</th>
+              <th class="py-2.5 px-3">Concepto</th>
+              <th class="py-2.5 px-3">Período</th>
+              <th class="py-2.5 px-3">Monto</th>
+              <th class="py-2.5 px-3">Fecha</th>
+              <th class="py-2.5 px-3">Método</th>
+              <th class="py-2.5 px-3">Estado</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+          <tfoot>
+            <tr class="bg-slate-900 border-t-2 border-slate-800 font-bold text-xs">
+              <td colspan="4" class="py-3 px-3 text-right uppercase font-mono text-slate-400">Total Recaudado en Selección:</td>
+              <td colspan="4" class="py-3 px-3 font-mono text-emerald-400 text-sm">${formatCOP(totalCollectedInFilter)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+
+      lucide.createIcons();
     }
   </script>
 </body>

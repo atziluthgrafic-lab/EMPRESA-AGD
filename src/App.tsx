@@ -4,6 +4,7 @@ import MunicipalDirectory from "./components/MunicipalDirectory";
 import PricingCalculator from "./components/PricingCalculator";
 import ContactForm from "./components/ContactForm";
 import LitografiaSection from "./components/LitografiaSection";
+import AdminDashboard from "./components/AdminDashboard";
 import { SubregionId } from "./types";
 import {
   Sparkles,
@@ -48,7 +49,7 @@ export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
-  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "tarifas">("servicios");
+  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
 
   // Mobile menu expand/collapse state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -504,6 +505,20 @@ export default function App() {
             >
               TARIFAS
             </button>
+
+            <button
+              onClick={() => {
+                setActiveTab("admin");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
+                activeTab === "admin" 
+                  ? "text-brand-magenta border-brand-magenta" 
+                  : "text-slate-600 border-transparent hover:text-brand-magenta hover:border-brand-magenta/35"
+              }`}
+            >
+              ADMIN & CONTABILIDAD
+            </button>
           </div>
 
           <div className="hidden md:block">
@@ -544,6 +559,7 @@ export default function App() {
                   { id: "mapa", label: "🗺️ MAPA INTERACTIVO" },
                   { id: "directorio", label: "📂 DIRECTORIO PYME" },
                   { id: "tarifas", label: "📊 TARIFAS / PRECIOS" },
+                  { id: "admin", label: "💼 ADMIN & CONTABILIDAD" },
                 ].map((item) => {
                   const isSelected = activeTab === item.id;
                   return (
@@ -1116,6 +1132,12 @@ export default function App() {
                 </div>
 
                 <PricingCalculator />
+              </div>
+            )}
+
+            {activeTab === "admin" && (
+              <div className="space-y-8" id="admin-seccion">
+                <AdminDashboard />
               </div>
             )}
           </motion.div>
