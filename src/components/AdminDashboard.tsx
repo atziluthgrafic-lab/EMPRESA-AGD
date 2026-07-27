@@ -957,6 +957,7 @@ export default function AdminDashboard() {
 }
 
 interface ClientCardItemProps {
+  key?: string;
   client: ClientRecord;
   formatCOP: (amount: number) => string;
   toggleHostingPaid: (id: string) => void;

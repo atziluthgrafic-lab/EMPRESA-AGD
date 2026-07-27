@@ -191,8 +191,8 @@
           Directorio de Comercios
         </button>
         <button data-tab="clientes" class="tab-btn px-5 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 font-medium text-xs font-mono uppercase tracking-wider transition-colors flex items-center gap-2 flex-shrink-0 cursor-pointer">
-          <i data-lucide="users" class="w-4 h-4"></i>
-          Clientes y Contabilidad
+          <i data-lucide="calculator" class="w-4 h-4 text-brand-orange"></i>
+          ADMIN & CONTABILIDAD
         </button>
       </div>
 
@@ -562,8 +562,116 @@
           </div>
         </div>
 
-        <!-- TAB: CLIENTES Y CONTABILIDAD -->
+        <!-- TAB: ADMIN & CONTABILIDAD -->
         <div id="tab-content-clientes" class="tab-panel hidden space-y-6">
+          
+          <!-- MÓDULO DE GESTIÓN Y CARGA DE LOGO DE LA MARCA -->
+          <div class="bg-gradient-to-r from-brand-darkCard via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div class="flex items-center gap-3">
+                <div class="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
+                  <i data-lucide="image" class="w-6 h-6"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-white">Gestor de Logo Oficial Atziluth Gráfic</h2>
+                    <span class="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
+                      Marca Oficial
+                    </span>
+                  </div>
+                  <p class="text-xs text-slate-400">
+                    Monta, sube o cambia el logo principal que se muestra en el encabezado, portada y pie de página del sitio.
+                  </p>
+                </div>
+              </div>
+
+              <div class="flex items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="w-14 h-14 rounded-xl bg-white border border-slate-700 overflow-hidden flex items-center justify-center p-1 shadow-inner relative">
+                  <img
+                    id="panel-logo-preview"
+                    src="/logo_atziluth.png"
+                    alt="Logo Atziluth"
+                    class="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span class="text-[10px] font-mono uppercase text-slate-400 block">Logo Activo</span>
+                  <span id="panel-logo-status" class="text-xs font-bold text-emerald-400 font-mono">/logo_atziluth.png</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <!-- Opción 1: Subir Archivo -->
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                  <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                    <i data-lucide="upload" class="w-4 h-4"></i> 1. Cargar Archivo Local
+                  </span>
+                  <p class="text-[11px] text-slate-400 mt-1">
+                    Selecciona una imagen en tu equipo (PNG / JPG) para actualizar la marca.
+                  </p>
+                </div>
+
+                <label class="w-full py-2.5 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
+                  <i data-lucide="upload" class="w-4 h-4"></i>
+                  <span id="panel-logo-upload-btn-text">Subir Nuevo Logo</span>
+                  <input
+                    type="file"
+                    id="panel-logo-file-input"
+                    accept="image/*"
+                    class="hidden"
+                  />
+                </label>
+              </div>
+
+              <!-- Opción 2: URL Directa -->
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                  <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                    <i data-lucide="link" class="w-4 h-4"></i> 2. URL Directa de Imagen
+                  </span>
+                  <p class="text-[11px] text-slate-400 mt-1">
+                    Ingresa o modifica la ruta pública (ej: <code class="text-slate-200">/logo_atziluth.png</code>).
+                  </p>
+                </div>
+
+                <div class="flex gap-2">
+                  <input
+                    type="text"
+                    id="panel-logo-url-input"
+                    placeholder="/logo_atziluth.png"
+                    class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
+                  />
+                  <button
+                    id="panel-logo-save-url-btn"
+                    class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+              </div>
+
+              <!-- Opción 3: Restablecer -->
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                <div>
+                  <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> 3. Logo Oficial por Defecto
+                  </span>
+                  <p class="text-[11px] text-slate-400 mt-1">
+                    Restaura el diseño original de alta resolución <code class="text-slate-200">logo_atziluth.png</code>.
+                  </p>
+                </div>
+
+                <button
+                  id="panel-logo-reset-btn"
+                  class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-orange"></i> Restablecer Logo
+                </button>
+              </div>
+            </div>
+          </div>
           
           <!-- KPI Cards for Financial Overview -->
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -983,10 +1091,27 @@
       renderLitografiaList();
 
       // 6. Render Clientes y Contabilidad
+      renderLogoSection();
       renderClientsList();
       renderAccountingSummary();
 
       lucide.createIcons();
+    }
+
+    // Render Logo Section
+    function renderLogoSection() {
+      const activeUrl = state.config.logoUrl || '/logo_atziluth.png';
+      const previewEl = document.getElementById('panel-logo-preview');
+      const statusEl = document.getElementById('panel-logo-status');
+      const urlInput = document.getElementById('panel-logo-url-input');
+
+      if (previewEl) previewEl.src = activeUrl;
+      if (statusEl) {
+        statusEl.textContent = activeUrl.startsWith('data:') ? 'Imagen Personalizada (Base64)' : activeUrl;
+      }
+      if (urlInput && !activeUrl.startsWith('data:')) {
+        urlInput.value = activeUrl;
+      }
     }
 
     // Render Advertisements list
@@ -1377,6 +1502,71 @@
           lucide.createIcons();
         });
       });
+
+      // 3.5. LOGO MANAGER LISTENERS
+      const panelLogoInput = document.getElementById('panel-logo-file-input');
+      if (panelLogoInput) {
+        panelLogoInput.addEventListener('change', async (e) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) return;
+
+          const btnText = document.getElementById('panel-logo-upload-btn-text');
+          if (btnText) btnText.textContent = 'Procesando...';
+
+          const reader = new FileReader();
+          reader.onload = async () => {
+            const base64Data = reader.result;
+            try {
+              const res = await fetch('/api/admin/upload-image', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + state.token
+                },
+                body: JSON.stringify({
+                  fileName: file.name || 'logo_atziluth.png',
+                  base64Data: base64Data
+                })
+              });
+              const data = await res.json();
+              if (res.ok && data.url) {
+                state.config.logoUrl = data.url;
+                renderLogoSection();
+                showToast('Logo Cargado', 'El logo se subió y actualizó con éxito.');
+              } else {
+                showToast('Error', data.error || 'No se pudo cargar la imagen del logo', 'error');
+              }
+            } catch (err) {
+              console.error('Error subiendo logo en panel:', err);
+              showToast('Error de Red', 'Fallo al comunicarse con el servidor', 'error');
+            } finally {
+              if (btnText) btnText.textContent = 'Subir Nuevo Logo';
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      const panelLogoSaveBtn = document.getElementById('panel-logo-save-url-btn');
+      if (panelLogoSaveBtn) {
+        panelLogoSaveBtn.addEventListener('click', () => {
+          const inputEl = document.getElementById('panel-logo-url-input');
+          if (inputEl && inputEl.value.trim()) {
+            state.config.logoUrl = inputEl.value.trim();
+            renderLogoSection();
+            showToast('Logo Actualizado', 'Se aplicó la nueva URL para el logo.');
+          }
+        });
+      }
+
+      const panelLogoResetBtn = document.getElementById('panel-logo-reset-btn');
+      if (panelLogoResetBtn) {
+        panelLogoResetBtn.addEventListener('click', () => {
+          state.config.logoUrl = '/logo_atziluth.png';
+          renderLogoSection();
+          showToast('Logo Restablecido', 'Se volvió a la versión oficial por defecto.');
+        });
+      }
 
       // 4. SAVE ALL CONFIG TO SERVER
       document.getElementById('save-all-btn').addEventListener('click', async () => {

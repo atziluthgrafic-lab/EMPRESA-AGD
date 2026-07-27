@@ -51,3 +51,19 @@ export interface ClientRecord {
   notes: string;
   payments: ClientPayment[];
 }
+
+export interface Business {
+  id: string;
+  name: string;
+  category?: string;
+  niche?: string;
+  municipality: string;
+  subregion: SubregionId;
+  phone: string;
+  website?: string;
+  usesAI?: boolean;
+  description?: string;
+  logoUrl?: string;
+  imageUrl?: string;
+  servicesCompleted?: string[];
+}
