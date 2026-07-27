@@ -197,6 +197,7 @@ const CONFIG_FILE = path.join(process.cwd(), "custom_images_config.json");
 // Helper to load current config
 function loadImagesConfig() {
   const defaults = {
+    logoUrl: "/logo_atziluth.png",
     webDesignMockup: "",
     restaurantAppMockup: "",
     municipalDirectoryBanner: "",
@@ -268,7 +269,7 @@ function requireAdmin(req: any, res: any, next: any) {
 // 6. API: Secure Save Custom Images Configuration
 app.post("/api/admin/config", requireAdmin, (req, res) => {
   try {
-    const { webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages, clients } = req.body;
+    const { logoUrl, webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages, clients } = req.body;
     
     let finalLitho = customLithoImages || {};
     if (Array.isArray(finalLitho)) {
@@ -276,6 +277,7 @@ app.post("/api/admin/config", requireAdmin, (req, res) => {
     }
     
     const newConfig = {
+      logoUrl: logoUrl || "/logo_atziluth.png",
       webDesignMockup: webDesignMockup || "",
       restaurantAppMockup: restaurantAppMockup || "",
       municipalDirectoryBanner: municipalDirectoryBanner || "",
@@ -302,10 +304,10 @@ app.post("/api/admin/config", requireAdmin, (req, res) => {
   }
 });
 
-// 7. API: Secure Local File Upload to uploads folder (converts incoming base64 to binary files)
+// 7. API: Secure Local File Upload to uploads folder & Logotach Logo Manager
 app.post("/api/admin/upload-image", requireAdmin, (req, res) => {
   try {
-    const { fileName, base64Data } = req.body;
+    const { fileName, base64Data, isLogo } = req.body;
     if (!fileName || !base64Data) {
       return res.status(400).json({ success: false, error: "Nombre de archivo e imagen base64 requeridos." });
     }
@@ -322,9 +324,27 @@ app.post("/api/admin/upload-image", requireAdmin, (req, res) => {
 
     // Write file to filesystem
     fs.writeFileSync(targetPath, binaryData);
+    const uploadedUrl = `/uploads/${uniqueFileName}`;
+
+    // If marked as logo or filename contains "logo", also update public/logo_atziluth.png and config.json
+    if (isLogo || safeName.toLowerCase().includes("logo")) {
+      try {
+        const publicLogoPath = path.join(process.cwd(), "public", "logo_atziluth.png");
+        const publicLogoJpgPath = path.join(process.cwd(), "public", "logo_atziluth.jpg");
+        fs.writeFileSync(publicLogoPath, binaryData);
+        fs.writeFileSync(publicLogoJpgPath, binaryData);
+
+        // Also save to CONFIG_FILE
+        const currentConfig = loadImagesConfig();
+        currentConfig.logoUrl = uploadedUrl;
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
+      } catch (errLogo) {
+        console.error("Error copying logo to public folder:", errLogo);
+      }
+    }
     
     // Return relative URL for static loading
-    res.json({ success: true, url: `/uploads/${uniqueFileName}` });
+    res.json({ success: true, url: uploadedUrl });
   } catch (err: any) {
     console.error("Error uploading local image file:", err);
     res.status(500).json({ success: false, error: "Error de servidor al procesar el archivo subido." });

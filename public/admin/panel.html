@@ -565,7 +565,7 @@
         <!-- TAB: ADMIN & CONTABILIDAD -->
         <div id="tab-content-clientes" class="tab-panel hidden space-y-6">
           
-          <!-- MÓDULO DE GESTIÓN Y CARGA DE LOGO DE LA MARCA -->
+          <!-- MÓDULO LOGOTACH: GESTIÓN Y CARGA DE LOGO DE LA MARCA -->
           <div class="bg-gradient-to-r from-brand-darkCard via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
               <div class="flex items-center gap-3">
@@ -574,9 +574,9 @@
                 </div>
                 <div>
                   <div class="flex items-center gap-2">
-                    <h2 class="text-base font-bold text-white">Gestor de Logo Oficial Atziluth Gráfic</h2>
+                    <h2 class="text-base font-bold text-white">Logotach — Gestor Oficial de Logo & Marca</h2>
                     <span class="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
-                      Marca Oficial
+                      Software Logotach
                     </span>
                   </div>
                   <p class="text-xs text-slate-400">
@@ -1503,7 +1503,26 @@
         });
       });
 
-      // 3.5. LOGO MANAGER LISTENERS
+      // Helper function to auto-save config to server
+      const autoSaveConfig = async () => {
+        try {
+          const res = await fetch('/api/admin/config', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + state.token
+            },
+            body: JSON.stringify(state.config)
+          });
+          if (res.ok) {
+            localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
+          }
+        } catch (e) {
+          console.error("Error al auto-guardar configuración:", e);
+        }
+      };
+
+      // 3.5. LOGOTACH LOGO MANAGER LISTENERS
       const panelLogoInput = document.getElementById('panel-logo-file-input');
       if (panelLogoInput) {
         panelLogoInput.addEventListener('change', async (e) => {
@@ -1525,16 +1544,18 @@
                 },
                 body: JSON.stringify({
                   fileName: file.name || 'logo_atziluth.png',
-                  base64Data: base64Data
+                  base64Data: base64Data,
+                  isLogo: true
                 })
               });
               const data = await res.json();
               if (res.ok && data.url) {
                 state.config.logoUrl = data.url;
                 renderLogoSection();
-                showToast('Logo Cargado', 'El logo se subió y actualizó con éxito.');
+                await autoSaveConfig();
+                showToast('Logo Actualizado en Logotach', 'El nuevo logo de la marca fue guardado e instalado correctamente.');
               } else {
-                showToast('Error', data.error || 'No se pudo cargar la imagen del logo', 'error');
+                showToast('Error Logotach', data.error || 'No se pudo cargar la imagen del logo', 'error');
               }
             } catch (err) {
               console.error('Error subiendo logo en panel:', err);
@@ -1549,22 +1570,24 @@
 
       const panelLogoSaveBtn = document.getElementById('panel-logo-save-url-btn');
       if (panelLogoSaveBtn) {
-        panelLogoSaveBtn.addEventListener('click', () => {
+        panelLogoSaveBtn.addEventListener('click', async () => {
           const inputEl = document.getElementById('panel-logo-url-input');
           if (inputEl && inputEl.value.trim()) {
             state.config.logoUrl = inputEl.value.trim();
             renderLogoSection();
-            showToast('Logo Actualizado', 'Se aplicó la nueva URL para el logo.');
+            await autoSaveConfig();
+            showToast('Logo Aplicado', 'Se aplicó y guardó la nueva URL para el logo en Logotach.');
           }
         });
       }
 
       const panelLogoResetBtn = document.getElementById('panel-logo-reset-btn');
       if (panelLogoResetBtn) {
-        panelLogoResetBtn.addEventListener('click', () => {
+        panelLogoResetBtn.addEventListener('click', async () => {
           state.config.logoUrl = '/logo_atziluth.png';
           renderLogoSection();
-          showToast('Logo Restablecido', 'Se volvió a la versión oficial por defecto.');
+          await autoSaveConfig();
+          showToast('Logo Restablecido', 'Se volvió a la versión oficial por defecto en Logotach.');
         });
       }
 

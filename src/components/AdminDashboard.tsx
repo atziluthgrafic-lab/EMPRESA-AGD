@@ -82,7 +82,7 @@ export default function AdminDashboard() {
     setSaveStatus("Guardando...");
     try {
       // First fetch existing config to avoid overwriting other keys
-      const currentRes = await fetch("/api/admin/config");
+      const currentRes = await fetch("/api/config/images");
       let existingConfig = {};
       if (currentRes.ok) {
         const currentData = await currentRes.json();
@@ -97,7 +97,10 @@ export default function AdminDashboard() {
 
       const res = await fetch("/api/admin/config", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer atziluth_secure_token_secret"
+        },
         body: JSON.stringify(payload),
       });
 
@@ -121,13 +124,13 @@ export default function AdminDashboard() {
     }).format(amount || 0);
   };
 
-  // Upload Logo Handler
+  // Upload Logo Handler (Logotach integration)
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingLogo(true);
-    setUploadMessage("Cargando imagen del logo...");
+    setUploadMessage("Cargando imagen del logo en Logotach...");
 
     try {
       const reader = new FileReader();
@@ -136,10 +139,14 @@ export default function AdminDashboard() {
         
         const response = await fetch("/api/admin/upload-image", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer atziluth_secure_token_secret"
+          },
           body: JSON.stringify({
-            fileName: "logo_atziluth.jpg",
+            fileName: file.name || "logo_atziluth.png",
             base64Data: base64Data,
+            isLogo: true
           }),
         });
 
@@ -147,21 +154,21 @@ export default function AdminDashboard() {
           const result = await response.json();
           const newUrl = result.url || base64Data;
           setLogoPreview(newUrl);
-          setUploadMessage("¡Logo subido con éxito a la carpeta de servidor!");
-          saveConfig(clients, newUrl);
+          setUploadMessage("¡Logo subido e instalado con éxito via Logotach!");
+          await saveConfig(clients, newUrl);
         } else {
           // Fallback to local base64 display if endpoint rejected
           setLogoPreview(base64Data);
-          setUploadMessage("Logo guardado como vista previa.");
-          saveConfig(clients, base64Data);
+          setUploadMessage("Logo actualizado en memoria local.");
+          await saveConfig(clients, base64Data);
         }
         setUploadingLogo(false);
         setTimeout(() => setUploadMessage(null), 4000);
       };
       reader.readAsDataURL(file);
     } catch (err) {
-      console.error("Error subiendo logo:", err);
-      setUploadMessage("Error al procesar la imagen.");
+      console.error("Error subiendo logo en Logotach:", err);
+      setUploadMessage("Error al procesar la imagen del logo.");
       setUploadingLogo(false);
     }
   };
@@ -452,9 +459,9 @@ export default function AdminDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">Acceso para Montar y Cambiar Logo Marca</h2>
+                <h2 className="text-base font-bold text-white">Logotach — Gestor Oficial de Logo & Marca</h2>
                 <span className="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
-                  Gestión Inmediata
+                  Gestor Logotach
                 </span>
               </div>
               <p className="text-xs text-slate-400">
