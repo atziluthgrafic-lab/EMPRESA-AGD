@@ -49,7 +49,7 @@ export default function AdminDashboard() {
   const [accountingPeriodFilter, setAccountingPeriodFilter] = useState("all");
 
   // Logo Upload State
-  const [logoPreview, setLogoPreview] = useState<string>("/logo_atziluth.jpg");
+  const [logoPreview, setLogoPreview] = useState<string>("/logo_atziluth.png");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
 
@@ -408,7 +408,7 @@ export default function AdminDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-brand-orange/20 text-brand-orange border border-brand-orange/30">
-              Módulo Contable
+              Módulo Contable & Marca
             </span>
             {saveStatus && (
               <span className="text-xs font-mono text-emerald-400 animate-pulse">
@@ -420,95 +420,164 @@ export default function AdminDashboard() {
             Panel de Administración, Clientes y Contabilidad
           </h1>
           <p className="text-xs md:text-sm text-slate-400">
-            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades y logo oficial.
+            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades y gestor de logo.
           </p>
         </div>
 
-        <button
-          onClick={fetchConfig}
-          className="self-start md:self-auto px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
-        >
-          <RefreshCw className="w-4 h-4 text-brand-orange" />
-          Actualizar Datos
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <a
+            href="#gestor-logo-seccion"
+            className="px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
+          >
+            <ImageIcon className="w-4 h-4" />
+            Gestor de Logo
+          </a>
+
+          <button
+            onClick={fetchConfig}
+            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <RefreshCw className="w-4 h-4 text-brand-orange" />
+            Actualizar Datos
+          </button>
+        </div>
       </div>
 
-      {/* RUTA DE CARPETA Y BOTÓN DE CARGA DE IMAGEN DEL LOGO */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 space-y-4 shadow-lg">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* ACCESO Y GESTOR PARA MONTAR Y CAMBIAR EL LOGO */}
+      <div id="gestor-logo-seccion" className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
-              <FolderOpen className="w-6 h-6" />
+              <ImageIcon className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">Directorio de Imágenes & Carga de Logo</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-white">Acceso para Montar y Cambiar Logo Marca</h2>
+                <span className="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
+                  Gestión Inmediata
+                </span>
+              </div>
               <p className="text-xs text-slate-400">
-                Ubicación del servidor para archivos multimedia e imagen oficial de la marca.
+                Sube o cambia el logo oficial de Atziluth Gráfic Digital para actualizarlo en el encabezado, pie de página y portada.
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-slate-950/80 p-3 rounded-xl border border-slate-800/80">
-            <div className="w-12 h-12 rounded-lg bg-slate-900 border border-slate-700 overflow-hidden flex items-center justify-center relative">
+          <div className="flex items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
+            <div className="w-14 h-14 rounded-xl bg-white border border-slate-700 overflow-hidden flex items-center justify-center p-1 shadow-inner relative">
               <img
                 src={logoPreview}
                 alt="Logo Atziluth"
-                className="w-full h-full object-contain p-1"
+                className="w-full h-full object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/logo_atziluth.jpg";
+                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
                 }}
               />
             </div>
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-500 block">Logo Oficial Actual</span>
-              <span className="text-xs font-bold text-white font-mono">logo_atziluth.jpg</span>
+              <span className="text-[10px] font-mono uppercase text-slate-400 block">Logo Activo en Plataforma</span>
+              <span className="text-xs font-bold text-emerald-400 font-mono">
+                {logoPreview.startsWith("data:") ? "Imagen Personalizada (Base64)" : logoPreview}
+              </span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {/* Directorio de Archivos info */}
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-2">
-            <span className="text-[11px] font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-              <FolderOpen className="w-3.5 h-3.5" /> Carpeta de Almacenamiento en Servidor:
-            </span>
-            <div className="p-2.5 bg-slate-900 rounded-lg text-xs font-mono text-emerald-400 break-all select-all border border-slate-800">
-              /uploads/
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Las imágenes cargadas desde este panel se almacenan en el directorio de servidor <code className="text-slate-200">/uploads/</code> y son servidas estáticamente en producción y local.
-            </p>
-          </div>
-
-          {/* Upload Button */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Opción 1: Subir Archivo desde Computador */}
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
             <div>
-              <span className="text-[11px] font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Upload className="w-3.5 h-3.5" /> Subir Nueva Imagen de Logo:
+              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                <Upload className="w-4 h-4" /> 1. Subir Archivo Local (PNG / JPG)
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Selecciona la imagen en tu equipo para actualizar la marca <code className="text-slate-200">logo_atziluth.jpg</code>.
+                Selecciona una imagen en tu dispositivo para reemplazar el logo actual.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <label className="flex-1 px-4 py-2.5 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
-                <Upload className="w-4 h-4" />
-                {uploadingLogo ? "Subiendo..." : "Cargar Imagen de Logo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  disabled={uploadingLogo}
-                  className="hidden"
-                />
-              </label>
+            <label className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
+              <Upload className="w-4 h-4" />
+              {uploadingLogo ? "Procesando Imagen..." : "Seleccionar y Cargar Logo"}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                disabled={uploadingLogo}
+                className="hidden"
+              />
+            </label>
+          </div>
+
+          {/* Opción 2: Ingresar Enlace o URL de Imagen */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
+            <div>
+              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                <Save className="w-4 h-4" /> 2. O Ingresar URL Directa
+              </span>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Pega la dirección web de una imagen (ej: <code className="text-slate-200">/logo_atziluth.png</code>).
+              </p>
             </div>
 
-            {uploadMessage && (
-              <p className="text-xs font-mono text-emerald-400">{uploadMessage}</p>
-            )}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={logoPreview.startsWith("data:") ? "" : logoPreview}
+                onChange={(e) => setLogoPreview(e.target.value)}
+                placeholder="/logo_atziluth.png"
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
+              />
+              <button
+                onClick={() => {
+                  saveConfig(clients, logoPreview);
+                  setUploadMessage("¡URL de logo guardada con éxito!");
+                  setTimeout(() => setUploadMessage(null), 3000);
+                }}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                Guardar
+              </button>
+            </div>
           </div>
+
+          {/* Opción 3: Restablecer Logo por Defecto */}
+          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
+            <div>
+              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                <RefreshCw className="w-4 h-4" /> 3. Restablecer Logo Oficial
+              </span>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Vuelve al diseño original de alta resolución <code className="text-slate-200">logo_atziluth.png</code>.
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                const defaultUrl = "/logo_atziluth.png";
+                setLogoPreview(defaultUrl);
+                saveConfig(clients, defaultUrl);
+                setUploadMessage("¡Logo oficial restablecido!");
+                setTimeout(() => setUploadMessage(null), 3000);
+              }}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-brand-orange" /> Restablecer
+            </button>
+          </div>
+        </div>
+
+        {uploadMessage && (
+          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-mono text-emerald-400 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" /> {uploadMessage}
+          </div>
+        )}
+
+        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 gap-2">
+          <span className="flex items-center gap-1.5">
+            <FolderOpen className="w-3.5 h-3.5 text-brand-orange" />
+            Carpeta de Almacenamiento en Servidor: <code className="text-emerald-400 font-mono px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">/uploads/</code> o <code className="text-emerald-400 font-mono px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">/public/logo_atziluth.png</code>
+          </span>
+          <span className="text-slate-500 font-mono">Formatos admitidos: PNG, JPG, WEBP, SVG</span>
         </div>
       </div>
 

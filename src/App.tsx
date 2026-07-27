@@ -421,11 +421,11 @@ export default function App() {
               window.scrollTo({ top: 0, behavior: "smooth" });
             }}
           >
-            <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-md flex items-center justify-center bg-slate-50 group-hover:border-brand-magenta/50 transition-colors">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200/80 shadow-md flex items-center justify-center bg-white group-hover:border-brand-magenta transition-all">
               <img 
-                src="/logo_atziluth.jpg" 
-                alt="Logo Atziluth" 
-                className="w-full h-full object-cover scale-110"
+                src="/logo_atziluth.png" 
+                alt="Logo Atziluth Gráfic Digital" 
+                className="w-full h-full object-contain p-0.5 group-hover:scale-105 transition-transform"
                 referrerPolicy="no-referrer"
               />
             </div>
@@ -617,6 +617,31 @@ export default function App() {
               <>
                 {/* 2. HERO SECTION */}
                 <section className="text-center py-6 lg:py-12 space-y-6 max-w-4xl mx-auto">
+                  {/* Main Logo Brand Card */}
+                  <div className="flex justify-center mb-2">
+                    <div className="relative group p-1.5 bg-gradient-to-r from-brand-magenta via-brand-orange via-brand-yellow to-brand-cyan rounded-2xl shadow-xl hover:shadow-2xl transition-all">
+                      <div className="bg-white px-5 py-3 rounded-[14px] flex items-center gap-4">
+                        <img 
+                          src="/logo_atziluth.png" 
+                          alt="Atziluth Gráfic Digital - Creamos Impacto Visual" 
+                          className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-lg"
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="text-left">
+                          <span className="font-black text-xl sm:text-2xl text-slate-900 tracking-tight block font-sans leading-none">
+                            ATZILUTH <span className="text-brand-orange">GRÁFIC</span>
+                          </span>
+                          <span className="text-xs font-bold text-brand-magenta font-mono tracking-widest uppercase block mt-1">
+                            DISEÑO GRÁFICO • PUBLICIDAD • MULTIMEDIA
+                          </span>
+                          <span className="text-[11px] font-black text-brand-cyan font-sans uppercase tracking-wider block mt-0.5">
+                            CREAMOS IMPACTO VISUAL
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Tagline Badge - Colombia & Antioquia Regional Hybrid Badge */}
                   <div className="flex justify-center">
                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-mono shadow-md">
@@ -1148,11 +1173,11 @@ export default function App() {
       <footer className="bg-slate-50 border-t border-slate-200 mt-20 relative z-10 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-3">
-            <div className="relative w-9 h-9 rounded-lg overflow-hidden border border-slate-200 flex items-center justify-center bg-slate-100">
+            <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center bg-white shadow-sm">
               <img 
-                src="/logo_atziluth.jpg" 
-                alt="Logo Atziluth" 
-                className="w-full h-full object-cover scale-110"
+                src="/logo_atziluth.png" 
+                alt="Logo Atziluth Gráfic Digital" 
+                className="w-full h-full object-contain p-0.5"
                 referrerPolicy="no-referrer"
               />
             </div>
