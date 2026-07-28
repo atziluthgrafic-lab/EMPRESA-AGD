@@ -601,15 +601,15 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <!-- Opción 1: Subir Archivo -->
               <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
                 <div>
                   <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                    <i data-lucide="upload" class="w-4 h-4"></i> 1. Cargar Archivo Local
+                    <i data-lucide="upload" class="w-4 h-4"></i> 1. Cargar Archivo Local (Cualquier Formato)
                   </span>
                   <p class="text-[11px] text-slate-400 mt-1">
-                    Selecciona una imagen en tu equipo (PNG / JPG) para actualizar la marca.
+                    Selecciona cualquier archivo de imagen (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP) para actualizar la marca.
                   </p>
                 </div>
 
@@ -619,7 +619,7 @@
                   <input
                     type="file"
                     id="panel-logo-file-input"
-                    accept="image/*"
+                    accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff"
                     class="hidden"
                   />
                 </label>
@@ -632,7 +632,7 @@
                     <i data-lucide="link" class="w-4 h-4"></i> 2. URL Directa de Imagen
                   </span>
                   <p class="text-[11px] text-slate-400 mt-1">
-                    Ingresa o modifica la ruta pública (ej: <code class="text-slate-200">/logo_atziluth.png</code>).
+                    Ingresa o modifica la ruta pública (ej: <code class="text-slate-200">/imagenes/mi_logo.png</code>).
                   </p>
                 </div>
 
@@ -640,7 +640,7 @@
                   <input
                     type="text"
                     id="panel-logo-url-input"
-                    placeholder="/logo_atziluth.png"
+                    placeholder="/imagenes/mi_logo.png"
                     class="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
                   />
                   <button
@@ -650,25 +650,6 @@
                     Aplicar
                   </button>
                 </div>
-              </div>
-
-              <!-- Opción 3: Restablecer -->
-              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
-                <div>
-                  <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                    <i data-lucide="refresh-cw" class="w-4 h-4"></i> 3. Logo Oficial por Defecto
-                  </span>
-                  <p class="text-[11px] text-slate-400 mt-1">
-                    Restaura el diseño original de alta resolución <code class="text-slate-200">logo_atziluth.png</code>.
-                  </p>
-                </div>
-
-                <button
-                  id="panel-logo-reset-btn"
-                  class="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-brand-orange"></i> Restablecer Logo
-                </button>
               </div>
             </div>
           </div>
@@ -1578,16 +1559,6 @@
             await autoSaveConfig();
             showToast('Logo Aplicado', 'Se aplicó y guardó la nueva URL para el logo en Logotach.');
           }
-        });
-      }
-
-      const panelLogoResetBtn = document.getElementById('panel-logo-reset-btn');
-      if (panelLogoResetBtn) {
-        panelLogoResetBtn.addEventListener('click', async () => {
-          state.config.logoUrl = '/logo_atziluth.png';
-          renderLogoSection();
-          await autoSaveConfig();
-          showToast('Logo Restablecido', 'Se volvió a la versión oficial por defecto en Logotach.');
         });
       }
 

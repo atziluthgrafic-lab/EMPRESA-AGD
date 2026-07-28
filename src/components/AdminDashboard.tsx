@@ -492,15 +492,15 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Opción 1: Subir Archivo desde Computador */}
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
             <div>
               <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Upload className="w-4 h-4" /> 1. Subir Archivo Local (PNG / JPG)
+                <Upload className="w-4 h-4" /> 1. Subir Archivo Local (Cualquier Formato de Imagen)
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Selecciona una imagen en tu dispositivo para reemplazar el logo actual.
+                Selecciona cualquier imagen en tu dispositivo (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP) para actualizar el logo de la marca.
               </p>
             </div>
 
@@ -509,7 +509,7 @@ export default function AdminDashboard() {
               {uploadingLogo ? "Procesando Imagen..." : "Seleccionar y Cargar Logo"}
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff"
                 onChange={handleLogoUpload}
                 disabled={uploadingLogo}
                 className="hidden"
@@ -521,10 +521,10 @@ export default function AdminDashboard() {
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
             <div>
               <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Save className="w-4 h-4" /> 2. O Ingresar URL Directa
+                <Save className="w-4 h-4" /> 2. O Ingresar URL Directa de Imagen
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Pega la dirección web de una imagen (ej: <code className="text-slate-200">/logo_atziluth.png</code>).
+                Pega la dirección web de cualquier formato de imagen (ej: <code className="text-slate-200">/imagenes/mi_logo.png</code>).
               </p>
             </div>
 
@@ -533,7 +533,7 @@ export default function AdminDashboard() {
                 type="text"
                 value={logoPreview.startsWith("data:") ? "" : logoPreview}
                 onChange={(e) => setLogoPreview(e.target.value)}
-                placeholder="/logo_atziluth.png"
+                placeholder="/imagenes/mi_logo.png"
                 className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
               />
               <button
@@ -544,34 +544,9 @@ export default function AdminDashboard() {
                 }}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
               >
-                Guardar
+                Aplicar
               </button>
             </div>
-          </div>
-
-          {/* Opción 3: Restablecer Logo por Defecto */}
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
-            <div>
-              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <RefreshCw className="w-4 h-4" /> 3. Restablecer Logo Oficial
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Vuelve al diseño original de alta resolución <code className="text-slate-200">logo_atziluth.png</code>.
-              </p>
-            </div>
-
-            <button
-              onClick={() => {
-                const defaultUrl = "/logo_atziluth.png";
-                setLogoPreview(defaultUrl);
-                saveConfig(clients, defaultUrl);
-                setUploadMessage("¡Logo oficial restablecido!");
-                setTimeout(() => setUploadMessage(null), 3000);
-              }}
-              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 font-bold rounded-xl text-xs uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-brand-orange" /> Restablecer
-            </button>
           </div>
         </div>
 

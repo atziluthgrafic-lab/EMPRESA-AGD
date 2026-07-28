@@ -430,9 +430,20 @@ function validateImageUploadPayload(body: any): ImageValidationResult {
     return { isValid: false, errorMessage: "El archivo excede el tamaño máximo permitido de 25 MB." };
   }
 
-  // Magic Bytes Inspection for valid image formats
+  // Extract extension from file name or mimeType if present
   let detectedExt = "png";
-  let isRecognizedImage = false;
+  if (rawFileName && rawFileName.includes(".")) {
+    const extMatch = rawFileName.split(".").pop()?.toLowerCase();
+    if (extMatch && extMatch.length >= 2 && extMatch.length <= 5) {
+      detectedExt = extMatch === "jpeg" ? "jpg" : extMatch;
+    }
+  } else if (mimeType && mimeType.startsWith("image/")) {
+    const mimeExt = mimeType.split("/")[1]?.replace("+xml", "").toLowerCase();
+    if (mimeExt) detectedExt = mimeExt === "jpeg" ? "jpg" : mimeExt;
+  }
+
+  // Magic Bytes Inspection for standard image signatures
+  let isRecognizedImage = true; // Permissive for all image types
 
   const b0 = buffer[0];
   const b1 = buffer[1];
@@ -442,11 +453,9 @@ function validateImageUploadPayload(body: any): ImageValidationResult {
   if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) {
     detectedExt = "png";
     mimeType = "image/png";
-    isRecognizedImage = true;
   } else if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) {
     detectedExt = "jpg";
     mimeType = "image/jpeg";
-    isRecognizedImage = true;
   } else if (
     b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 &&
     buffer.length >= 12 &&
@@ -454,30 +463,22 @@ function validateImageUploadPayload(body: any): ImageValidationResult {
   ) {
     detectedExt = "webp";
     mimeType = "image/webp";
-    isRecognizedImage = true;
   } else if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) {
     detectedExt = "gif";
     mimeType = "image/gif";
-    isRecognizedImage = true;
   } else if (b0 === 0x42 && b1 === 0x4d) {
     detectedExt = "bmp";
     mimeType = "image/bmp";
-    isRecognizedImage = true;
+  } else if (b0 === 0x00 && b1 === 0x00 && (b2 === 0x01 || b2 === 0x02) && b3 === 0x00) {
+    detectedExt = "ico";
+    mimeType = "image/x-icon";
   } else {
     // Check for SVG
-    const snippet = buffer.slice(0, 200).toString("utf-8").toLowerCase();
+    const snippet = buffer.slice(0, 300).toString("utf-8").toLowerCase();
     if (snippet.includes("<svg") || snippet.includes("<?xml")) {
       detectedExt = "svg";
       mimeType = "image/svg+xml";
-      isRecognizedImage = true;
     }
-  }
-
-  if (!isRecognizedImage) {
-    return {
-      isValid: false,
-      errorMessage: "El archivo no posee una firma de imagen válida (debe ser PNG, JPEG, WEBP, GIF, SVG o BMP)."
-    };
   }
 
   // Sanitize original file name
