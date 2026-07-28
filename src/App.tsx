@@ -79,7 +79,7 @@ export default function App() {
     customLithoImages?: Record<string, string>;
     categories?: string[];
   }>({
-    logoUrl: "/logo_atziluth.png",
+    logoUrl: "/logo_atziluth.jpg",
     webDesignMockup: "",
     restaurantAppMockup: "",
     municipalDirectoryBanner: "",
@@ -438,12 +438,15 @@ export default function App() {
           >
             <div className="relative w-12 h-12 rounded-xl overflow-hidden border border-slate-200/80 shadow-md flex items-center justify-center bg-white group-hover:border-brand-magenta transition-all">
               <img 
-                src={imageConfig.logoUrl || "/logo_atziluth.png"} 
+                src={imageConfig.logoUrl || "/logo_atziluth.jpg"} 
                 alt="Logo Atziluth Gráfic Digital" 
                 className="w-full h-full object-contain p-0.5 group-hover:scale-105 transition-transform"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.endsWith("/logo_atziluth.jpg")) {
+                    target.src = "/logo_atziluth.jpg";
+                  }
                 }}
               />
             </div>
@@ -625,12 +628,15 @@ export default function App() {
                     <div className="relative group p-1.5 bg-gradient-to-r from-brand-magenta via-brand-orange via-brand-yellow to-brand-cyan rounded-2xl shadow-xl hover:shadow-2xl transition-all">
                       <div className="bg-white px-5 py-3 rounded-[14px] flex items-center gap-4">
                         <img 
-                          src={imageConfig.logoUrl || "/logo_atziluth.png"} 
+                          src={imageConfig.logoUrl || "/logo_atziluth.jpg"} 
                           alt="Atziluth Gráfic Digital - Creamos Impacto Visual" 
                           className="w-16 h-16 sm:w-20 sm:h-20 object-contain rounded-lg"
                           referrerPolicy="no-referrer"
                           onError={(e) => {
-                            (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                            const target = e.target as HTMLImageElement;
+                            if (!target.src.endsWith("/logo_atziluth.jpg")) {
+                              target.src = "/logo_atziluth.jpg";
+                            }
                           }}
                         />
                         <div className="text-left">
@@ -1181,12 +1187,15 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center bg-white shadow-sm">
               <img 
-                src={imageConfig.logoUrl || "/logo_atziluth.png"} 
+                src={imageConfig.logoUrl || "/logo_atziluth.jpg"} 
                 alt="Logo Atziluth Gráfic Digital" 
                 className="w-full h-full object-contain p-0.5"
                 referrerPolicy="no-referrer"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                  const target = e.target as HTMLImageElement;
+                  if (!target.src.endsWith("/logo_atziluth.jpg")) {
+                    target.src = "/logo_atziluth.jpg";
+                  }
                 }}
               />
             </div>

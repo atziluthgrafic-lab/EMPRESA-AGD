@@ -14,10 +14,18 @@ const PORT = 3000;
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// Ensure uploads filesystem directory exists for persistent local assets customizer
+// Ensure imagenes and uploads filesystem directories exist for persistent local assets customizer
+const IMAGENES_DIR = path.join(process.cwd(), "imagenes");
+const PUBLIC_IMAGENES_DIR = path.join(process.cwd(), "public", "imagenes");
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
 const PUBLIC_UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
 
+if (!fs.existsSync(IMAGENES_DIR)) {
+  fs.mkdirSync(IMAGENES_DIR, { recursive: true });
+}
+if (!fs.existsSync(PUBLIC_IMAGENES_DIR)) {
+  fs.mkdirSync(PUBLIC_IMAGENES_DIR, { recursive: true });
+}
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 }
@@ -25,9 +33,43 @@ if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
   fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
 }
 
-// Serve uploaded assets statically to both local clients and users from internet
+// Serve uploaded assets statically from /imagenes and /uploads
+app.use("/imagenes", express.static(IMAGENES_DIR));
+app.use("/imagenes", express.static(PUBLIC_IMAGENES_DIR));
+app.use("/uploads", express.static(IMAGENES_DIR)); // Serve /uploads requests seamlessly from /imagenes
 app.use("/uploads", express.static(UPLOADS_DIR));
 app.use("/uploads", express.static(PUBLIC_UPLOADS_DIR));
+
+// Bulletproof fallback route for /imagenes and /uploads to guarantee assets always resolve
+app.use(["/imagenes", "/uploads"], (req: any, res: any, next: any) => {
+  const requestedPath = req.path || "";
+  const cleanPath = requestedPath.replace(/^\//, "");
+  
+  if (cleanPath) {
+    const p1 = path.join(IMAGENES_DIR, cleanPath);
+    const p2 = path.join(PUBLIC_IMAGENES_DIR, cleanPath);
+    const p3 = path.join(UPLOADS_DIR, cleanPath);
+    const p4 = path.join(PUBLIC_UPLOADS_DIR, cleanPath);
+    if (fs.existsSync(p1)) return res.sendFile(p1);
+    if (fs.existsSync(p2)) return res.sendFile(p2);
+    if (fs.existsSync(p3)) return res.sendFile(p3);
+    if (fs.existsSync(p4)) return res.sendFile(p4);
+  }
+
+  // If requested file contains 'logo' or is a logo asset, serve public logo_atziluth.jpg/png
+  if (requestedPath.toLowerCase().includes("logo")) {
+    const defaultLogoJpg = path.join(process.cwd(), "public", "logo_atziluth.jpg");
+    const defaultLogoPng = path.join(process.cwd(), "public", "logo_atziluth.png");
+    if (fs.existsSync(defaultLogoJpg)) {
+      return res.sendFile(defaultLogoJpg);
+    }
+    if (fs.existsSync(defaultLogoPng)) {
+      return res.sendFile(defaultLogoPng);
+    }
+  }
+
+  next();
+});
 
 // Helper to initialize Google Gen AI safely
 let aiClient: GoogleGenAI | null = null;
@@ -474,36 +516,46 @@ const handleUploadImageRequest = (req: any, res: any) => {
     }
 
     const uniqueFileName = `${timestamp}_${randomSalt}_${baseName}`;
-    const uploadedUrl = `/uploads/${uniqueFileName}`;
+    const uploadedUrl = `/imagenes/${uniqueFileName}`;
 
-    // 1. Save file to main /uploads directory
-    const targetPath = path.join(UPLOADS_DIR, uniqueFileName);
+    // 1. Save file directly to main /imagenes directory
+    const targetPath = path.join(IMAGENES_DIR, uniqueFileName);
     fs.writeFileSync(targetPath, buffer);
 
-    // 2. Sync to /public/uploads/ directory for static availability
-    const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
-    if (!fs.existsSync(publicUploadsDir)) {
-      fs.mkdirSync(publicUploadsDir, { recursive: true });
+    // 2. Sync to /public/imagenes/ directory for static availability
+    if (!fs.existsSync(PUBLIC_IMAGENES_DIR)) {
+      fs.mkdirSync(PUBLIC_IMAGENES_DIR, { recursive: true });
     }
-    fs.writeFileSync(path.join(publicUploadsDir, uniqueFileName), buffer);
+    fs.writeFileSync(path.join(PUBLIC_IMAGENES_DIR, uniqueFileName), buffer);
 
-    // 3. Sync to /dist/uploads/ if production build exists
+    // 3. Sync to /uploads and /public/uploads for legacy URL compatibility
+    fs.writeFileSync(path.join(UPLOADS_DIR, uniqueFileName), buffer);
+    if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
+      fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
+    }
+    fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, uniqueFileName), buffer);
+
+    // 4. Sync to /dist/imagenes and /dist/uploads if production build exists
     const distPath = path.join(process.cwd(), "dist");
     if (fs.existsSync(distPath)) {
+      const distImagenesDir = path.join(distPath, "imagenes");
       const distUploadsDir = path.join(distPath, "uploads");
-      if (!fs.existsSync(distUploadsDir)) {
-        fs.mkdirSync(distUploadsDir, { recursive: true });
-      }
+      if (!fs.existsSync(distImagenesDir)) fs.mkdirSync(distImagenesDir, { recursive: true });
+      if (!fs.existsSync(distUploadsDir)) fs.mkdirSync(distUploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(distImagenesDir, uniqueFileName), buffer);
       fs.writeFileSync(path.join(distUploadsDir, uniqueFileName), buffer);
     }
 
+    const reqType = req.body.type || "";
     const isLogoRequest =
       req.body.isLogo === true ||
-      req.body.type === "logo" ||
+      reqType === "logo" ||
       sanitizedFileName!.toLowerCase().includes("logo");
 
-    let updatedConfig = null;
+    const currentConfig = loadImagesConfig();
+    let updatedConfig = false;
 
+    // Distribute from /imagenes to the corresponding destination
     if (isLogoRequest) {
       try {
         const publicDir = path.join(process.cwd(), "public");
@@ -511,28 +563,48 @@ const handleUploadImageRequest = (req: any, res: any) => {
           fs.mkdirSync(publicDir, { recursive: true });
         }
 
-        // Save as main brand logo in /public
+        // Save as primary brand logo in /public and /public/imagenes
         fs.writeFileSync(path.join(publicDir, "logo_atziluth.png"), buffer);
         fs.writeFileSync(path.join(publicDir, "logo_atziluth.jpg"), buffer);
+        fs.writeFileSync(path.join(PUBLIC_IMAGENES_DIR, "logo_atziluth.png"), buffer);
+        fs.writeFileSync(path.join(PUBLIC_IMAGENES_DIR, "logo_atziluth.jpg"), buffer);
 
         // Also save in /dist if built
         if (fs.existsSync(distPath)) {
           fs.writeFileSync(path.join(distPath, "logo_atziluth.png"), buffer);
           fs.writeFileSync(path.join(distPath, "logo_atziluth.jpg"), buffer);
+          const distImagenes = path.join(distPath, "imagenes");
+          if (!fs.existsSync(distImagenes)) fs.mkdirSync(distImagenes, { recursive: true });
+          fs.writeFileSync(path.join(distImagenes, "logo_atziluth.png"), buffer);
+          fs.writeFileSync(path.join(distImagenes, "logo_atziluth.jpg"), buffer);
         }
 
-        // Save new logoUrl into CONFIG_FILE
-        const currentConfig = loadImagesConfig();
+        // Save new logoUrl into configuration
         currentConfig.logoUrl = uploadedUrl;
-        fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
-
-        if (fs.existsSync(distPath)) {
-          fs.writeFileSync(path.join(distPath, "custom_images_config.json"), JSON.stringify(currentConfig, null, 2), "utf-8");
-        }
-
-        updatedConfig = currentConfig;
+        updatedConfig = true;
       } catch (errLogo) {
-        console.error("Error sincronizando logo de la marca:", errLogo);
+        console.error("Error distribuyendo logo de la marca:", errLogo);
+      }
+    } else if (reqType === "webDesignMockup") {
+      currentConfig.webDesignMockup = uploadedUrl;
+      updatedConfig = true;
+    } else if (reqType === "restaurantAppMockup") {
+      currentConfig.restaurantAppMockup = uploadedUrl;
+      updatedConfig = true;
+    } else if (reqType === "municipalDirectoryBanner") {
+      currentConfig.municipalDirectoryBanner = uploadedUrl;
+      updatedConfig = true;
+    } else if (reqType === "litho" || req.body.lithoCategory) {
+      if (!currentConfig.customLithoImages) currentConfig.customLithoImages = {};
+      const catKey = req.body.lithoCategory || "general";
+      currentConfig.customLithoImages[catKey] = uploadedUrl;
+      updatedConfig = true;
+    }
+
+    if (updatedConfig) {
+      fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
+      if (fs.existsSync(distPath)) {
+        fs.writeFileSync(path.join(distPath, "custom_images_config.json"), JSON.stringify(currentConfig, null, 2), "utf-8");
       }
     }
 
@@ -540,7 +612,7 @@ const handleUploadImageRequest = (req: any, res: any) => {
       success: true,
       url: uploadedUrl,
       logoUrl: isLogoRequest ? uploadedUrl : undefined,
-      config: updatedConfig || loadImagesConfig()
+      config: currentConfig
     });
   } catch (err: any) {
     console.error("Error en servicio de subida de imágenes:", err);
