@@ -154,20 +154,18 @@ export default function AdminDashboard() {
           }),
         });
 
-        if (response.ok) {
-          const result = await response.json();
+        const result = await response.json();
+
+        if (response.ok && result.success) {
           const newUrl = result.url || base64Data;
           setLogoPreview(newUrl);
-          setUploadMessage("¡Logo subido e instalado con éxito via Logotach!");
+          setUploadMessage("¡Logo subido, validado e instalado con éxito!");
           await saveConfig(clients, newUrl);
         } else {
-          // Fallback to local base64 display if endpoint rejected
-          setLogoPreview(base64Data);
-          setUploadMessage("Logo actualizado en memoria local.");
-          await saveConfig(clients, base64Data);
+          setUploadMessage(`Error de validación: ${result.error || "El archivo de imagen no es válido."}`);
         }
         setUploadingLogo(false);
-        setTimeout(() => setUploadMessage(null), 4000);
+        setTimeout(() => setUploadMessage(null), 5000);
       };
       reader.readAsDataURL(file);
     } catch (err) {

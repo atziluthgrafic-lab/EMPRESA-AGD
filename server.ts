@@ -16,12 +16,18 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Ensure uploads filesystem directory exists for persistent local assets customizer
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+const PUBLIC_UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+
 if (!fs.existsSync(UPLOADS_DIR)) {
   fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+}
+if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
+  fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
 }
 
 // Serve uploaded assets statically to both local clients and users from internet
 app.use("/uploads", express.static(UPLOADS_DIR));
+app.use("/uploads", express.static(PUBLIC_UPLOADS_DIR));
 
 // Helper to initialize Google Gen AI safely
 let aiClient: GoogleGenAI | null = null;
@@ -313,56 +319,220 @@ app.post("/api/admin/config", allowUpload, (req, res) => {
   }
 });
 
+/**
+ * File Validation Service for Image Uploads
+ * Validates payload structure, non-null data, byte size, base64 headers, and magic byte signatures.
+ */
+interface ImageValidationResult {
+  isValid: boolean;
+  errorMessage?: string;
+  buffer?: Buffer;
+  mimeType?: string;
+  fileExtension?: string;
+  sanitizedFileName?: string;
+}
+
+function validateImageUploadPayload(body: any): ImageValidationResult {
+  if (!body || typeof body !== "object") {
+    return { isValid: false, errorMessage: "El cuerpo de la solicitud (payload) es nulo o inválido." };
+  }
+
+  const rawData = body.base64Data || body.fileData || body.imageData || body.image;
+  const rawFileName = body.fileName || body.name || "uploaded_image.png";
+
+  if (!rawData || typeof rawData !== "string") {
+    return { isValid: false, errorMessage: "No se proporcionaron datos de imagen válidos." };
+  }
+
+  const trimmedData = rawData.trim();
+
+  // Guard against stringified null/undefined/corrupt values
+  if (
+    trimmedData === "" ||
+    trimmedData === "null" ||
+    trimmedData === "undefined" ||
+    trimmedData === "NaN" ||
+    trimmedData === "[object Object]"
+  ) {
+    return { isValid: false, errorMessage: "Los datos de la imagen contienen un valor nulo o no válido." };
+  }
+
+  // Extract MIME type if data URI prefix exists
+  let mimeType = "image/png";
+  const dataUriMatch = trimmedData.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,/);
+  if (dataUriMatch) {
+    mimeType = dataUriMatch[1].toLowerCase();
+  }
+
+  // Strip Data URI prefix
+  const cleanBase64 = trimmedData.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, "").trim();
+
+  if (cleanBase64.length < 32) {
+    return { isValid: false, errorMessage: "El archivo de imagen está incompleto o corrupto." };
+  }
+
+  let buffer: Buffer;
+  try {
+    buffer = Buffer.from(cleanBase64, "base64");
+  } catch (err) {
+    return { isValid: false, errorMessage: "Error al decodificar la estructura base64 de la imagen." };
+  }
+
+  if (!buffer || buffer.length < 16) {
+    return { isValid: false, errorMessage: "Archivo corrupto: el tamaño binario decodificado es insuficiente (menos de 16 bytes)." };
+  }
+
+  // Max size check (25MB)
+  const MAX_BYTES = 25 * 1024 * 1024;
+  if (buffer.length > MAX_BYTES) {
+    return { isValid: false, errorMessage: "El archivo excede el tamaño máximo permitido de 25 MB." };
+  }
+
+  // Magic Bytes Inspection for valid image formats
+  let detectedExt = "png";
+  let isRecognizedImage = false;
+
+  const b0 = buffer[0];
+  const b1 = buffer[1];
+  const b2 = buffer[2];
+  const b3 = buffer[3];
+
+  if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) {
+    detectedExt = "png";
+    mimeType = "image/png";
+    isRecognizedImage = true;
+  } else if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) {
+    detectedExt = "jpg";
+    mimeType = "image/jpeg";
+    isRecognizedImage = true;
+  } else if (
+    b0 === 0x52 && b1 === 0x49 && b2 === 0x46 && b3 === 0x46 &&
+    buffer.length >= 12 &&
+    buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+  ) {
+    detectedExt = "webp";
+    mimeType = "image/webp";
+    isRecognizedImage = true;
+  } else if (b0 === 0x47 && b1 === 0x49 && b2 === 0x46 && b3 === 0x38) {
+    detectedExt = "gif";
+    mimeType = "image/gif";
+    isRecognizedImage = true;
+  } else if (b0 === 0x42 && b1 === 0x4d) {
+    detectedExt = "bmp";
+    mimeType = "image/bmp";
+    isRecognizedImage = true;
+  } else {
+    // Check for SVG
+    const snippet = buffer.slice(0, 200).toString("utf-8").toLowerCase();
+    if (snippet.includes("<svg") || snippet.includes("<?xml")) {
+      detectedExt = "svg";
+      mimeType = "image/svg+xml";
+      isRecognizedImage = true;
+    }
+  }
+
+  if (!isRecognizedImage) {
+    return {
+      isValid: false,
+      errorMessage: "El archivo no posee una firma de imagen válida (debe ser PNG, JPEG, WEBP, GIF, SVG o BMP)."
+    };
+  }
+
+  // Sanitize original file name
+  const cleanName = String(rawFileName)
+    .replace(/[^a-zA-Z0-9.\-_]/g, "_")
+    .replace(/_{2,}/g, "_");
+
+  return {
+    isValid: true,
+    buffer,
+    mimeType,
+    fileExtension: detectedExt,
+    sanitizedFileName: cleanName
+  };
+}
+
 // Handler for local file uploads & Logotach Logo Manager
 const handleUploadImageRequest = (req: any, res: any) => {
   try {
-    const { fileName, base64Data, isLogo } = req.body;
-    if (!fileName || !base64Data) {
-      return res.status(400).json({ success: false, error: "Nombre de archivo e imagen base64 requeridos." });
+    const validation = validateImageUploadPayload(req.body);
+    if (!validation.isValid || !validation.buffer) {
+      return res.status(400).json({
+        success: false,
+        error: validation.errorMessage || "Error de validación en la imagen subida."
+      });
     }
 
-    // Clean up base64 prefix
-    const base64Clean = base64Data.replace(/^data:image\/\w+;base64,/, "");
-    const binaryData = Buffer.from(base64Clean, "base64");
-
-    // Build a unique, web-safe file name
+    const { buffer, fileExtension, sanitizedFileName } = validation;
     const timestamp = Date.now();
-    const safeName = (fileName || "uploaded_image.png").replace(/[^a-zA-Z0-9.\-_]/g, "_");
-    const uniqueFileName = `${timestamp}_${safeName}`;
-    const targetPath = path.join(UPLOADS_DIR, uniqueFileName);
+    const randomSalt = Math.floor(Math.random() * 1000);
 
-    // Write file to filesystem uploads directory
-    fs.writeFileSync(targetPath, binaryData);
+    // Build unique extension-safe file name
+    let baseName = sanitizedFileName || "image";
+    if (!baseName.toLowerCase().endsWith(`.${fileExtension}`)) {
+      baseName = `${baseName.replace(/\.[^/.]+$/, "")}.${fileExtension}`;
+    }
+
+    const uniqueFileName = `${timestamp}_${randomSalt}_${baseName}`;
     const uploadedUrl = `/uploads/${uniqueFileName}`;
 
-    const isLogoRequest = isLogo === true || safeName.toLowerCase().includes("logo") || req.body.type === "logo";
+    // 1. Save file to main /uploads directory
+    const targetPath = path.join(UPLOADS_DIR, uniqueFileName);
+    fs.writeFileSync(targetPath, buffer);
 
-    // If marked as logo, also update public/logo_atziluth.png and config.json
+    // 2. Sync to /public/uploads/ directory for static availability
+    const publicUploadsDir = path.join(process.cwd(), "public", "uploads");
+    if (!fs.existsSync(publicUploadsDir)) {
+      fs.mkdirSync(publicUploadsDir, { recursive: true });
+    }
+    fs.writeFileSync(path.join(publicUploadsDir, uniqueFileName), buffer);
+
+    // 3. Sync to /dist/uploads/ if production build exists
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      const distUploadsDir = path.join(distPath, "uploads");
+      if (!fs.existsSync(distUploadsDir)) {
+        fs.mkdirSync(distUploadsDir, { recursive: true });
+      }
+      fs.writeFileSync(path.join(distUploadsDir, uniqueFileName), buffer);
+    }
+
+    const isLogoRequest =
+      req.body.isLogo === true ||
+      req.body.type === "logo" ||
+      sanitizedFileName!.toLowerCase().includes("logo");
+
     let updatedConfig = null;
+
     if (isLogoRequest) {
       try {
         const publicDir = path.join(process.cwd(), "public");
         if (!fs.existsSync(publicDir)) {
           fs.mkdirSync(publicDir, { recursive: true });
         }
-        const publicLogoPath = path.join(publicDir, "logo_atziluth.png");
-        const publicLogoJpgPath = path.join(publicDir, "logo_atziluth.jpg");
-        fs.writeFileSync(publicLogoPath, binaryData);
-        fs.writeFileSync(publicLogoJpgPath, binaryData);
 
-        const distPublicDir = path.join(process.cwd(), "dist");
-        if (fs.existsSync(distPublicDir)) {
-          fs.writeFileSync(path.join(distPublicDir, "logo_atziluth.png"), binaryData);
-          fs.writeFileSync(path.join(distPublicDir, "logo_atziluth.jpg"), binaryData);
+        // Save as main brand logo in /public
+        fs.writeFileSync(path.join(publicDir, "logo_atziluth.png"), buffer);
+        fs.writeFileSync(path.join(publicDir, "logo_atziluth.jpg"), buffer);
+
+        // Also save in /dist if built
+        if (fs.existsSync(distPath)) {
+          fs.writeFileSync(path.join(distPath, "logo_atziluth.png"), buffer);
+          fs.writeFileSync(path.join(distPath, "logo_atziluth.jpg"), buffer);
         }
 
         // Save new logoUrl into CONFIG_FILE
         const currentConfig = loadImagesConfig();
         currentConfig.logoUrl = uploadedUrl;
         fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
+
+        if (fs.existsSync(distPath)) {
+          fs.writeFileSync(path.join(distPath, "custom_images_config.json"), JSON.stringify(currentConfig, null, 2), "utf-8");
+        }
+
         updatedConfig = currentConfig;
       } catch (errLogo) {
-        console.error("Error copying logo to public folder:", errLogo);
+        console.error("Error sincronizando logo de la marca:", errLogo);
       }
     }
 
@@ -373,8 +543,11 @@ const handleUploadImageRequest = (req: any, res: any) => {
       config: updatedConfig || loadImagesConfig()
     });
   } catch (err: any) {
-    console.error("Error uploading local image file:", err);
-    res.status(500).json({ success: false, error: "Error de servidor al procesar el archivo subido." });
+    console.error("Error en servicio de subida de imágenes:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error interno del servidor al procesar y almacenar la imagen."
+    });
   }
 };
 
