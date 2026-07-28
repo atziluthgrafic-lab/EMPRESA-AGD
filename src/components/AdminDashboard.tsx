@@ -475,38 +475,38 @@ export default function AdminDashboard() {
           <div className="flex items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
             <div className="w-14 h-14 rounded-xl bg-white border border-slate-700 overflow-hidden flex items-center justify-center p-1 shadow-inner relative">
               <img
-                src={logoPreview}
+                src={logoPreview || "/logo_atziluth.jpg"}
                 alt="Logo Atziluth"
                 className="w-full h-full object-contain"
                 onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                  (e.target as HTMLImageElement).src = "/logo_atziluth.jpg";
                 }}
               />
             </div>
             <div>
-              <span className="text-[10px] font-mono uppercase text-slate-400 block">Logo Activo en Plataforma</span>
-              <span className="text-xs font-bold text-emerald-400 font-mono">
-                {logoPreview.startsWith("data:") ? "Imagen Personalizada (Base64)" : logoPreview}
+              <span className="text-[10px] font-mono uppercase text-slate-400 block">Imagen Directa Activa</span>
+              <span className="text-xs font-bold text-emerald-400 font-mono truncate max-w-[280px] block">
+                {logoPreview || "/logo_atziluth.jpg"}
               </span>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Opción 1: Subir Archivo desde Computador */}
+          {/* Opción 1: Cargar Archivo de Imagen Directa */}
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
             <div>
               <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Upload className="w-4 h-4" /> 1. Subir Archivo Local (Cualquier Formato de Imagen)
+                <Upload className="w-4 h-4" /> Cargar Archivo de Imagen Directa
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Selecciona cualquier imagen en tu dispositivo (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP) para actualizar el logo de la marca.
+                Selecciona o arrastra cualquier archivo de imagen directa (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP).
               </p>
             </div>
 
-            <label className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
+            <label className="w-full py-3 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
               <Upload className="w-4 h-4" />
-              {uploadingLogo ? "Procesando Imagen..." : "Seleccionar y Cargar Logo"}
+              {uploadingLogo ? "Guardando Logo Directo..." : "Seleccionar Archivo de Logo"}
               <input
                 type="file"
                 accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff"
@@ -517,21 +517,21 @@ export default function AdminDashboard() {
             </label>
           </div>
 
-          {/* Opción 2: Ingresar Enlace o URL de Imagen */}
+          {/* Opción 2: Ruta Directa de Servidor */}
           <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
             <div>
               <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Save className="w-4 h-4" /> 2. O Ingresar URL Directa de Imagen
+                <Save className="w-4 h-4" /> Ruta / Dirección Directa de Imagen
               </span>
               <p className="text-[11px] text-slate-400 mt-1">
-                Pega la dirección web de cualquier formato de imagen (ej: <code className="text-slate-200">/imagenes/mi_logo.png</code>).
+                Muestra la ubicación de la imagen directa guardada en el servidor (ej: <code className="text-slate-200">/imagenes/mi_logo.png</code>).
               </p>
             </div>
 
             <div className="flex gap-2">
               <input
                 type="text"
-                value={logoPreview.startsWith("data:") ? "" : logoPreview}
+                value={logoPreview}
                 onChange={(e) => setLogoPreview(e.target.value)}
                 placeholder="/imagenes/mi_logo.png"
                 className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
@@ -539,7 +539,7 @@ export default function AdminDashboard() {
               <button
                 onClick={() => {
                   saveConfig(clients, logoPreview);
-                  setUploadMessage("¡URL de logo guardada con éxito!");
+                  setUploadMessage("¡Ruta directa guardada con éxito!");
                   setTimeout(() => setUploadMessage(null), 3000);
                 }}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"

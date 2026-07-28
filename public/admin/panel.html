@@ -602,37 +602,36 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- Opción 1: Subir Archivo -->
+              <!-- Opción 1: Cargar Archivo de Imagen Directa -->
               <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
                 <div>
                   <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                    <i data-lucide="upload" class="w-4 h-4"></i> 1. Cargar Archivo Local (Cualquier Formato)
+                    <i data-lucide="upload" class="w-4 h-4"></i> Cargar Archivo de Imagen Directa
                   </span>
                   <p class="text-[11px] text-slate-400 mt-1">
-                    Selecciona cualquier archivo de imagen (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP) para actualizar la marca.
+                    Selecciona o arrastra cualquier imagen directa desde tu dispositivo (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP).
                   </p>
                 </div>
 
-                <label class="w-full py-2.5 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
-                  <i data-lucide="upload" class="w-4 h-4"></i>
-                  <span id="panel-logo-upload-btn-text">Subir Nuevo Logo</span>
-                  <input
-                    type="file"
-                    id="panel-logo-file-input"
-                    accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff"
-                    class="hidden"
-                  />
-                </label>
+                <div class="upload-dropzone border-2 border-dashed border-slate-800 hover:border-brand-orange rounded-xl p-4 text-center cursor-pointer transition-colors relative" data-field="logoUrl">
+                  <input type="file" class="hidden file-input" accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff">
+                  <i data-lucide="upload" class="w-5 h-5 text-slate-500 mx-auto mb-1"></i>
+                  <p class="text-[10px] text-slate-400 font-medium">Arrastra o haz clic para subir tu imagen directa</p>
+                  <p class="text-[8px] text-slate-500 mt-0.5">PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP</p>
+                  <div class="uploading-overlay hidden absolute inset-0 bg-brand-darkCard/90 flex items-center justify-center rounded-xl">
+                    <span class="text-[10px] font-mono text-brand-orange animate-pulse">Guardando logo directo...</span>
+                  </div>
+                </div>
               </div>
 
-              <!-- Opción 2: URL Directa -->
+              <!-- Opción 2: Ruta Directa de Servidor -->
               <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
                 <div>
                   <span class="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                    <i data-lucide="link" class="w-4 h-4"></i> 2. URL Directa de Imagen
+                    <i data-lucide="image" class="w-4 h-4"></i> Ruta / Dirección de Imagen Directa
                   </span>
                   <p class="text-[11px] text-slate-400 mt-1">
-                    Ingresa o modifica la ruta pública (ej: <code class="text-slate-200">/imagenes/mi_logo.png</code>).
+                    Muestra la dirección de la imagen directa guardada en el servidor.
                   </p>
                 </div>
 
@@ -1081,16 +1080,16 @@
 
     // Render Logo Section
     function renderLogoSection() {
-      const activeUrl = state.config.logoUrl || '/logo_atziluth.png';
+      const activeUrl = state.config.logoUrl || '/logo_atziluth.jpg';
       const previewEl = document.getElementById('panel-logo-preview');
       const statusEl = document.getElementById('panel-logo-status');
       const urlInput = document.getElementById('panel-logo-url-input');
 
       if (previewEl) previewEl.src = activeUrl;
       if (statusEl) {
-        statusEl.textContent = activeUrl.startsWith('data:') ? 'Imagen Personalizada (Base64)' : activeUrl;
+        statusEl.textContent = activeUrl;
       }
-      if (urlInput && !activeUrl.startsWith('data:')) {
+      if (urlInput) {
         urlInput.value = activeUrl;
       }
     }
@@ -1815,16 +1814,22 @@
             },
             body: JSON.stringify({
               fileName: file.name,
-              base64Data: base64Data
+              base64Data: base64Data,
+              isLogo: field === 'logoUrl' || field === 'logo',
+              type: field === 'logoUrl' || field === 'logo' ? 'logo' : field
             })
           });
 
           const data = await response.json();
           if (response.ok && data.success) {
-            showToast('Imagen Subida', 'La imagen se subió y cargó exitosamente.');
+            showToast('Imagen Subida', 'La imagen directa se subió y cargó exitosamente.');
             
             // Map back to corresponding DOM and State fields
-            if (field === 'webDesignMockup' || field === 'restaurantAppMockup' || field === 'municipalDirectoryBanner') {
+            if (field === 'logoUrl' || field === 'logo') {
+              state.config.logoUrl = data.url;
+              renderLogoSection();
+              await autoSaveConfig();
+            } else if (field === 'webDesignMockup' || field === 'restaurantAppMockup' || field === 'municipalDirectoryBanner') {
               document.getElementById(`url-${field}`).value = data.url;
               const prevImg = document.getElementById(`prev-${field}`);
               const emptyDiv = document.getElementById(`empty-${field}`);
