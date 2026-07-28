@@ -106,6 +106,10 @@ export default function AdminDashboard() {
 
       if (res.ok) {
         setSaveStatus("¡Cambios guardados con éxito!");
+        try {
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(payload));
+          window.dispatchEvent(new Event("configUpdated"));
+        } catch (_) {}
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
         setSaveStatus("Error al guardar.");

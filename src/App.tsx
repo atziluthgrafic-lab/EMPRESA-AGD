@@ -173,6 +173,7 @@ export default function App() {
           }
           const hasLitho = serverConfig.customLithoImages && Object.values(serverConfig.customLithoImages).some(v => v);
           const hasServerData = 
+            Boolean(serverConfig.logoUrl && serverConfig.logoUrl !== "/logo_atziluth.png") ||
             (serverConfig.customBusinesses && serverConfig.customBusinesses.length > 0) ||
             (serverConfig.customAds && serverConfig.customAds.length > 0) ||
             serverConfig.webDesignMockup ||
@@ -189,12 +190,18 @@ export default function App() {
               }
               const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
               const hasLocalData = 
+                Boolean(parsedLocal.logoUrl && parsedLocal.logoUrl !== "/logo_atziluth.png") ||
                 (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
                 (parsedLocal.customAds && parsedLocal.customAds.length > 0) ||
                 parsedLocal.webDesignMockup ||
                 parsedLocal.restaurantAppMockup ||
                 parsedLocal.municipalDirectoryBanner ||
                 hasLocalLitho;
+
+              // If server has custom logoUrl, prioritize server logoUrl
+              if (serverConfig.logoUrl) {
+                parsedLocal.logoUrl = serverConfig.logoUrl;
+              }
 
               // If the server was recently restarted (contains defaults / no custom data) but local storage has data, restore it!
               if (!hasServerData && hasLocalData) {
@@ -233,7 +240,12 @@ export default function App() {
         }
       }
     };
+
     fetchImageSettings();
+    window.addEventListener("configUpdated", fetchImageSettings);
+    return () => {
+      window.removeEventListener("configUpdated", fetchImageSettings);
+    };
   }, []);
 
   React.useEffect(() => {
@@ -1169,10 +1181,13 @@ export default function App() {
           <div className="flex items-center gap-3">
             <div className="relative w-11 h-11 rounded-xl overflow-hidden border border-slate-200 flex items-center justify-center bg-white shadow-sm">
               <img 
-                src="/logo_atziluth.png" 
+                src={imageConfig.logoUrl || "/logo_atziluth.png"} 
                 alt="Logo Atziluth Gráfic Digital" 
                 className="w-full h-full object-contain p-0.5"
                 referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                }}
               />
             </div>
             <div>
@@ -1186,26 +1201,6 @@ export default function App() {
             <p className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-1.5 sm:gap-3">
               <span>Monitoreando telecomunicaciones y conversiones desde Medellín en tiempo de red.</span>
             </p>
-            <div className="pt-1 flex items-center gap-2">
-              <a
-                href="/admin/panel.html"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 transition-colors shadow-sm cursor-pointer"
-              >
-                <Lock className="w-3 h-3 text-brand-orange" />
-                Panel Administrativo SAS
-              </a>
-              <button
-                onClick={() => {
-                  setActiveTab("admin");
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-mono transition-colors cursor-pointer"
-              >
-                Consola React
-              </button>
-            </div>
           </div>
         </div>
       </footer>
