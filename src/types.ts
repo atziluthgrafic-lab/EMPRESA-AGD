@@ -67,3 +67,82 @@ export interface Business {
   imageUrl?: string;
   servicesCompleted?: string[];
 }
+
+export interface AlmanaquePrices {
+  qty100: number;
+  qty300: number;
+  qty500: number;
+  qty1000: number;
+}
+
+export interface AlmanaqueItem {
+  id: string;
+  title: string;
+  description: string;
+  details?: string;
+  imageUrl: string;
+  pdfUrl?: string;
+  prices: AlmanaquePrices;
+}
+
+export interface AlmanaquePdfPage {
+  id: string;
+  pageNumber: number;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  pdfUrl?: string;
+  description?: string;
+}
+
+export interface ServiceItem {
+  id: string;
+  title: string;
+  desc: string;
+  features: string[];
+  iconName?: string;
+  imageUrl?: string;
+  badge?: string;
+}
+
+export interface MapLocation {
+  id: string;
+  name: string;
+  subregion: SubregionId;
+  capitalDistanceKm?: number;
+  primaryEconomy: string;
+  adTip: string;
+  badge?: string;
+}
+
+export interface TariffPlan {
+  id: string;
+  name: string;
+  description: string;
+  monthlyCostCOP: number;
+  annualCostCOP: number;
+  totalAnnualCostCOP?: number;
+  badge: string;
+  color?: string;
+  textColor?: string;
+  features: string[];
+}
+
+export interface AlmanaqueConfig {
+  extraColorCost: number;
+  generalPdfUrl?: string;
+  pdfPages?: AlmanaquePdfPage[];
+  products: AlmanaqueItem[];
+}
+
+export interface FullSiteConfig {
+  logoUrl?: string;
+  clients?: ClientRecord[];
+  almanaqueConfig?: AlmanaqueConfig;
+  customServices?: ServiceItem[];
+  customMapLocations?: MapLocation[];
+  customBusinesses?: Business[];
+  customTariffs?: TariffPlan[];
+  customLithoImages?: Record<string, string>;
+  municipalDirectoryBanner?: string;
+}

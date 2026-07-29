@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { SUBREGIONS, MUNICIPALITIES } from "../data/antioquia";
-import { SubregionId, Subregion } from "../types";
+import { SubregionId, Subregion, MapLocation } from "../types";
 import { MapPin, Info, ArrowUpRight, Search, Activity, CornerDownRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
@@ -9,6 +9,7 @@ interface InteractiveMapProps {
   onSelectSubregion: (subregion: SubregionId | null) => void;
   selectedMunicipality: string | null;
   onSelectMunicipality: (municipality: string | null) => void;
+  customLocations?: MapLocation[];
 }
 
 export default function InteractiveMap({
@@ -16,20 +17,34 @@ export default function InteractiveMap({
   onSelectSubregion,
   selectedMunicipality,
   onSelectMunicipality,
+  customLocations = [],
 }: InteractiveMapProps) {
   const [hoveredSubregion, setHoveredSubregion] = useState<SubregionId | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const activeSub = SUBREGIONS.find((s) => s.id === (selectedSubregion || hoveredSubregion));
 
+  // Merge default MUNICIPALITIES with customLocations
+  const allMapItems = [
+    ...customLocations.map((loc) => ({
+      name: loc.name,
+      subregion: loc.subregion,
+      capitalDistanceKm: loc.capitalDistanceKm || 50,
+      primaryEconomy: loc.primaryEconomy,
+      adTip: loc.adTip,
+      isCustom: true,
+    })),
+    ...MUNICIPALITIES,
+  ];
+
   // Filter municipalities belonging to the selected subregion
   const filteredMunicipalities = selectedSubregion
-    ? MUNICIPALITIES.filter((m) => m.subregion === selectedSubregion)
+    ? allMapItems.filter((m) => m.subregion === selectedSubregion)
     : [];
 
-  // Search through all 125 municipalities
+  // Search through all municipalities
   const searchedMunicipalities = searchTerm.trim()
-    ? MUNICIPALITIES.filter(
+    ? allMapItems.filter(
         (m) =>
           m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           SUBREGIONS.find((s) => s.id === m.subregion)
@@ -37,6 +52,7 @@ export default function InteractiveMap({
             .includes(searchTerm.toLowerCase())
       ).slice(0, 8)
     : [];
+
 
   // Geographic SVG Path estimates for a stunning styled cyber-style map of Antioquia
   // Aligned perfectly to relative locations:

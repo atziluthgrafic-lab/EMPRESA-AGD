@@ -244,15 +244,67 @@ const CONFIG_FILE = path.join(process.cwd(), "custom_images_config.json");
 
 // Helper to load current config
 function loadImagesConfig() {
+  const defaultAlmanaqueConfig = {
+    extraColorCost: 20000,
+    products: [
+      {
+        id: "almanaque-pared",
+        title: "Almanaque de Pared con Varilla y Ojate",
+        description: "Impresión en Propalcote 250g con varilla metálica superior, ojal para colgar y taco mensual desprendible.",
+        details: "Tamaño 33x48 cm, personalizado a todo color o tintas spot, varilla metálica de fijación resistente.",
+        imageUrl: "https://images.unsplash.com/photo-1603513492128-ba7bc9b3e143?auto=format&fit=crop&w=800&q=80",
+        pdfUrl: "",
+        prices: {
+          qty100: 250000,
+          qty300: 480000,
+          qty500: 680000,
+          qty1000: 1100000
+        }
+      },
+      {
+        id: "almanaque-escritorio",
+        title: "Calendario de Escritorio Anillado",
+        description: "Base rígida en cartón industrial con 12 o 13 hojas a color en Propalcote 200g y anillado Doble O metálico.",
+        details: "Formato carpa de 15x20 cm, ideal para escritorios de clientes corporativos con presencia constante todo el año.",
+        imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+        pdfUrl: "",
+        prices: {
+          qty100: 380000,
+          qty300: 750000,
+          qty500: 1100000,
+          qty1000: 1850000
+        }
+      },
+      {
+        id: "almanaque-bolsillo",
+        title: "Almanaque de Bolsillo y Magnético",
+        description: "Almanaque práctico plastificado tipo tarjeta o magnético plastificado brillante para neveras y mostradores.",
+        details: "Impresión tiro y retiro, esquinas redondeadas o imán plano en el respaldo de alta adherencia.",
+        imageUrl: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=800&q=80",
+        pdfUrl: "",
+        prices: {
+          qty100: 120000,
+          qty300: 220000,
+          qty500: 320000,
+          qty1000: 520000
+        }
+      }
+    ]
+  };
+
   const defaults = {
-    logoUrl: "/logo_atziluth.png",
+    logoUrl: "/logo_atziluth.jpg",
     webDesignMockup: "",
     restaurantAppMockup: "",
     municipalDirectoryBanner: "",
     customBusinesses: [],
+    customServices: [],
+    customMapLocations: [],
+    customTariffs: [],
     customAds: [],
     customLithoImages: {},
     clients: [],
+    almanaqueConfig: defaultAlmanaqueConfig,
     categories: [
       "Ferreterías",
       "Parqueaderos",
@@ -271,7 +323,11 @@ function loadImagesConfig() {
       if (parsed && Array.isArray(parsed.customLithoImages)) {
         parsed.customLithoImages = {};
       }
-      return { ...defaults, ...parsed };
+      return { 
+        ...defaults, 
+        ...parsed,
+        almanaqueConfig: parsed.almanaqueConfig || defaultAlmanaqueConfig
+      };
     }
   } catch (err) {
     console.error("Error reading images configuration, using defaults:", err);
@@ -279,8 +335,8 @@ function loadImagesConfig() {
   return defaults;
 }
 
-// 4. API: Get active customizable images configuration (Public, used on app start)
-app.get("/api/config/images", (req, res) => {
+// 4. API: Get active customizable configuration (Public & Admin GET endpoints)
+app.get(["/api/admin/config", "/api/config/images", "/api/config"], (req, res) => {
   const config = loadImagesConfig();
   res.json({ success: true, config });
 });
@@ -326,22 +382,42 @@ function allowUpload(req: any, res: any, next: any) {
 // 6. API: Secure Save Custom Images Configuration
 app.post("/api/admin/config", allowUpload, (req, res) => {
   try {
-    const { logoUrl, webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages, clients } = req.body;
+    const {
+      logoUrl,
+      webDesignMockup,
+      restaurantAppMockup,
+      municipalDirectoryBanner,
+      customBusinesses,
+      customServices,
+      customMapLocations,
+      customTariffs,
+      customAds,
+      categories,
+      customLithoImages,
+      clients,
+      almanaqueConfig
+    } = req.body;
     
     let finalLitho = customLithoImages || {};
     if (Array.isArray(finalLitho)) {
       finalLitho = {};
     }
+
+    const currentConfig = loadImagesConfig();
     
     const newConfig = {
-      logoUrl: logoUrl || "/logo_atziluth.png",
+      logoUrl: logoUrl || "/logo_atziluth.jpg",
       webDesignMockup: webDesignMockup || "",
       restaurantAppMockup: restaurantAppMockup || "",
       municipalDirectoryBanner: municipalDirectoryBanner || "",
-      customBusinesses: customBusinesses || [],
+      customBusinesses: customBusinesses || currentConfig.customBusinesses || [],
+      customServices: customServices || currentConfig.customServices || [],
+      customMapLocations: customMapLocations || currentConfig.customMapLocations || [],
+      customTariffs: customTariffs || currentConfig.customTariffs || [],
       customAds: customAds || [],
       customLithoImages: finalLitho,
       clients: clients || [],
+      almanaqueConfig: almanaqueConfig || currentConfig.almanaqueConfig,
       categories: categories && categories.length > 0 ? categories : [
         "Ferreterías",
         "Parqueaderos",
@@ -401,23 +477,23 @@ function validateImageUploadPayload(body: any): ImageValidationResult {
 
   // Extract MIME type if data URI prefix exists
   let mimeType = "image/png";
-  const dataUriMatch = trimmedData.match(/^data:(image\/[a-zA-Z0-9\+\-\.]+);base64,/);
+  const dataUriMatch = trimmedData.match(/^data:((?:image|application)\/[a-zA-Z0-9\+\-\.]+);base64,/);
   if (dataUriMatch) {
     mimeType = dataUriMatch[1].toLowerCase();
   }
 
   // Strip Data URI prefix
-  const cleanBase64 = trimmedData.replace(/^data:image\/[a-zA-Z0-9\+\-\.]+;base64,/, "").trim();
+  const cleanBase64 = trimmedData.replace(/^data:(?:image|application)\/[a-zA-Z0-9\+\-\.]+;base64,/, "").trim();
 
   if (cleanBase64.length < 32) {
-    return { isValid: false, errorMessage: "El archivo de imagen está incompleto o corrupto." };
+    return { isValid: false, errorMessage: "El archivo subido está incompleto o corrupto." };
   }
 
   let buffer: Buffer;
   try {
     buffer = Buffer.from(cleanBase64, "base64");
   } catch (err) {
-    return { isValid: false, errorMessage: "Error al decodificar la estructura base64 de la imagen." };
+    return { isValid: false, errorMessage: "Error al decodificar la estructura base64 del archivo." };
   }
 
   if (!buffer || buffer.length < 16) {
@@ -440,17 +516,22 @@ function validateImageUploadPayload(body: any): ImageValidationResult {
   } else if (mimeType && mimeType.startsWith("image/")) {
     const mimeExt = mimeType.split("/")[1]?.replace("+xml", "").toLowerCase();
     if (mimeExt) detectedExt = mimeExt === "jpeg" ? "jpg" : mimeExt;
+  } else if (mimeType === "application/pdf") {
+    detectedExt = "pdf";
   }
 
-  // Magic Bytes Inspection for standard image signatures
-  let isRecognizedImage = true; // Permissive for all image types
+  // Magic Bytes Inspection for standard image and PDF signatures
+  let isRecognizedImage = true; // Permissive for all image/PDF types
 
   const b0 = buffer[0];
   const b1 = buffer[1];
   const b2 = buffer[2];
   const b3 = buffer[3];
 
-  if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) {
+  if (b0 === 0x25 && b1 === 0x50 && b2 === 0x44 && b3 === 0x46) {
+    detectedExt = "pdf";
+    mimeType = "application/pdf";
+  } else if (b0 === 0x89 && b1 === 0x50 && b2 === 0x4e && b3 === 0x47) {
     detectedExt = "png";
     mimeType = "image/png";
   } else if (b0 === 0xff && b1 === 0xd8 && b2 === 0xff) {
@@ -627,6 +708,19 @@ const handleUploadImageRequest = (req: any, res: any) => {
 // 7. API: Local File Upload Endpoints (Admin and Public Upload aliases)
 app.post("/api/admin/upload-image", allowUpload, handleUploadImageRequest);
 app.post("/api/upload-image", allowUpload, handleUploadImageRequest);
+
+// Explicit route handler for /admin/panel.html to guarantee access to the admin dashboard
+app.get(["/admin/panel.html", "/admin/panel", "/admin", "/panel.html"], (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+  const indexPath = isProd
+    ? path.join(process.cwd(), "dist", "index.html")
+    : path.join(process.cwd(), "index.html");
+
+  if (fs.existsSync(indexPath)) {
+    return res.sendFile(indexPath);
+  }
+  return res.redirect("/?tab=admin");
+});
 
 // Serve frontend assets
 async function startServer() {
