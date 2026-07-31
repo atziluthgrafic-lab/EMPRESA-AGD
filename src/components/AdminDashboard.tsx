@@ -1145,7 +1145,7 @@ export default function AdminDashboard() {
             className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-amber-500 hover:opacity-90 text-xs font-bold text-neutral-950 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
           >
             <Calendar className="w-4 h-4" />
-            Editar Almanaques 2026
+            Editar Almanaques 2027
           </button>
 
           <button
@@ -2139,7 +2139,7 @@ export default function AdminDashboard() {
                 onClick={() => {
                   const newProd: AlmanaqueItem = {
                     id: `almanaque_${Date.now()}`,
-                    title: "Nuevo Modelo de Almanaque 2026",
+                    title: "Nuevo Modelo de Almanaque 2027",
                     description: "Descripción detallada del modelo de almanaque publicitario.",
                     details: "Formato 33x48 cm. Incluye cabezote a color y taco mensual.",
                     imageUrl: "https://images.unsplash.com/photo-1603513492128-ba7bc9b3e143?auto=format&fit=crop&w=800&q=80",
@@ -2468,7 +2468,7 @@ export default function AdminDashboard() {
                       id: `page_${Date.now()}`,
                       pageNumber: pages.length + 1,
                       title: `Nueva Página ${pages.length + 1} del Muestrario`,
-                      subtitle: `Formato de Almanaques 2026`,
+                      subtitle: `Formato de Almanaques 2027`,
                       imageUrl: "https://images.unsplash.com/photo-1603513492128-ba7bc9b3e143?auto=format&fit=crop&w=1200&q=90",
                       description: "Especificaciones de maquetación e impresión."
                     };
@@ -3286,7 +3286,7 @@ function ClientCardItem({
                 type="text"
                 value={period}
                 onChange={(e) => setPeriod(e.target.value)}
-                placeholder="Ej: Julio 2026"
+                placeholder="Ej: Julio 2027"
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
               />
             </div>

@@ -201,7 +201,7 @@ Por favor asesórenme con los detalles de diseño e impresión.`;
             <button
               onClick={onOpenAdmin}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:opacity-90 text-neutral-950 font-black text-xs font-mono rounded-xl shadow-lg border border-yellow-300 cursor-pointer transition-transform hover:scale-102"
-              title="Abrir Panel de Administración para Editar Almanaques 2026"
+              title="Abrir Panel de Administración para Editar Almanaques 2027"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>PANEL ADMIN</span>
@@ -209,7 +209,7 @@ Por favor asesórenme con los detalles de diseño e impresión.`;
           )}
 
           <span className="hidden sm:inline-block px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-full text-[10px] font-mono font-bold">
-            Impresión Industrial 2026/2027
+            Impresión Industrial 2027/2028
           </span>
           <button
             onClick={handleQuoteWhatsApp}
@@ -229,7 +229,7 @@ Por favor asesórenme con los detalles de diseño e impresión.`;
               <Lock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white font-mono">Panel de Control & Edición de Almanaques 2026</h3>
+              <h3 className="text-sm font-bold text-white font-mono">Panel de Control & Edición de Almanaques 2027</h3>
               <p className="text-xs text-neutral-300">Modifica precios, sube imágenes en alta resolución, cambia descripciones y adjunta PDFs.</p>
             </div>
           </div>
@@ -594,7 +594,7 @@ Por favor asesórenme con los detalles de diseño e impresión.`;
                 <span className="w-3 h-3 rounded-full bg-red-500 inline-block" />
                 <span className="w-3 h-3 rounded-full bg-yellow-500 inline-block" />
                 <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" />
-                <span className="font-bold text-white ml-2">DOCUMENTO_CATALOGO_ALMANAQUES_2026.PDF</span>
+                <span className="font-bold text-white ml-2">DOCUMENTO_CATALOGO_ALMANAQUES_2027.PDF</span>
               </div>
               <span className="text-[10px] text-yellow-400 bg-yellow-400/10 px-2 py-0.5 rounded border border-yellow-400/20 font-bold">
                 FORMATO AMPLIO • DESPLÁCESE HACIA ABAJO

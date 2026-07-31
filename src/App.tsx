@@ -1239,7 +1239,7 @@ export default function App() {
           </div>
 
           <div className="text-center md:text-right space-y-2 font-mono text-[10px] text-slate-400 flex flex-col items-center md:items-end">
-            <p>© 2026 Atziluth Grafic Digital S.A.S. Todos los derechos reservados.</p>
+            <p>© 2027 Atziluth Grafic Digital S.A.S. Todos los derechos reservados.</p>
             <p className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-1.5 sm:gap-3">
               <span>Monitoreando telecomunicaciones y conversiones desde Medellín en tiempo de red.</span>
             </p>

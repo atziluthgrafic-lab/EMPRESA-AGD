@@ -251,14 +251,14 @@ export default function LitografiaSection({
             <Calendar className="w-4 h-4" />
             Especial Almanaques
             <span className="px-1.5 py-0.5 text-[9px] bg-red-500 text-white rounded-full font-sans font-bold uppercase animate-pulse">
-              2026
+              2027
             </span>
           </button>
           {onOpenAdmin && (
             <button
               onClick={onOpenAdmin}
               className="py-3 px-4 rounded-xl text-xs font-mono font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-neutral-950 hover:opacity-90 shadow-md border border-yellow-300"
-              title="Panel de Administración para Editar Almanaques 2026"
+              title="Panel de Administración para Editar Almanaques 2027"
             >
               <Lock className="w-3.5 h-3.5" />
               <span>PANEL ADMIN</span>
