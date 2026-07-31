@@ -1129,13 +1129,6 @@ export default function App() {
                   customLithoImages={imageConfig.customLithoImages} 
                   almanaqueConfig={imageConfig.almanaqueConfig}
                   initialSubTab={activeTab === "almanaques" ? "almanaques" : "catalogo"}
-                  onOpenAdmin={() => {
-                    setActiveTab("admin");
-                    try {
-                      window.history.pushState({}, "", "/admin/panel.html");
-                    } catch (_) {}
-                    window.scrollTo({ top: 0, behavior: "smooth" });
-                  }}
                 />
               </div>
             )}

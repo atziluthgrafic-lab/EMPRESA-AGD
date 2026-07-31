@@ -176,7 +176,7 @@ export default function AdminDashboard() {
       monthlyCostCOP: 280000,
       annualCostCOP: 250000,
       totalAnnualCostCOP: 3000000,
-      badge: "Esencial",
+      badge: "ESENCIAL",
       features: [
         "1 Landing Page Optimizada",
         "Botón de WhatsApp Flotante",
@@ -193,7 +193,7 @@ export default function AdminDashboard() {
       monthlyCostCOP: 400000,
       annualCostCOP: 350000,
       totalAnnualCostCOP: 4200000,
-      badge: "Recomendado",
+      badge: "RECOMENDADO",
       features: [
         "Sitio Web Completo (hasta 5 páginas)",
         "Catálogo Digital o Sistema de Reservas",
@@ -211,7 +211,7 @@ export default function AdminDashboard() {
       monthlyCostCOP: 750000,
       annualCostCOP: 650000,
       totalAnnualCostCOP: 7800000,
-      badge: "Empresarial",
+      badge: "EMPRESARIAL",
       features: [
         "Portal Web Avanzado & Multi-subregión",
         "E-Commerce Completo o PMS Hotelero",
@@ -325,7 +325,7 @@ export default function AdminDashboard() {
           if (Array.isArray(data.config.customServices)) setCustomServices(data.config.customServices);
           if (Array.isArray(data.config.customMapLocations)) setCustomMapLocations(data.config.customMapLocations);
           if (Array.isArray(data.config.customBusinesses)) setCustomBusinesses(data.config.customBusinesses);
-          if (Array.isArray(data.config.customTariffs)) setCustomTariffs(data.config.customTariffs);
+          if (Array.isArray(data.config.customTariffs) && data.config.customTariffs.length > 0) setCustomTariffs(data.config.customTariffs);
         }
       }
     } catch (err) {
@@ -598,7 +598,7 @@ export default function AdminDashboard() {
               annualCostCOP: tarAnnual,
               totalAnnualCostCOP: tarAnnual * 12,
               badge: tarBadge,
-              features: featuresList.length > 0 ? featuresList : t.features,
+              features: featuresList,
             }
           : t
       );
@@ -2891,7 +2891,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Resumen General de Contabilidad Mensual</h3>
-              <p class="text-xs text-slate-400">
+              <p className="text-xs text-slate-400">
                 Historial consolidado de todos los pagos registrados en la plataforma.
               </p>
             </div>

@@ -187,19 +187,22 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
                   </p>
                 </div>
 
-                <div className="py-2">
-                  <span className="text-2xl lg:text-3xl font-black text-slate-900">
-                    {formatCOP(rate)}
-                  </span>
-                  <span className="text-slate-500 text-xs font-mono"> / mes</span>
+                {/* Price Box matching presentation */}
+                <div className="mt-3 bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1">
+                  <p className="text-xs font-mono text-cyan-400 font-bold">
+                    Mensual: {formatCOP(p.monthlyCostCOP)} /mes
+                  </p>
+                  <p className="text-xs font-mono text-emerald-400">
+                    Anual: {formatCOP(p.annualCostCOP)} /mes
+                  </p>
                 </div>
               </div>
 
               {/* Plan Features */}
-              <ul className="space-y-2.5 my-6 pt-4 border-t border-slate-100">
+              <ul className="space-y-2 my-4 pt-3 border-t border-slate-100">
                 {p.features.map((f, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-slate-700 font-sans">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <span className="text-brand-orange font-bold text-xs shrink-0 mt-0.5">•</span>
                     <span>{f}</span>
                   </li>
                 ))}

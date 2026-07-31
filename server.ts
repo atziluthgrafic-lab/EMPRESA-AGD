@@ -300,7 +300,61 @@ function loadImagesConfig() {
     customBusinesses: [],
     customServices: [],
     customMapLocations: [],
-    customTariffs: [],
+    customTariffs: [
+      {
+        id: "emprendedor",
+        name: "Plan Emprendedor",
+        description: "Ideal para pymes, artesanos y marcas locales en municipios pequeños que inician su aventura digital.",
+        monthlyCostCOP: 280000,
+        annualCostCOP: 250000,
+        totalAnnualCostCOP: 3000000,
+        badge: "ESENCIAL",
+        features: [
+          "1 Landing Page Optimizada",
+          "Botón de WhatsApp Flotante",
+          "Estrategia Básica de SEO Local",
+          "Dominio .com o .co (1 año)",
+          "Alojamiento Web Seguro",
+          "3 Banners Publicitarios de IA al mes"
+        ]
+      },
+      {
+        id: "crecimiento",
+        name: "Crecimiento Digital",
+        description: "La opción preferida de hoteles en Guatapé, cafés en Jardín y marcas en expansión regional.",
+        monthlyCostCOP: 400000,
+        annualCostCOP: 350000,
+        totalAnnualCostCOP: 4200000,
+        badge: "RECOMENDADO",
+        features: [
+          "Sitio Web Completo (hasta 5 páginas)",
+          "Catálogo Digital o Sistema de Reservas",
+          "Configuración Google Maps & SEO local",
+          "Integración básica de Pasarela de Pagos",
+          "Certificado SSL de Seguridad",
+          "10 Banners Publicitarios de IA al mes",
+          "Soporte prioritario Atziluth AI"
+        ]
+      },
+      {
+        id: "corporativo",
+        name: "Corporativo Antioquia",
+        description: "Para agroindustrias en Urabá, lecheras en el Norte y pymes de alta facturación en Medellín.",
+        monthlyCostCOP: 750000,
+        annualCostCOP: 650000,
+        totalAnnualCostCOP: 7800000,
+        badge: "EMPRESARIAL",
+        features: [
+          "Portal Web Avanzado & Multi-subregión",
+          "E-Commerce Completo o PMS Hotelero",
+          "Integración de Software de Gestión / ERP",
+          "Campaña Completa de pauta Google/Meta",
+          "Mantenimiento Técnico Mensual 24/7",
+          "Diseño Gráfico Ilimitado con IA",
+          "Asesor Dedicado en Medellín/Rionegro"
+        ]
+      }
+    ],
     customAds: [],
     customLithoImages: {},
     clients: [],
