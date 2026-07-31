@@ -11,6 +11,7 @@ Options -Indexes
   AddType image/webp .webp
   AddType image/jpeg .jpg .jpeg
   AddType image/png .png
+  AddType application/pdf .pdf
   AddType image/x-icon .ico
 </IfModule>
 

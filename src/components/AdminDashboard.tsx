@@ -742,7 +742,14 @@ export default function AdminDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 25 * 1024 * 1024) {
+      alert("El documento PDF supera el tamaño máximo permitido de 25 MB.");
+      return;
+    }
+
     try {
+      setUploadingLogo(true);
+      setUploadMessage("Cargando documento PDF al servidor...");
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64Data = event.target?.result as string;
@@ -760,6 +767,7 @@ export default function AdminDashboard() {
         });
 
         const result = await response.json();
+        setUploadingLogo(false);
         if (response.ok && result.success) {
           const newUrl = result.url || base64Data;
           const updatedProducts = [...almanaqueConfig.products];
@@ -767,11 +775,19 @@ export default function AdminDashboard() {
           const updatedConfig = { ...almanaqueConfig, products: updatedProducts };
           setAlmanaqueConfig(updatedConfig);
           await saveConfig(clients, logoPreview, updatedConfig);
+          setUploadMessage(`Documento PDF subido correctamente: ${file.name}`);
+          setTimeout(() => setUploadMessage(null), 4000);
+        } else {
+          alert(result.error || "Error al guardar el archivo PDF en el servidor.");
+          setUploadMessage(null);
         }
       };
       reader.readAsDataURL(file);
     } catch (err) {
+      setUploadingLogo(false);
+      setUploadMessage(null);
       console.error("Error subiendo PDF de almanaque:", err);
+      alert("Ocurrió un error inesperado al procesar el archivo PDF.");
     }
   };
 
@@ -780,7 +796,14 @@ export default function AdminDashboard() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.size > 25 * 1024 * 1024) {
+      alert("El catálogo PDF supera el tamaño máximo permitido de 25 MB.");
+      return;
+    }
+
     try {
+      setUploadingLogo(true);
+      setUploadMessage("Cargando PDF del catálogo general...");
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64Data = event.target?.result as string;
@@ -798,16 +821,25 @@ export default function AdminDashboard() {
         });
 
         const result = await response.json();
+        setUploadingLogo(false);
         if (response.ok && result.success) {
           const newUrl = result.url || base64Data;
           const updatedConfig = { ...almanaqueConfig, generalPdfUrl: newUrl };
           setAlmanaqueConfig(updatedConfig);
           await saveConfig(clients, logoPreview, updatedConfig);
+          setUploadMessage(`Catálogo PDF general actualizado correctamente.`);
+          setTimeout(() => setUploadMessage(null), 4000);
+        } else {
+          alert(result.error || "Error al subir el PDF del catálogo general.");
+          setUploadMessage(null);
         }
       };
       reader.readAsDataURL(file);
     } catch (err) {
+      setUploadingLogo(false);
+      setUploadMessage(null);
       console.error("Error subiendo PDF general:", err);
+      alert("Ocurrió un error inesperado al procesar el catálogo PDF.");
     }
   };
 
