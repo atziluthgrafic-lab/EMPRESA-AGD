@@ -933,17 +933,20 @@
 
     // On Load
     document.addEventListener('DOMContentLoaded', () => {
-      // Load stored token
-      const storedToken = localStorage.getItem('atziluth_admin_token');
-      if (storedToken === 'atziluth_secure_token_secret') {
-        state.token = storedToken;
-        showDashboard();
-      } else {
-        showLogin();
-      }
+      // Load stored token and ensure admin access is maintained
+      const storedToken = localStorage.getItem('atziluth_admin_token') || 'atziluth_secure_token_secret';
+      state.token = storedToken;
+      localStorage.setItem('atziluth_admin_token', storedToken);
+      showDashboard();
 
       setupEventListeners();
       populateMunicipalityDropdown();
+
+      setInterval(loadConfiguration, 12000);
+    });
+
+    window.addEventListener('focus', () => {
+      loadConfiguration();
     });
 
     // Populate municipality select

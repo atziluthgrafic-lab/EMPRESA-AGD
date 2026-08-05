@@ -1,0 +1,62 @@
+{
+  "pdfUrl": "/uploads/catalogo_almanaques_2026.pdf",
+  "categories": [
+    {
+      "id": 1,
+      "name": "Almanaques de Escritorio",
+      "order": 1
+    },
+    {
+      "id": 2,
+      "name": "Respaldo de Taco",
+      "order": 2
+    },
+    {
+      "id": 3,
+      "name": "Anuario Clásico",
+      "order": 3
+    },
+    {
+      "id": 4,
+      "name": "Almanaques Variados y de Pared",
+      "order": 4
+    },
+    {
+      "id": 5,
+      "name": "Calendario de Bolsillo",
+      "order": 5
+    },
+    {
+      "id": 6,
+      "name": "Imantados para Nevera",
+      "order": 6
+    }
+  ],
+  "products": [
+    {
+      "id": "alm-101",
+      "ref": "ALM-101",
+      "categoryId": 1,
+      "name": "Almanaque de Escritorio PyME Premium",
+      "description": "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes.",
+      "finish": "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
+      "paper": "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
+      "price": 6500,
+      "imageUrl": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+      "inStock": true
+    },
+    {
+      "id": "alm-201",
+      "ref": "ALM-201",
+      "categoryId": 2,
+      "name": "Respaldo de Taco Litografiado Tamaño Grande",
+      "description": "Respaldo publicitario en cartón grueso con ojete metálico para colgar en pared, diseñado para soportar tacos de calendario diario.",
+      "finish": "Plastificado Brillante de Alta Protección + Ojete Metálico reforzado",
+      "paper": "Maule C-18 de 300g con Respaldo Blanco",
+      "price": 4200,
+      "imageUrl": "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=800&q=80",
+      "inStock": true
+    }
+  ],
+  "updatedAt": "2026-08-05T20:03:58.255Z"
+}

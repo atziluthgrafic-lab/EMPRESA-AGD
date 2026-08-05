@@ -39,18 +39,29 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
   const [clientNotes, setClientNotes] = useState("");
 
   useEffect(() => {
-    fetchAlmanaquesDataServer().then(serverData => {
-      if (serverData) setData(serverData);
-    });
+    const syncData = () => {
+      fetchAlmanaquesDataServer().then(serverData => {
+        if (serverData) setData(serverData);
+      });
+    };
+
+    syncData();
 
     const handleUpdate = () => {
       setData(getAlmanaquesData());
     };
+
     window.addEventListener("almanaques-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("focus", syncData);
+
+    const intervalId = setInterval(syncData, 12000);
+
     return () => {
       window.removeEventListener("almanaques-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("focus", syncData);
+      clearInterval(intervalId);
     };
   }, []);
 

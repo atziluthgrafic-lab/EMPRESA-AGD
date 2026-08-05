@@ -604,17 +604,10 @@
         const res = await fetch("/api/almanaques/data");
         const json = await res.json();
         
-        if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+        if (json.success && json.data && Array.isArray(json.data.products)) {
           appData = json.data;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
           renderAll();
-        } else if (appData && Array.isArray(appData.products) && appData.products.length > 0) {
-          // If server is empty but client has local products, upload local data to server
-          await fetch("/api/almanaques/data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(appData)
-          });
         }
       } catch (e) {
         console.error("Error sincronizando almanaques con servidor:", e);

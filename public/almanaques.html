@@ -492,20 +492,13 @@
       }
 
       try {
-        // Fetch fresh data from server
+        // Fetch fresh master data from server
         const res = await fetch("/api/almanaques/data");
         const json = await res.json();
-        if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+        if (json.success && json.data && Array.isArray(json.data.products)) {
           catalogData = json.data;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(catalogData));
           updatePdfAndRender();
-        } else if (catalogData && catalogData.products && catalogData.products.length > 0) {
-          // Sync client local data up to server
-          await fetch("/api/almanaques/data", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(catalogData)
-          });
         }
       } catch (e) {
         console.warn("Error al obtener catálogo desde servidor:", e);
@@ -886,6 +879,11 @@
     window.addEventListener('DOMContentLoaded', () => {
       loadCatalogData();
       if (window.lucide) lucide.createIcons();
+      setInterval(loadCatalogData, 12000);
+    });
+
+    window.addEventListener('focus', () => {
+      loadCatalogData();
     });
 
     // Escuchar actualizaciones de LocalStorage desde el Panel Admin en tiempo real

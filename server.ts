@@ -10,9 +10,9 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-// Increase request size limits to support base64 screenshot uploads for web auditing
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
+// Increase request size limits to support large PDF catalog and high-res almanac image uploads
+app.use(express.json({ limit: "100mb" }));
+app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
 // Ensure imagenes and uploads filesystem directories exist for persistent local assets customizer
 const IMAGENES_DIR = path.join(process.cwd(), "imagenes");
@@ -293,6 +293,47 @@ app.get("/api/admin/config", (req, res) => {
 // Path to dynamic almanaques data storage
 const ALMANAQUES_FILE = path.join(process.cwd(), "almanaques_data.json");
 
+function getDefaultAlmanaquesData() {
+  return {
+    pdfUrl: "/uploads/catalogo_almanaques_2026.pdf",
+    categories: [
+      { id: 1, name: "Almanaques de Escritorio", order: 1 },
+      { id: 2, name: "Respaldo de Taco", order: 2 },
+      { id: 3, name: "Anuario Clásico", order: 3 },
+      { id: 4, name: "Almanaques Variados y de Pared", order: 4 },
+      { id: 5, name: "Calendario de Bolsillo", order: 5 },
+      { id: 6, name: "Imantados para Nevera", order: 6 },
+    ],
+    products: [
+      {
+        id: "alm-101",
+        ref: "ALM-101",
+        categoryId: 1,
+        name: "Almanaque de Escritorio PyME Premium",
+        description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes.",
+        finish: "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
+        paper: "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
+        price: 6500,
+        imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-201",
+        ref: "ALM-201",
+        categoryId: 2,
+        name: "Respaldo de Taco Litografiado Tamaño Grande",
+        description: "Respaldo publicitario en cartón grueso con ojete metálico para colgar en pared, diseñado para soportar tacos de calendario diario.",
+        finish: "Plastificado Brillante de Alta Protección + Ojete Metálico reforzado",
+        paper: "Maule C-18 de 300g con Respaldo Blanco",
+        price: 4200,
+        imageUrl: "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      }
+    ],
+    updatedAt: new Date().toISOString()
+  };
+}
+
 function loadAlmanaquesDataServer() {
   try {
     if (fs.existsSync(ALMANAQUES_FILE)) {
@@ -305,7 +346,33 @@ function loadAlmanaquesDataServer() {
   } catch (err) {
     console.error("Error reading almanaques_data.json:", err);
   }
-  return null;
+  
+  // Seed initial data if missing or corrupted
+  const initial = getDefaultAlmanaquesData();
+  try {
+    saveAlmanaquesDataServer(initial);
+  } catch (e) {
+    console.error("Error seeding initial almanaques_data.json:", e);
+  }
+  return initial;
+}
+
+function saveAlmanaquesDataServer(data: any) {
+  data.updatedAt = new Date().toISOString();
+  const jsonStr = JSON.stringify(data, null, 2);
+  
+  // Save to root
+  fs.writeFileSync(ALMANAQUES_FILE, jsonStr, "utf-8");
+  
+  // Save to public
+  const publicPath = path.join(process.cwd(), "public", "almanaques_data.json");
+  fs.writeFileSync(publicPath, jsonStr, "utf-8");
+  
+  // Save to dist if available
+  const distPath = path.join(process.cwd(), "dist");
+  if (fs.existsSync(distPath)) {
+    fs.writeFileSync(path.join(distPath, "almanaques_data.json"), jsonStr, "utf-8");
+  }
 }
 
 // API: Almanaques Data GET & POST
@@ -320,8 +387,7 @@ app.post("/api/almanaques/data", allowUpload, (req, res) => {
     if (!data || !Array.isArray(data.categories) || !Array.isArray(data.products)) {
       return res.status(400).json({ success: false, error: "Estructura de datos de almanaques no válida." });
     }
-    data.updatedAt = new Date().toISOString();
-    fs.writeFileSync(ALMANAQUES_FILE, JSON.stringify(data, null, 2), "utf-8");
+    saveAlmanaquesDataServer(data);
     res.json({ success: true, data });
   } catch (err: any) {
     console.error("Error saving almanaques data:", err);
@@ -680,29 +746,48 @@ const handleUploadFileRequest = (req: any, res: any) => {
       return res.status(400).json({ success: false, error: "No se proporcionaron datos de archivo." });
     }
 
-    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, "").trim();
+    let cleanBase64 = base64Data;
+    const commaIdx = cleanBase64.indexOf(",");
+    if (commaIdx !== -1) {
+      cleanBase64 = cleanBase64.substring(commaIdx + 1);
+    }
+    cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, "");
+
     const buffer = Buffer.from(cleanBase64, "base64");
     if (buffer.length === 0) {
       return res.status(400).json({ success: false, error: "Archivo vacío o corrupto." });
     }
 
-    const rawName = (fileName || "archivo.pdf").replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const rawName = (fileName || "catalogo.pdf").replace(/[^a-zA-Z0-9.\-_]/g, "_");
     const timestamp = Date.now();
     const uniqueFileName = `${timestamp}_${rawName}`;
     const fileUrl = `/uploads/${uniqueFileName}`;
 
-    // Save to UPLOADS_DIR & PUBLIC_UPLOADS_DIR
-    fs.writeFileSync(path.join(UPLOADS_DIR, uniqueFileName), buffer);
-    if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
-      fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
-    }
-    fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, uniqueFileName), buffer);
+    // Write to all target asset directories so static serving always resolves seamlessly
+    [UPLOADS_DIR, PUBLIC_UPLOADS_DIR, IMAGENES_DIR, PUBLIC_IMAGENES_DIR].forEach(dir => {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, uniqueFileName), buffer);
+    });
 
     const distPath = path.join(process.cwd(), "dist");
     if (fs.existsSync(distPath)) {
-      const distUploadsDir = path.join(distPath, "uploads");
-      if (!fs.existsSync(distUploadsDir)) fs.mkdirSync(distUploadsDir, { recursive: true });
-      fs.writeFileSync(path.join(distUploadsDir, uniqueFileName), buffer);
+      [path.join(distPath, "uploads"), path.join(distPath, "imagenes")].forEach(dir => {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, uniqueFileName), buffer);
+      });
+    }
+
+    // If uploaded file is a PDF catalog, automatically update server's almanaques_data.json pdfUrl
+    if (rawName.toLowerCase().includes("pdf") || rawName.toLowerCase().includes("catalogo") || req.body.isCatalog) {
+      try {
+        const currentData = loadAlmanaquesDataServer();
+        if (currentData) {
+          currentData.pdfUrl = fileUrl;
+          saveAlmanaquesDataServer(currentData);
+        }
+      } catch (errPdfSync) {
+        console.error("Error auto-updating pdfUrl in almanaques_data.json:", errPdfSync);
+      }
     }
 
     res.json({ success: true, url: fileUrl, fileName: uniqueFileName });

@@ -159,17 +159,10 @@ export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
   try {
     const res = await fetch("/api/almanaques/data");
     const json = await res.json();
-    if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+    if (json.success && json.data && Array.isArray(json.data.products)) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(json.data));
       window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: json.data }));
       return json.data;
-    } else if (localData && localData.products && localData.products.length > 0) {
-      // Sync local to server if server was empty
-      await fetch("/api/almanaques/data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(localData)
-      });
     }
   } catch (e) {
     console.warn("Error obteniendo datos de almanaques del servidor:", e);
