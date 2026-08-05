@@ -17,7 +17,7 @@ import {
   Lock,
   ChevronRight
 } from "lucide-react";
-import { getAlmanaquesData, AlmanaquesData, ProductReference, Category } from "../data/almanaquesData";
+import { getAlmanaquesData, fetchAlmanaquesDataServer, AlmanaquesData, ProductReference, Category } from "../data/almanaquesData";
 
 interface AlmanaquesSectionProps {
   onOpenAsistencia?: () => void;
@@ -39,6 +39,10 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
   const [clientNotes, setClientNotes] = useState("");
 
   useEffect(() => {
+    fetchAlmanaquesDataServer().then(serverData => {
+      if (serverData) setData(serverData);
+    });
+
     const handleUpdate = () => {
       setData(getAlmanaquesData());
     };

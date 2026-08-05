@@ -285,6 +285,50 @@ app.get("/api/config/images", (req, res) => {
   res.json({ success: true, config });
 });
 
+app.get("/api/admin/config", (req, res) => {
+  const config = loadImagesConfig();
+  res.json({ success: true, config });
+});
+
+// Path to dynamic almanaques data storage
+const ALMANAQUES_FILE = path.join(process.cwd(), "almanaques_data.json");
+
+function loadAlmanaquesDataServer() {
+  try {
+    if (fs.existsSync(ALMANAQUES_FILE)) {
+      const info = fs.readFileSync(ALMANAQUES_FILE, "utf-8");
+      const parsed = JSON.parse(info);
+      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products)) {
+        return parsed;
+      }
+    }
+  } catch (err) {
+    console.error("Error reading almanaques_data.json:", err);
+  }
+  return null;
+}
+
+// API: Almanaques Data GET & POST
+app.get("/api/almanaques/data", (req, res) => {
+  const data = loadAlmanaquesDataServer();
+  res.json({ success: true, data });
+});
+
+app.post("/api/almanaques/data", allowUpload, (req, res) => {
+  try {
+    const data = req.body;
+    if (!data || !Array.isArray(data.categories) || !Array.isArray(data.products)) {
+      return res.status(400).json({ success: false, error: "Estructura de datos de almanaques no válida." });
+    }
+    data.updatedAt = new Date().toISOString();
+    fs.writeFileSync(ALMANAQUES_FILE, JSON.stringify(data, null, 2), "utf-8");
+    res.json({ success: true, data });
+  } catch (err: any) {
+    console.error("Error saving almanaques data:", err);
+    res.status(500).json({ success: false, error: "Error de servidor al guardar datos de almanaques." });
+  }
+});
+
 // 5. API: Secure login for Admin Control Panel
 app.post("/api/admin/login", (req, res) => {
   const { username, password } = req.body;

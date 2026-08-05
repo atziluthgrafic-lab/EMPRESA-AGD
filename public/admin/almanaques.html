@@ -599,14 +599,49 @@
       }
     }
 
-    function saveData() {
+    async function syncWithServerOnBoot() {
+      try {
+        const res = await fetch("/api/almanaques/data");
+        const json = await res.json();
+        
+        if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+          appData = json.data;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+          renderAll();
+        } else if (appData && Array.isArray(appData.products) && appData.products.length > 0) {
+          // If server is empty but client has local products, upload local data to server
+          await fetch("/api/almanaques/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(appData)
+          });
+        }
+      } catch (e) {
+        console.error("Error sincronizando almanaques con servidor:", e);
+      }
+    }
+
+    async function saveData() {
       try {
         appData.updatedAt = new Date().toISOString();
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+        
+        // Sync to server so all devices see changes
+        const res = await fetch("/api/almanaques/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(appData)
+        });
+
         window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: appData }));
-        showToast("Cambios Guardados", "Los datos de almanaques 2026 se actualizaron correctamente.");
+        
+        if (res.ok) {
+          showToast("Sincronizado en Servidor", "Los datos de almanaques 2026 se actualizaron y están visibles en todos los dispositivos.");
+        } else {
+          showToast("Guardado Local", "Guardado localmente. Revisa la conexión al servidor.");
+        }
       } catch (e) {
-        showToast("Error", "No se pudieron guardar los datos.", "error");
+        showToast("Error", "No se pudieron guardar los datos en el servidor.", "error");
       }
     }
 
@@ -630,6 +665,9 @@
       document.getElementById("admin-panel").classList.remove("hidden");
       renderAll();
     }
+    
+    // Boot server sync
+    syncWithServerOnBoot();
 
     // Auth Form
     document.getElementById("login-form").addEventListener("submit", async (e) => {

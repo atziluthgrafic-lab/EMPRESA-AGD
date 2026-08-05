@@ -475,20 +475,44 @@
       }).format(amount);
     }
 
-    // Cargar datos guardados en LocalStorage
-    function loadCatalogData() {
+    // Cargar datos guardados en Servidor y LocalStorage
+    async function loadCatalogData() {
       try {
+        // First try local storage cache for immediate render
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (parsed.categories && parsed.products) {
             catalogData = parsed;
+            updatePdfAndRender();
           }
         }
       } catch (e) {
         console.warn("Usando datos por defecto para catálogo");
       }
-      
+
+      try {
+        // Fetch fresh data from server
+        const res = await fetch("/api/almanaques/data");
+        const json = await res.json();
+        if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+          catalogData = json.data;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(catalogData));
+          updatePdfAndRender();
+        } else if (catalogData && catalogData.products && catalogData.products.length > 0) {
+          // Sync client local data up to server
+          await fetch("/api/almanaques/data", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(catalogData)
+          });
+        }
+      } catch (e) {
+        console.warn("Error al obtener catálogo desde servidor:", e);
+      }
+    }
+
+    function updatePdfAndRender() {
       // Actualizar visor PDF
       const pdfIframe = document.getElementById('pdf-iframe-element');
       const pdfDownloadBtn = document.getElementById('download-pdf-btn');

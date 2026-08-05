@@ -971,74 +971,119 @@
       loadConfiguration();
     }
 
-    // Load active config from server API
+    // Helper function to auto-save config to server
+    async function autoSaveConfig() {
+      try {
+        const token = state.token || localStorage.getItem('atziluth_admin_token') || 'atziluth_secure_token_secret';
+        const res = await fetch('/api/admin/config', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+          },
+          body: JSON.stringify(state.config)
+        });
+        if (res.ok) {
+          localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
+        }
+      } catch (e) {
+        console.error("Error al auto-guardar configuración:", e);
+      }
+    }
+
+    // Load active config from server API with smart local recovery
     async function loadConfiguration() {
       try {
         const response = await fetch('/api/config/images');
         const data = await response.json();
         if (response.ok && data.config) {
-          state.config = data.config;
-          if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
-            state.config.customLithoImages = {};
+          let serverConfig = data.config;
+          if (!serverConfig.customLithoImages || Array.isArray(serverConfig.customLithoImages)) {
+            serverConfig.customLithoImages = {};
           }
-          if (!Array.isArray(state.config.clients)) {
-            state.config.clients = [];
+          if (!Array.isArray(serverConfig.clients)) {
+            serverConfig.clients = [];
+          }
+          if (!Array.isArray(serverConfig.customBusinesses)) {
+            serverConfig.customBusinesses = [];
+          }
+          if (!Array.isArray(serverConfig.customAds)) {
+            serverConfig.customAds = [];
+          }
+          if (!Array.isArray(serverConfig.categories)) {
+            serverConfig.categories = [];
           }
 
-          // Local storage sync/recovery
-          const hasLitho = state.config.customLithoImages && Object.values(state.config.customLithoImages).some(v => v);
-          const hasServerData = 
-            (state.config.customBusinesses && state.config.customBusinesses.length > 0) ||
-            (state.config.customAds && state.config.customAds.length > 0) ||
-            state.config.webDesignMockup ||
-            state.config.restaurantAppMockup ||
-            state.config.municipalDirectoryBanner ||
-            hasLitho;
-
+          // Check if local storage has additional or local items to merge
           const localStored = localStorage.getItem("atziluth_custom_config");
           if (localStored) {
             try {
               const parsedLocal = JSON.parse(localStored);
-              if (!parsedLocal.customLithoImages || Array.isArray(parsedLocal.customLithoImages)) {
-                parsedLocal.customLithoImages = {};
-              }
-              const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
-              const hasLocalData = 
-                (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
-                (parsedLocal.customAds && parsedLocal.customAds.length > 0) ||
-                parsedLocal.webDesignMockup ||
-                parsedLocal.restaurantAppMockup ||
-                parsedLocal.municipalDirectoryBanner ||
-                hasLocalLitho;
+              if (parsedLocal) {
+                // Merge businesses by ID (local items not present on server are preserved)
+                const serverBizMap = new Map((serverConfig.customBusinesses || []).map(b => [b.id, b]));
+                if (Array.isArray(parsedLocal.customBusinesses)) {
+                  parsedLocal.customBusinesses.forEach(localBiz => {
+                    if (!serverBizMap.has(localBiz.id)) {
+                      serverConfig.customBusinesses.push(localBiz);
+                    }
+                  });
+                }
 
-              if (!hasServerData && hasLocalData) {
-                console.log("Restoring admin configuration from local browser storage due to container reset...");
-                state.config = parsedLocal;
-                if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
-                  state.config.customLithoImages = {};
+                // Merge ads by ID
+                const serverAdsMap = new Map((serverConfig.customAds || []).map(a => [a.id, a]));
+                if (Array.isArray(parsedLocal.customAds)) {
+                  parsedLocal.customAds.forEach(localAd => {
+                    if (!serverAdsMap.has(localAd.id)) {
+                      serverConfig.customAds.push(localAd);
+                    }
+                  });
                 }
-                
-                // Silently sync back to server
-                if (state.token) {
-                  fetch('/api/admin/config', {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      'Authorization': 'Bearer ' + state.token
-                    },
-                    body: JSON.stringify(state.config)
-                  }).catch(console.error);
+
+                // Merge clients by ID
+                const serverClientMap = new Map((serverConfig.clients || []).map(c => [c.id, c]));
+                if (Array.isArray(parsedLocal.clients)) {
+                  parsedLocal.clients.forEach(localClient => {
+                    if (!serverClientMap.has(localClient.id)) {
+                      serverConfig.clients.push(localClient);
+                    }
+                  });
                 }
-              } else if (hasServerData) {
-                // Server has newer/active data, update our local storage backup
-                localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+
+                // Merge categories
+                if (Array.isArray(parsedLocal.categories)) {
+                  parsedLocal.categories.forEach(cat => {
+                    if (!serverConfig.categories.includes(cat)) {
+                      serverConfig.categories.push(cat);
+                    }
+                  });
+                }
+
+                // Merge image URLs if local is present and server is empty
+                ['logoUrl', 'webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'].forEach(key => {
+                  if (!serverConfig[key] && parsedLocal[key]) {
+                    serverConfig[key] = parsedLocal[key];
+                  }
+                });
+
+                if (parsedLocal.customLithoImages && typeof parsedLocal.customLithoImages === 'object') {
+                  Object.keys(parsedLocal.customLithoImages).forEach(k => {
+                    if (!serverConfig.customLithoImages[k] && parsedLocal.customLithoImages[k]) {
+                      serverConfig.customLithoImages[k] = parsedLocal.customLithoImages[k];
+                    }
+                  });
+                }
               }
             } catch (err) {
-              console.error("Failed to parse local storage config in admin:", err);
+              console.error("Failed to merge local storage config in admin:", err);
             }
-          } else if (hasServerData) {
-            localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
           }
+
+          state.config = serverConfig;
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+          
+          // Silently ensure server has the merged config
+          autoSaveConfig();
 
           renderAll();
         } else {
@@ -1161,6 +1206,7 @@
         input.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customAds = state.config.customAds.map(ad => ad.id === id ? { ...ad, tag: e.target.value } : ad);
+          autoSaveConfig();
         });
       });
 
@@ -1169,6 +1215,7 @@
           const id = e.target.getAttribute('data-id');
           state.config.customAds = state.config.customAds.map(ad => ad.id === id ? { ...ad, imageUrl: e.target.value } : ad);
           renderAll();
+          autoSaveConfig();
         });
       });
 
@@ -1176,6 +1223,7 @@
         input.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customAds = state.config.customAds.map(ad => ad.id === id ? { ...ad, caption: e.target.value } : ad);
+          autoSaveConfig();
         });
       });
 
@@ -1184,6 +1232,7 @@
           const id = btn.getAttribute('data-id');
           state.config.customAds = state.config.customAds.filter(ad => ad.id !== id);
           renderAll();
+          autoSaveConfig();
         });
       });
 
@@ -1235,6 +1284,7 @@
           if (confirm(`¿Estás seguro de eliminar la categoría "${cat}"?`)) {
             state.config.categories = state.config.categories.filter(c => c !== cat);
             renderAll();
+            autoSaveConfig();
           }
         });
       });
@@ -1332,6 +1382,7 @@
         input.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, name: e.target.value } : b);
+          autoSaveConfig();
         });
       });
 
@@ -1339,6 +1390,7 @@
         select.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, category: e.target.value } : b);
+          autoSaveConfig();
         });
       });
 
@@ -1348,6 +1400,7 @@
           const mName = e.target.value;
           const subregion = MUNICIPALITIES.find(m => m.name === mName)?.subregion || 'valle_de_aburra';
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, municipality: mName, subregion } : b);
+          autoSaveConfig();
         });
       });
 
@@ -1355,6 +1408,7 @@
         input.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, phone: e.target.value } : b);
+          autoSaveConfig();
         });
       });
 
@@ -1362,6 +1416,7 @@
         input.addEventListener('change', (e) => {
           const id = e.target.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, website: e.target.value } : b);
+          autoSaveConfig();
         });
       });
 
@@ -1370,6 +1425,7 @@
           const id = e.target.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.map(b => b.id === id ? { ...b, imageUrl: e.target.value } : b);
           renderAll();
+          autoSaveConfig();
         });
       });
 
@@ -1378,6 +1434,7 @@
           const id = btn.getAttribute('data-id');
           state.config.customBusinesses = state.config.customBusinesses.filter(b => b.id !== id);
           renderAll();
+          autoSaveConfig();
         });
       });
 
@@ -1705,7 +1762,8 @@
         emptyDiv.classList.remove('hidden');
 
         renderAll();
-        showToast('Anuncio Añadido', 'El anuncio se cargó en la lista temporal. Haz clic en "Guardar Cambios" para publicarlo.');
+        autoSaveConfig();
+        showToast('Anuncio Añadido', 'El anuncio se cargó y guardó globalmente.');
       });
 
       // 8. CREATE NEW COMERCIO BUTTON
@@ -1750,7 +1808,8 @@
         emptyDiv.classList.remove('hidden');
 
         renderAll();
-        showToast('Comercio Local Registrado', 'Añadido exitosamente al directorio local. Recuerda Guardar Cambios para publicarlo.');
+        autoSaveConfig();
+        showToast('Comercio Local Registrado', 'Añadido y guardado exitosamente en el directorio global.');
       });
 
       // 9. CREATE NEW CATEGORY
@@ -1772,7 +1831,8 @@
         state.config.categories.push(val);
         input.value = '';
         renderAll();
-        showToast('Categoría Añadida', `Se integró "${val}" a las categorías de filtro.`);
+        autoSaveConfig();
+        showToast('Categoría Añadida', `Se integró "${val}" a las categorías de filtro y se guardó globalmente.`);
       });
 
       // 10. REAL-TIME BUSINESS SEARCH FILTER

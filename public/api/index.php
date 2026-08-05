@@ -266,6 +266,27 @@ if ($route === 'config/images') {
             exit;
         }
     }
+} elseif ($route === 'almanaques/data') {
+    $almanaquesFile = __DIR__ . '/../../almanaques_data.json';
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        if (file_exists($almanaquesFile)) {
+            $content = file_get_contents($almanaquesFile);
+            $parsed = json_decode($content, true);
+            echo json_encode(["success" => true, "data" => $parsed]);
+        } else {
+            echo json_encode(["success" => true, "data" => null]);
+        }
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if ($input) {
+            file_put_contents($almanaquesFile, json_encode($input, JSON_PRETTY_PRINT));
+            echo json_encode(["success" => true, "data" => $input]);
+        } else {
+            http_response_code(400);
+            echo json_encode(["success" => false, "error" => "No se recibieron datos."]);
+        }
+        exit;
+    }
 }
 
 // Endpoint not found

@@ -154,11 +154,41 @@ export function getAlmanaquesData(): AlmanaquesData {
   }
 }
 
+export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
+  const localData = getAlmanaquesData();
+  try {
+    const res = await fetch("/api/almanaques/data");
+    const json = await res.json();
+    if (json.success && json.data && Array.isArray(json.data.products) && json.data.products.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(json.data));
+      window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: json.data }));
+      return json.data;
+    } else if (localData && localData.products && localData.products.length > 0) {
+      // Sync local to server if server was empty
+      await fetch("/api/almanaques/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localData)
+      });
+    }
+  } catch (e) {
+    console.warn("Error obteniendo datos de almanaques del servidor:", e);
+  }
+  return localData;
+}
+
 export function saveAlmanaquesData(data: AlmanaquesData): void {
   try {
     data.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: data }));
+    
+    // Async push to server
+    fetch("/api/almanaques/data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data)
+    }).catch(console.error);
   } catch (e) {
     console.error("Error guardando datos de Almanaques:", e);
   }
