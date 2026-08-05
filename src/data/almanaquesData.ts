@@ -1,0 +1,165 @@
+export interface Category {
+  id: number;
+  name: string;
+  order: number;
+}
+
+export interface ProductReference {
+  id: string;
+  ref: string;
+  categoryId: number;
+  name: string;
+  description: string;
+  finish: string;
+  paper: string;
+  price: number;
+  imageUrl: string;
+  gallery?: string[];
+  inStock?: boolean;
+}
+
+export interface AlmanaquesData {
+  pdfUrl: string;
+  categories: Category[];
+  products: ProductReference[];
+  updatedAt: string;
+}
+
+export const DEFAULT_ALMANAQUES_DATA: AlmanaquesData = {
+  pdfUrl: "/uploads/catalogo_almanaques_2026.pdf",
+  categories: [
+    { id: 1, name: "Almanaques de Escritorio", order: 1 },
+    { id: 2, name: "Respaldo de Taco", order: 2 },
+    { id: 3, name: "Anuario Clásico", order: 3 },
+    { id: 4, name: "Almanaques Variados y de Pared", order: 4 },
+    { id: 5, name: "Calendario de Bolsillo", order: 5 },
+    { id: 6, name: "Imantados para Nevera", order: 6 },
+  ],
+  products: [
+    {
+      id: "alm-101",
+      ref: "ALM-101",
+      categoryId: 1,
+      name: "Almanaque de Escritorio PyME Premium",
+      description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia para anotaciones diarias.",
+      finish: "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
+      paper: "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
+      price: 6500,
+      imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+      gallery: [
+        "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80"
+      ],
+      inStock: true
+    },
+    {
+      id: "alm-102",
+      ref: "ALM-102",
+      categoryId: 1,
+      name: "Escritorio Ejecutivo Deluxe Foil",
+      description: "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual integrado.",
+      finish: "Estampado Foil Metalizado + Argollado Doble O Dorado",
+      paper: "Propalcote 300g Extra Blanco de Alta Rigidez",
+      price: 8200,
+      imageUrl: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-201",
+      ref: "ALM-201",
+      categoryId: 2,
+      name: "Respaldo de Taco Tradicional Santoral",
+      description: "Respaldo troquelado rígido con perforación superior reforzada para colgar en pared. Soporte ideal para bloques o tacos de santoral diario tradicional de 365 días.",
+      finish: "Plastificado brillante impermeable protector contra humedad",
+      paper: "Cartón Maule Importado 320g",
+      price: 4200,
+      imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-202",
+      ref: "ALM-202",
+      categoryId: 2,
+      name: "Respaldo de Taco Gigante Comercial",
+      description: "Respaldo publicitario formato 35x50 cm con amplio espacio para encabezado de marca, teléfonos, dirección y red de distribución municipal.",
+      finish: "Laminado Térmico + Ojete de Ojalatado Metálico",
+      paper: "Cartulina Cemento 350g Ultra Resistente",
+      price: 5800,
+      imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-301",
+      ref: "ALM-301",
+      categoryId: 3,
+      name: "Anuario Clásico 1 Varilla HD",
+      description: "Almanaque de pared en una sola lámina formato 33x48 cm con ojete y varilla metálica en la parte superior. Impresión litográfica de paisajes y tradiciones de Antioquia.",
+      finish: "Varilla Metálica Antioxidante + Barniz UV Total",
+      paper: "Propalcote 200g Brillante",
+      price: 3500,
+      imageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-401",
+      ref: "ALM-401",
+      categoryId: 4,
+      name: "Almanaque Trimestral de Pared 3 Cuerpos",
+      description: "Almanaque corporativo de 3 cuerpos independientes unidos con resorte metálico. Permite visualizar mes anterior, mes actual y mes siguiente simultáneamente.",
+      finish: "Argollado Doble O Triple + Visor de Fecha Móvil Rojo",
+      paper: "Propalcote 240g Gloss",
+      price: 9800,
+      imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-501",
+      ref: "ALM-501",
+      categoryId: 5,
+      name: "Calendario de Bolsillo Plastificado Doble Faz",
+      description: "Tarjetas tipo bolsillo formato 9x5.5 cm con esquinas redondeadas. Calendario anual al respaldo y diseño publicitario a todo color al frente.",
+      finish: "Plastificado Mate/Brillante + Despunte de Bordes (Redondeado)",
+      paper: "Propalcote 350g Alta Densidad",
+      price: 450,
+      imageUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    },
+    {
+      id: "alm-601",
+      ref: "ALM-601",
+      categoryId: 6,
+      name: "Imantado Publicitario para Nevera con Taco",
+      description: "Imán flexible 100% magnético en todo el respaldo con impresión full color en la carátula y micro taco calado de 12 meses desprendibles.",
+      finish: "Magneto Flexible Calibre 0.4mm + Plastificado Brillante",
+      paper: "Propalcote 300g sobre Respaldo Magnético",
+      price: 1200,
+      imageUrl: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
+      inStock: true
+    }
+  ],
+  updatedAt: new Date().toISOString()
+};
+
+export const STORAGE_KEY = "atziluth_almanaques_data";
+
+export function getAlmanaquesData(): AlmanaquesData {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_ALMANAQUES_DATA;
+    const parsed = JSON.parse(raw);
+    if (!parsed.categories || !parsed.products) return DEFAULT_ALMANAQUES_DATA;
+    return parsed;
+  } catch (e) {
+    return DEFAULT_ALMANAQUES_DATA;
+  }
+}
+
+export function saveAlmanaquesData(data: AlmanaquesData): void {
+  try {
+    data.updatedAt = new Date().toISOString();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: data }));
+  } catch (e) {
+    console.error("Error guardando datos de Almanaques:", e);
+  }
+}

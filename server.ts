@@ -628,6 +628,46 @@ const handleUploadImageRequest = (req: any, res: any) => {
 app.post("/api/admin/upload-image", allowUpload, handleUploadImageRequest);
 app.post("/api/upload-image", allowUpload, handleUploadImageRequest);
 
+// 8. API: Upload PDF or General Files
+app.post("/api/admin/upload-file", allowUpload, (req: any, res: any) => {
+  try {
+    const { fileName, base64Data } = req.body;
+    if (!base64Data || typeof base64Data !== "string") {
+      return res.status(400).json({ success: false, error: "No se proporcionaron datos de archivo." });
+    }
+
+    const cleanBase64 = base64Data.replace(/^data:[^;]+;base64,/, "").trim();
+    const buffer = Buffer.from(cleanBase64, "base64");
+    if (buffer.length === 0) {
+      return res.status(400).json({ success: false, error: "Archivo vacío o corrupto." });
+    }
+
+    const rawName = (fileName || "archivo.pdf").replace(/[^a-zA-Z0-9.\-_]/g, "_");
+    const timestamp = Date.now();
+    const uniqueFileName = `${timestamp}_${rawName}`;
+    const fileUrl = `/uploads/${uniqueFileName}`;
+
+    // Save to UPLOADS_DIR & PUBLIC_UPLOADS_DIR
+    fs.writeFileSync(path.join(UPLOADS_DIR, uniqueFileName), buffer);
+    if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
+      fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
+    }
+    fs.writeFileSync(path.join(PUBLIC_UPLOADS_DIR, uniqueFileName), buffer);
+
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      const distUploadsDir = path.join(distPath, "uploads");
+      if (!fs.existsSync(distUploadsDir)) fs.mkdirSync(distUploadsDir, { recursive: true });
+      fs.writeFileSync(path.join(distUploadsDir, uniqueFileName), buffer);
+    }
+
+    res.json({ success: true, url: fileUrl, fileName: uniqueFileName });
+  } catch (err: any) {
+    console.error("Error al subir archivo:", err);
+    res.status(500).json({ success: false, error: "Error al guardar el archivo en el servidor." });
+  }
+});
+
 // Serve frontend assets
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

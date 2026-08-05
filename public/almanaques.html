@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="es" class="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catálogo de Almanaques 2026 — Atziluth Gráfic Digital</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+  <script>
+    if (typeof lucide === "undefined") {
+      document.write("<script src=\"https://cdn.jsdelivr.net/npm/lucide@latest/dist/umd/lucide.min.js\"><\/script>");
+    }
+  </script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            display: ['Space Grotesk', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            brand: {
+              magenta: '#FF0055',
+              orange: '#FF5500',
+              cyan: '#00F0FF',
+              yellow: '#FACC15',
+              darkBg: '#0b0f19',
+              darkCard: '#131926',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-brand-orange selection:text-white">
+
+  <!-- Flag colors top bar representing Colombia & Antioquia -->
+  <div class="sticky top-0 z-50 w-full h-[6px] grid grid-cols-6 pointer-events-none">
+    <div class="bg-[#fcd116] h-full"></div>
+    <div class="bg-[#003893] h-full"></div>
+    <div class="bg-[#ce1126] h-full"></div>
+    <div class="bg-white h-full"></div>
+    <div class="bg-[#009e5a] h-full"></div>
+    <div class="bg-[#007f45] h-full"></div>
+  </div>
+
+  <!-- NAVBAR -->
+  <nav class="sticky top-[6px] z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 rounded-xl overflow-hidden border border-slate-200 shadow-sm flex items-center justify-center bg-white group-hover:border-brand-orange transition-all">
+          <img src="/logo_atziluth.jpg" alt="Logo Atziluth" class="w-full h-full object-contain p-0.5" onError="this.src='/logo_atziluth.png'">
+        </div>
+        <div>
+          <span class="font-extrabold text-sm tracking-tight block text-slate-900 group-hover:text-brand-orange transition-colors">ATZILUTH</span>
+          <span class="text-[9px] text-brand-orange font-mono tracking-widest uppercase block leading-none font-bold">Gráfic Digital</span>
+        </div>
+      </a>
+
+      <!-- Navigation Links -->
+      <div class="hidden md:flex items-center gap-6 text-xs font-mono font-bold">
+        <a href="/" class="text-slate-600 hover:text-brand-magenta transition-colors py-1.5">INICIO</a>
+        <a href="/almanaques.html" class="text-brand-orange border-b-2 border-brand-orange py-1.5 flex items-center gap-1.5">
+          <span>📅 ALMANAQUES 2026</span>
+          <span class="px-1.5 py-0.5 bg-brand-orange/10 text-brand-orange text-[9px] rounded font-bold">OFICIAL</span>
+        </a>
+        <a href="/admin/almanaques.html" class="text-slate-600 hover:text-slate-900 transition-colors py-1.5 flex items-center gap-1 text-[11px]">
+          <i data-lucide="lock" class="w-3.5 h-3.5 text-slate-500"></i> Panel Almanaques
+        </a>
+      </div>
+
+      <!-- Quick Action Button -->
+      <div class="flex items-center gap-2">
+        <button onclick="openOrderModal()" class="px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-magenta text-white text-xs font-bold font-mono rounded-xl shadow-sm hover:opacity-90 transition-all flex items-center gap-2 cursor-pointer">
+          <i data-lucide="shopping-cart" class="w-4 h-4"></i>
+          <span>REALIZAR PEDIDO</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO SECTION -->
+  <header class="bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white py-12 px-4 relative overflow-hidden">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(255,85,0,0.15),transparent_50%)]"></div>
+    <div class="max-w-7xl mx-auto text-center relative z-10">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-brand-orange/15 border border-brand-orange/30 rounded-full text-brand-orange text-xs font-mono font-semibold mb-4">
+        <i data-lucide="sparkles" class="w-4 h-4"></i>
+        <span>TEMPORADA DE ALMANAQUES Y CALENDARIOS 2026</span>
+      </div>
+      <h1 class="text-3xl md:text-5xl font-display font-extrabold tracking-tight mb-4">
+        Catálogo Corporativo de <span class="bg-clip-text text-transparent bg-gradient-to-r from-brand-orange via-yellow-400 to-brand-magenta">Almanaques</span>
+      </h1>
+      <p class="max-w-2xl mx-auto text-slate-300 text-sm md:text-base leading-relaxed mb-6 font-sans">
+        Organiza la publicidad de tu empresa para todo el año. Diseños exclusivos por categoría y referencia con acabados de alta litografía y envíos directos a todos los municipios de Antioquia.
+      </p>
+
+      <div class="flex flex-wrap items-center justify-center gap-4 text-xs font-mono">
+        <div class="bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400"></i>
+          <span>Alta Litografía & Propalcote</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2">
+          <i data-lucide="truck" class="w-4 h-4 text-brand-cyan"></i>
+          <span>Despachos Antioquia & Nacional</span>
+        </div>
+        <div class="bg-slate-800/80 border border-slate-700 px-4 py-2 rounded-xl flex items-center gap-2">
+          <i data-lucide="tag" class="w-4 h-4 text-yellow-400"></i>
+          <span>Precios Especiales por Volumen</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-grow space-y-12">
+
+    <!-- 1. VISUALIZADOR DE CATÁLOGO PDF -->
+    <section class="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 overflow-hidden">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pb-4 mb-4 border-b border-slate-100">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="p-2 bg-brand-orange/10 rounded-xl text-brand-orange">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+            </span>
+            <div>
+              <h2 class="text-lg font-display font-bold text-slate-900">Catálogo General Interactivo PDF</h2>
+              <p class="text-xs text-slate-500 font-sans">Visualiza el catálogo impreso completo de la colección de Almanaques 2026</p>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2 w-full md:w-auto">
+          <button onclick="togglePdfMode('iframe')" id="btn-pdf-mode-iframe" class="px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-900 text-white border-slate-900 flex items-center gap-1.5">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i> Visor Documento
+          </button>
+          <button onclick="togglePdfMode('slides')" id="btn-pdf-mode-slides" class="px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 flex items-center gap-1.5">
+            <i data-lucide="grid" class="w-3.5 h-3.5"></i> Vista Diapositivas
+          </button>
+          <a id="download-pdf-btn" href="/uploads/catalogo_almanaques_2026.pdf" download target="_blank" class="px-3.5 py-1.5 bg-brand-orange hover:bg-brand-orange/90 text-white text-xs font-mono font-bold rounded-lg transition-all flex items-center gap-1.5 ml-auto md:ml-0">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i> Descargar PDF
+          </a>
+        </div>
+      </div>
+
+      <!-- Contenedor del Visor PDF -->
+      <div id="pdf-container-iframe" class="w-full h-[520px] bg-slate-900 rounded-xl overflow-hidden border border-slate-200 relative">
+        <iframe id="pdf-iframe-element" src="/uploads/catalogo_almanaques_2026.pdf#toolbar=1&navpanes=1" class="w-full h-full border-0" title="Catálogo Almanaques PDF"></iframe>
+        
+        <!-- Fallback notification if iframe cannot display PDF -->
+        <div id="pdf-fallback-note" class="absolute inset-0 bg-slate-900/95 flex flex-col items-center justify-center text-center p-6 hidden">
+          <i data-lucide="file-spreadsheet" class="w-12 h-12 text-brand-orange mb-3"></i>
+          <h3 class="text-white font-bold text-lg mb-1">Catálogo Digital de Almanaques</h3>
+          <p class="text-slate-400 text-xs max-w-md mb-4">Haz clic abajo para abrir o descargar la versión completa del documento en formato PDF HD.</p>
+          <a id="pdf-fallback-link" href="/uploads/catalogo_almanaques_2026.pdf" target="_blank" class="px-5 py-2.5 bg-brand-orange text-white text-xs font-mono font-bold rounded-xl shadow-lg hover:opacity-90">
+            Abrir Catálogo PDF en Nueva Pestaña
+          </a>
+        </div>
+      </div>
+
+      <!-- Visor de Diapositivas / Galería PDF alternativa -->
+      <div id="pdf-container-slides" class="hidden grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 py-4">
+        <!-- Generado dinámicamente -->
+      </div>
+    </section>
+
+    <!-- 2. NAVEGADOR DE CATEGORÍAS Y BUSCADOR DE REFERENCIAS -->
+    <section class="space-y-6">
+      <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h2 class="text-xl font-display font-bold text-slate-900">Catálogo de Productos por Categoría</h2>
+          <p class="text-xs text-slate-500">Filtra por tipo de almanaque o busca directamente la referencia comercial</p>
+        </div>
+
+        <div class="w-full md:w-72 relative">
+          <input type="text" id="search-input" oninput="renderProducts()" placeholder="Buscar por referencia (ej. ALM-101) o tipo..." class="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2 text-xs font-sans text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-orange focus:bg-white transition-all">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+        </div>
+      </div>
+
+      <!-- Filtros de Categorías con Identificador Numérico Único -->
+      <div id="categories-bar" class="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+        <!-- Renderizado dinámicamente por JS -->
+      </div>
+
+      <!-- Contador de productos encontrados -->
+      <div class="flex items-center justify-between text-xs font-mono text-slate-500 px-1">
+        <span id="results-count">Cargando catálogo...</span>
+        <span class="text-slate-400">Precios expresados en Pesos Colombianos (COP)</span>
+      </div>
+
+      <!-- 3. REJILLA DE TARJETAS DE PRODUCTO POR REFERENCIA -->
+      <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <!-- Tarjetas insertadas por JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL DE SISTEMA DE PEDIDOS DE ALMANAQUES -->
+  <div id="order-modal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-white border border-slate-200 rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header modal -->
+      <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-brand-orange/20 rounded-xl text-brand-orange">
+            <i data-lucide="shopping-bag" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="font-display font-bold text-base text-white">Solicitud de Pedido de Almanaques</h3>
+            <p class="text-[11px] text-slate-400 font-mono">Formulario oficial de cotización de pedido</p>
+          </div>
+        </div>
+        <button onclick="closeOrderModal()" class="text-slate-400 hover:text-white p-1 rounded-lg transition-colors cursor-pointer">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Body modal con scroll -->
+      <div class="p-6 overflow-y-auto space-y-5 text-slate-800 font-sans custom-scrollbar flex-grow">
+        
+        <!-- Selección de Referencia y Producto -->
+        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1.5">Referencia de Almanaque</label>
+          <select id="modal-product-select" onchange="onModalProductChange()" class="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-brand-orange">
+            <!-- Opciones cargadas dinámicamente -->
+          </select>
+          
+          <div id="modal-product-preview" class="mt-3 pt-3 border-t border-slate-200 flex items-center gap-3">
+            <img id="modal-preview-img" src="" class="w-16 h-16 object-cover rounded-lg border border-slate-300">
+            <div class="text-xs space-y-0.5">
+              <span id="modal-preview-ref" class="font-mono font-bold text-brand-orange block"></span>
+              <span id="modal-preview-specs" class="text-slate-600 block"></span>
+              <span id="modal-preview-unit-price" class="text-slate-900 font-bold block"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Selector de Cantidad con Descuentos por Volumen -->
+        <div>
+          <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1.5">Cantidad Requerida (Unidades)</label>
+          <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
+            <button type="button" onclick="setQuantity(50)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">50</button>
+            <button type="button" onclick="setQuantity(100)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">100</button>
+            <button type="button" onclick="setQuantity(250)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">250</button>
+            <button type="button" onclick="setQuantity(500)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">500</button>
+            <button type="button" onclick="setQuantity(1000)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">1,000</button>
+            <button type="button" onclick="setQuantity(2500)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">2,500</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-500 font-mono">Otra cantidad:</span>
+            <input type="number" id="modal-custom-qty" value="100" min="10" step="10" oninput="calculateModalPrice()" class="w-32 bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-mono font-bold text-slate-800">
+          </div>
+        </div>
+
+        <!-- Opciones de Personalización -->
+        <div class="space-y-2">
+          <label class="block text-xs font-mono font-bold text-slate-700 uppercase">Detalles de Marca / Logotipo</label>
+          <select id="modal-branding-option" onchange="calculateModalPrice()" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800">
+            <option value="1_color">Impresión de Encabezado a 1 Tinta (Incluido)</option>
+            <option value="full_color">Impresión de Encabezado Full Color Policromía (+10%)</option>
+            <option value="foil">Estampado Metalizado Pan de Oro / Foil (+20%)</option>
+            <option value="none">Sin Logotipo / Almanaque Estándar</option>
+          </select>
+        </div>
+
+        <!-- Datos del Cliente / Municipio -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1">Nombre / Empresa</label>
+            <input type="text" id="modal-client-name" placeholder="Ej: Comercializadora El Arriero" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800">
+          </div>
+          <div>
+            <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="modal-client-phone" placeholder="Ej: 300 123 4567" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1">Municipio de Entrega (Antioquia)</label>
+          <input type="text" id="modal-client-muni" placeholder="Ej: Medellín, Rionegro, Apartadó..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800">
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono font-bold text-slate-700 uppercase mb-1">Notas adicionales de diseño</label>
+          <textarea id="modal-client-notes" rows="2" placeholder="Especificaciones de colores de marca, texto de encabezado..." class="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800"></textarea>
+        </div>
+
+        <!-- Resumen de Cotización -->
+        <div class="bg-slate-900 text-white p-4 rounded-xl space-y-2 font-mono">
+          <div class="flex justify-between text-xs text-slate-300">
+            <span>Valor unitario estimado:</span>
+            <span id="modal-summary-unit">$0 COP</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-300">
+            <span>Descuento por volumen:</span>
+            <span id="modal-summary-discount" class="text-emerald-400">0%</span>
+          </div>
+          <div class="flex justify-between text-sm font-bold border-t border-slate-800 pt-2 text-yellow-400">
+            <span>TOTAL ESTIMADO:</span>
+            <span id="modal-summary-total">$0 COP</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer botones de acción -->
+      <div class="bg-slate-100 p-4 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+        <button onclick="sendOrderToWhatsApp()" class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold font-mono text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
+          <i data-lucide="message-square" class="w-4 h-4"></i>
+          <span>ENVIAR PEDIDO POR WHATSAPP</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER DE PÁGINA -->
+  <footer class="bg-slate-900 text-slate-400 text-xs py-8 px-4 border-t border-slate-800 mt-auto">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <img src="/logo_atziluth.jpg" alt="Atziluth Logo" class="w-8 h-8 rounded-lg object-contain bg-white p-0.5">
+        <div>
+          <span class="text-white font-bold">Atziluth Gráfic Digital</span>
+          <span class="block text-[10px] text-slate-500">Impresión litográfica y publicidad empresarial en Antioquia</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-4 font-mono text-[11px]">
+        <a href="/" class="hover:text-white transition-colors">Inicio</a>
+        <span>&bull;</span>
+        <a href="/almanaques.html" class="text-brand-orange font-bold">Almanaques 2026</a>
+        <span>&bull;</span>
+        <a href="/admin/almanaques.html" class="hover:text-white transition-colors">Panel Administración</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- LÓGICA JAVASCRIPT DE LA PÁGINA -->
+  <script>
+    // Configuración y datos por defecto
+    const STORAGE_KEY = 'atziluth_almanaques_data';
+
+    const DEFAULT_DATA = {
+      pdfUrl: "/uploads/catalogo_almanaques_2026.pdf",
+      categories: [
+        { id: 1, name: "Almanaques de Escritorio", order: 1 },
+        { id: 2, name: "Respaldo de Taco", order: 2 },
+        { id: 3, name: "Anuario Clásico", order: 3 },
+        { id: 4, name: "Almanaques Variados y de Pared", order: 4 },
+        { id: 5, name: "Calendario de Bolsillo", order: 5 },
+        { id: 6, name: "Imantados para Nevera", order: 6 },
+      ],
+      products: [
+        {
+          id: "alm-101",
+          ref: "ALM-101",
+          categoryId: 1,
+          name: "Almanaque de Escritorio PyME Premium",
+          description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia para anotaciones diarias.",
+          finish: "Plastificado Mate + Barniz UV Brillo Parcial",
+          paper: "Hojas Propalcote 250g / Base Cartón Prensado 1.5mm",
+          price: 6500,
+          imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-102",
+          ref: "ALM-102",
+          categoryId: 1,
+          name: "Escritorio Ejecutivo Deluxe Foil",
+          description: "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual integrado.",
+          finish: "Estampado Foil Metalizado + Argollado Doble O Dorado",
+          paper: "Propalcote 300g Extra Blanco de Alta Rigidez",
+          price: 8200,
+          imageUrl: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-201",
+          ref: "ALM-201",
+          categoryId: 2,
+          name: "Respaldo de Taco Tradicional Santoral",
+          description: "Respaldo troquelado rígido con perforación superior reforzada para colgar en pared. Soporte ideal para bloques o tacos de santoral diario tradicional de 365 días.",
+          finish: "Plastificado brillante impermeable protector",
+          paper: "Cartón Maule Importado 320g",
+          price: 4200,
+          imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-202",
+          ref: "ALM-202",
+          categoryId: 2,
+          name: "Respaldo de Taco Gigante Comercial",
+          description: "Respaldo publicitario formato 35x50 cm con amplio espacio para encabezado de marca, teléfonos, dirección y red de distribución municipal.",
+          finish: "Laminado Térmico + Ojete de Ojalatado Metálico",
+          paper: "Cartulina Cemento 350g Ultra Resistente",
+          price: 5800,
+          imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-301",
+          ref: "ALM-301",
+          categoryId: 3,
+          name: "Anuario Clásico 1 Varilla HD",
+          description: "Almanaque de pared en una sola lámina formato 33x48 cm con ojete y varilla metálica en la parte superior. Impresión litográfica de paisajes y tradiciones de Antioquia.",
+          finish: "Varilla Metálica Antioxidante + Barniz UV Total",
+          paper: "Propalcote 200g Brillante",
+          price: 3500,
+          imageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-401",
+          ref: "ALM-401",
+          categoryId: 4,
+          name: "Almanaque Trimestral de Pared 3 Cuerpos",
+          description: "Almanaque corporativo de 3 cuerpos independientes unidos con resorte metálico. Permite visualizar mes anterior, mes actual y mes siguiente simultáneamente.",
+          finish: "Argollado Doble O Triple + Visor de Fecha Móvil Rojo",
+          paper: "Propalcote 240g Gloss",
+          price: 9800,
+          imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-501",
+          ref: "ALM-501",
+          categoryId: 5,
+          name: "Calendario de Bolsillo Plastificado Doble Faz",
+          description: "Tarjetas tipo bolsillo formato 9x5.5 cm con esquinas redondeadas. Calendario anual al respaldo y diseño publicitario a todo color al frente.",
+          finish: "Plastificado Mate/Brillante + Despunte de Bordes",
+          paper: "Propalcote 350g Alta Densidad",
+          price: 450,
+          imageUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80"
+        },
+        {
+          id: "alm-601",
+          ref: "ALM-601",
+          categoryId: 6,
+          name: "Imantado Publicitario para Nevera con Taco",
+          description: "Imán flexible 100% magnético en todo el respaldo con impresión full color en la carátula y micro taco calado de 12 meses desprendibles.",
+          finish: "Magneto Flexible Calibre 0.4mm + Plastificado Brillante",
+          paper: "Propalcote 300g sobre Respaldo Magnético",
+          price: 1200,
+          imageUrl: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80"
+        }
+      ]
+    };
+
+    let catalogData = DEFAULT_DATA;
+    let selectedCategoryId = 'all';
+
+    // Formatear precios COP
+    function formatCOP(amount) {
+      return new Intl.NumberFormat('es-CO', {
+        style: 'currency',
+        currency: 'COP',
+        maximumFractionDigits: 0
+      }).format(amount);
+    }
+
+    // Cargar datos guardados en LocalStorage
+    function loadCatalogData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.categories && parsed.products) {
+            catalogData = parsed;
+          }
+        }
+      } catch (e) {
+        console.warn("Usando datos por defecto para catálogo");
+      }
+      
+      // Actualizar visor PDF
+      const pdfIframe = document.getElementById('pdf-iframe-element');
+      const pdfDownloadBtn = document.getElementById('download-pdf-btn');
+      const pdfFallbackLink = document.getElementById('pdf-fallback-link');
+
+      if (catalogData.pdfUrl) {
+        if (pdfIframe) pdfIframe.src = catalogData.pdfUrl + "#toolbar=1&navpanes=1";
+        if (pdfDownloadBtn) pdfDownloadBtn.href = catalogData.pdfUrl;
+        if (pdfFallbackLink) pdfFallbackLink.href = catalogData.pdfUrl;
+      }
+
+      renderCategoriesBar();
+      renderProducts();
+      populateModalSelect();
+    }
+
+    // Modo de visualización PDF (Iframe vs Diapositivas)
+    function togglePdfMode(mode) {
+      const containerIframe = document.getElementById('pdf-container-iframe');
+      const containerSlides = document.getElementById('pdf-container-slides');
+      const btnIframe = document.getElementById('btn-pdf-mode-iframe');
+      const btnSlides = document.getElementById('btn-pdf-mode-slides');
+
+      if (mode === 'iframe') {
+        containerIframe.classList.remove('hidden');
+        containerSlides.classList.add('hidden');
+        btnIframe.className = "px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-900 text-white border-slate-900 flex items-center gap-1.5";
+        btnSlides.className = "px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 flex items-center gap-1.5";
+      } else {
+        containerIframe.classList.add('hidden');
+        containerSlides.classList.remove('hidden');
+        btnSlides.className = "px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-900 text-white border-slate-900 flex items-center gap-1.5";
+        btnIframe.className = "px-3 py-1.5 text-xs font-mono font-bold rounded-lg border transition-all bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200 flex items-center gap-1.5";
+        renderPdfSlides();
+      }
+    }
+
+    function renderPdfSlides() {
+      const slidesContainer = document.getElementById('pdf-container-slides');
+      if (!slidesContainer) return;
+      
+      slidesContainer.innerHTML = catalogData.products.map(p => `
+        <div class="bg-slate-900 text-white rounded-xl p-3 border border-slate-800 text-center flex flex-col items-center">
+          <img src="${p.imageUrl}" alt="${p.name}" class="w-full h-36 object-cover rounded-lg mb-2">
+          <span class="text-[10px] font-mono text-brand-orange font-bold">REF: ${p.ref}</span>
+          <span class="text-xs font-bold line-clamp-1">${p.name}</span>
+          <span class="text-xs text-yellow-400 font-mono mt-1">${formatCOP(p.price)}</span>
+        </div>
+      `).join('');
+    }
+
+    // Renderizar barra de categorías con ID numérico único
+    function renderCategoriesBar() {
+      const bar = document.getElementById('categories-bar');
+      if (!bar) return;
+
+      const categories = catalogData.categories || [];
+      const totalProducts = catalogData.products ? catalogData.products.length : 0;
+
+      let html = `
+        <button onclick="filterCategory('all')" class="cat-pill px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer ${selectedCategoryId === 'all' ? 'bg-brand-orange text-white border-brand-orange shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'}">
+          <span>TODOS LOS ALMANAQUES</span>
+          <span class="px-1.5 py-0.5 rounded text-[10px] ${selectedCategoryId === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}">${totalProducts}</span>
+        </button>
+      `;
+
+      categories.sort((a,b) => (a.order || a.id) - (b.order || b.id)).forEach(cat => {
+        const count = catalogData.products.filter(p => p.categoryId == cat.id).length;
+        const isSelected = selectedCategoryId == cat.id;
+        html += `
+          <button onclick="filterCategory('${cat.id}')" class="cat-pill px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${isSelected ? 'bg-brand-orange text-white border-brand-orange shadow-md' : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'}">
+            <span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${isSelected ? 'bg-black/20 text-white' : 'bg-slate-100 text-brand-orange'}">CAT. #${cat.id}</span>
+            <span>${cat.name}</span>
+            <span class="px-1.5 py-0.5 rounded text-[10px] ${isSelected ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'}">${count}</span>
+          </button>
+        `;
+      });
+
+      bar.innerHTML = html;
+    }
+
+    function filterCategory(catId) {
+      selectedCategoryId = catId;
+      renderCategoriesBar();
+      renderProducts();
+    }
+
+    // Renderizar tarjetas de producto
+    function renderProducts() {
+      const grid = document.getElementById('products-grid');
+      const searchInput = document.getElementById('search-input');
+      const resultsCount = document.getElementById('results-count');
+      if (!grid) return;
+
+      const query = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+      let items = catalogData.products || [];
+
+      if (selectedCategoryId !== 'all') {
+        items = items.filter(p => p.categoryId == selectedCategoryId);
+      }
+
+      if (query) {
+        items = items.filter(p => 
+          p.ref.toLowerCase().includes(query) ||
+          p.name.toLowerCase().includes(query) ||
+          p.description.toLowerCase().includes(query) ||
+          (p.paper && p.paper.toLowerCase().includes(query)) ||
+          (p.finish && p.finish.toLowerCase().includes(query))
+        );
+      }
+
+      if (resultsCount) {
+        resultsCount.textContent = `Mostrando ${items.length} almanaque(s) disponible(s)`;
+      }
+
+      if (items.length === 0) {
+        grid.innerHTML = `
+          <div class="col-span-full bg-white p-12 rounded-2xl border border-slate-200 text-center space-y-3">
+            <i data-lucide="package-search" class="w-12 h-12 text-slate-400 mx-auto"></i>
+            <h3 class="text-slate-800 font-bold text-base">No se encontraron almanaques en esta búsqueda</h3>
+            <p class="text-xs text-slate-500">Prueba filtrando por otra categoría o borra el término de búsqueda.</p>
+            <button onclick="filterCategory('all'); document.getElementById('search-input').value='';" class="px-4 py-2 bg-slate-900 text-white font-mono text-xs font-bold rounded-xl">
+              Ver Todos los Almanaques
+            </button>
+          </div>
+        `;
+        if (window.lucide) lucide.createIcons();
+        return;
+      }
+
+      grid.innerHTML = items.map(p => {
+        const cat = catalogData.categories.find(c => c.id == p.categoryId) || { name: 'Almanaque', id: p.categoryId };
+        return `
+          <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group">
+            
+            <!-- Imagen y Badges -->
+            <div class="relative h-56 bg-slate-100 overflow-hidden">
+              <img src="${p.imageUrl}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+              <div class="absolute top-3 left-3 flex flex-col gap-1">
+                <span class="px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white font-mono text-[10px] font-extrabold rounded-lg shadow-sm border border-slate-700">
+                  REF: ${p.ref}
+                </span>
+                <span class="px-2 py-0.5 bg-brand-orange/90 backdrop-blur-md text-white font-mono text-[9px] font-bold rounded">
+                  Cat. #${cat.id}
+                </span>
+              </div>
+            </div>
+
+            <!-- Información detallada de la Ficha del Producto -->
+            <div class="p-5 flex-grow flex flex-col space-y-4">
+              <div>
+                <span class="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider block">${cat.name}</span>
+                <h3 class="font-display font-bold text-base text-slate-900 group-hover:text-brand-orange transition-colors line-clamp-1">${p.name}</h3>
+                <p class="text-xs text-slate-600 mt-1 line-clamp-2 leading-relaxed">${p.description}</p>
+              </div>
+
+              <!-- Especificaciones técnicas (Papel y Acabado) -->
+              <div class="space-y-2 text-xs border-t border-b border-slate-100 py-3 font-sans">
+                <div class="flex items-start gap-2">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand-orange mt-0.5 flex-shrink-0"></i>
+                  <div>
+                    <span class="font-mono text-[10px] text-slate-400 font-bold uppercase block leading-none">Tipo de Acabado:</span>
+                    <span class="text-slate-800 font-medium text-[11px]">${p.finish || 'Estándar Litográfico'}</span>
+                  </div>
+                </div>
+
+                <div class="flex items-start gap-2">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5 text-brand-cyan mt-0.5 flex-shrink-0"></i>
+                  <div>
+                    <span class="font-mono text-[10px] text-slate-400 font-bold uppercase block leading-none">Tipo de Papel:</span>
+                    <span class="text-slate-800 font-medium text-[11px]">${p.paper || 'Propalcote Impreso'}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Precio y Botón de Pedido -->
+              <div class="mt-auto pt-2 flex items-center justify-between gap-2">
+                <div>
+                  <span class="text-[10px] font-mono text-slate-400 block leading-none">Precio x unidad desde:</span>
+                  <span class="font-mono font-extrabold text-base text-slate-900">${formatCOP(p.price)}</span>
+                </div>
+
+                <button onclick="openOrderModal('${p.id}')" class="px-3.5 py-2.5 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-95 text-white text-xs font-mono font-bold rounded-xl shadow-sm transition-all flex items-center gap-1.5 cursor-pointer">
+                  <i data-lucide="shopping-cart" class="w-3.5 h-3.5"></i>
+                  <span>PEDIR</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Modal de Pedidos
+    function populateModalSelect() {
+      const select = document.getElementById('modal-product-select');
+      if (!select) return;
+      select.innerHTML = catalogData.products.map(p => `
+        <option value="${p.id}">[REF: ${p.ref}] ${p.name} - ${formatCOP(p.price)}/u</option>
+      `).join('');
+    }
+
+    let currentSelectedProductId = null;
+
+    function openOrderModal(productId) {
+      const modal = document.getElementById('order-modal');
+      const select = document.getElementById('modal-product-select');
+      if (!modal || !select) return;
+
+      if (productId) {
+        select.value = productId;
+      } else if (catalogData.products.length > 0) {
+        select.value = catalogData.products[0].id;
+      }
+
+      onModalProductChange();
+      modal.classList.remove('hidden');
+    }
+
+    function closeOrderModal() {
+      const modal = document.getElementById('order-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function onModalProductChange() {
+      const select = document.getElementById('modal-product-select');
+      const previewImg = document.getElementById('modal-preview-img');
+      const previewRef = document.getElementById('modal-preview-ref');
+      const previewSpecs = document.getElementById('modal-preview-specs');
+      const previewUnitPrice = document.getElementById('modal-preview-unit-price');
+
+      if (!select) return;
+      const product = catalogData.products.find(p => p.id === select.value);
+      if (!product) return;
+
+      currentSelectedProductId = product.id;
+      if (previewImg) previewImg.src = product.imageUrl;
+      if (previewRef) previewRef.textContent = `REF: ${product.ref} — ${product.name}`;
+      if (previewSpecs) previewSpecs.textContent = `${product.paper} | ${product.finish}`;
+      if (previewUnitPrice) previewUnitPrice.textContent = `Precio base: ${formatCOP(product.price)} COP / unidad`;
+
+      calculateModalPrice();
+    }
+
+    function setQuantity(qty) {
+      const customQty = document.getElementById('modal-custom-qty');
+      if (customQty) customQty.value = qty;
+      
+      // Actualizar botón activo
+      document.querySelectorAll('.qty-btn').forEach(btn => {
+        if (parseInt(btn.textContent.replace(',', '')) === qty) {
+          btn.className = "qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all bg-brand-orange text-white border-brand-orange shadow-sm";
+        } else {
+          btn.className = "qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all bg-white text-slate-700 border-slate-200 hover:border-brand-orange";
+        }
+      });
+
+      calculateModalPrice();
+    }
+
+    function calculateModalPrice() {
+      const select = document.getElementById('modal-product-select');
+      const customQty = document.getElementById('modal-custom-qty');
+      const brandingOpt = document.getElementById('modal-branding-option');
+      
+      const summaryUnit = document.getElementById('modal-summary-unit');
+      const summaryDiscount = document.getElementById('modal-summary-discount');
+      const summaryTotal = document.getElementById('modal-summary-total');
+
+      if (!select || !customQty) return;
+      const product = catalogData.products.find(p => p.id === select.value);
+      if (!product) return;
+
+      const qty = parseInt(customQty.value) || 100;
+
+      // Cálculo de descuento por escala de volumen
+      let discountRate = 0;
+      if (qty >= 2500) discountRate = 0.25;
+      else if (qty >= 1000) discountRate = 0.20;
+      else if (qty >= 500) discountRate = 0.15;
+      else if (qty >= 250) discountRate = 0.10;
+      else if (qty >= 100) discountRate = 0.05;
+
+      // Ajuste por tipo de marca
+      let brandingMultiplier = 1.0;
+      if (brandingOpt) {
+        if (brandingOpt.value === 'full_color') brandingMultiplier = 1.10;
+        else if (brandingOpt.value === 'foil') brandingMultiplier = 1.20;
+      }
+
+      const unitPrice = (product.price * (1 - discountRate)) * brandingMultiplier;
+      const total = Math.round(unitPrice * qty);
+
+      if (summaryUnit) summaryUnit.textContent = `${formatCOP(unitPrice)} COP`;
+      if (summaryDiscount) summaryDiscount.textContent = `${Math.round(discountRate * 100)}% Dcto por Volumen`;
+      if (summaryTotal) summaryTotal.textContent = `${formatCOP(total)} COP`;
+    }
+
+    // Enviar pedido estructurado por WhatsApp
+    function sendOrderToWhatsApp() {
+      const select = document.getElementById('modal-product-select');
+      const customQty = document.getElementById('modal-custom-qty');
+      const clientName = document.getElementById('modal-client-name');
+      const clientPhone = document.getElementById('modal-client-phone');
+      const clientMuni = document.getElementById('modal-client-muni');
+      const clientNotes = document.getElementById('modal-client-notes');
+      const summaryTotal = document.getElementById('modal-summary-total');
+      const brandingOpt = document.getElementById('modal-branding-option');
+
+      if (!select) return;
+      const product = catalogData.products.find(p => p.id === select.value);
+      if (!product) return;
+
+      const qty = customQty ? customQty.value : '100';
+      const name = clientName && clientName.value ? clientName.value : 'Cliente Atziluth';
+      const phone = clientPhone ? clientPhone.value : 'Sin especificar';
+      const muni = clientMuni && clientMuni.value ? clientMuni.value : 'Medellín / Antioquia';
+      const notes = clientNotes ? clientNotes.value : 'Ninguna';
+      const totalText = summaryTotal ? summaryTotal.textContent : '';
+      const brandText = brandingOpt ? brandingOpt.options[brandingOpt.selectedIndex].text : '';
+
+      const message = `hola! deseoso de realizar un pedido de *Almanaques 2026* con Atziluth Gráfic Digital:\n\n` +
+        `📌 *REFERENCIA:* ${product.ref} - ${product.name}\n` +
+        `📦 *CANTIDAD:* ${qty} unidades\n` +
+        `🎨 *ACABADO:* ${product.finish}\n` +
+        `📄 *PAPEL:* ${product.paper}\n` +
+        `🏷️ *PERSONALIZACIÓN:* ${brandText}\n` +
+        `💵 *TOTAL ESTIMADO:* ${totalText}\n\n` +
+        `👤 *CLIENTE / EMPRESA:* ${name}\n` +
+        `📱 *CONTACTO:* ${phone}\n` +
+        `📍 *MUNICIPIO DE ENTREGA:* ${muni}\n` +
+        `📝 *NOTAS:* ${notes}\n\n` +
+        `Por favor confírmenme el proceso de pago y tiempo de entrega. Muchas gracias!`;
+
+      const encoded = encodeURIComponent(message);
+      const whatsappUrl = `https://wa.me/573147573905?text=${encoded}`;
+      
+      // Guardar pedido localmente para sincronizar en administración
+      saveLocalOrderHistory({
+        id: 'ord_' + Date.now(),
+        productRef: product.ref,
+        productName: product.name,
+        quantity: qty,
+        total: totalText,
+        clientName: name,
+        clientPhone: phone,
+        municipality: muni,
+        notes: notes,
+        date: new Date().toLocaleString('es-CO')
+      });
+
+      window.open(whatsappUrl, '_blank');
+      closeOrderModal();
+    }
+
+    function saveLocalOrderHistory(order) {
+      try {
+        const raw = localStorage.getItem('atziluth_almanaques_orders') || '[]';
+        const orders = JSON.parse(raw);
+        orders.unshift(order);
+        localStorage.setItem('atziluth_almanaques_orders', JSON.stringify(orders));
+      } catch (e) {
+        console.error("Error guardando orden local", e);
+      }
+    }
+
+    // Inicialización y escucha de eventos en tiempo real
+    window.addEventListener('DOMContentLoaded', () => {
+      loadCatalogData();
+      if (window.lucide) lucide.createIcons();
+    });
+
+    // Escuchar actualizaciones de LocalStorage desde el Panel Admin en tiempo real
+    window.addEventListener('storage', (e) => {
+      if (e.key === STORAGE_KEY) {
+        loadCatalogData();
+      }
+    });
+
+    window.addEventListener('almanaques-updated', () => {
+      loadCatalogData();
+    });
+  </script>
+</body>
+</html>

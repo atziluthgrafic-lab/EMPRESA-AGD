@@ -5,6 +5,7 @@ import PricingCalculator from "./components/PricingCalculator";
 import ContactForm from "./components/ContactForm";
 import LitografiaSection from "./components/LitografiaSection";
 import AdminDashboard from "./components/AdminDashboard";
+import AlmanaquesSection from "./components/AlmanaquesSection";
 import { SubregionId } from "./types";
 import {
   Sparkles,
@@ -38,7 +39,8 @@ import {
   Shirt,
   Tag,
   Palette,
-  Lock
+  Lock,
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 // @ts-ignore
@@ -50,7 +52,7 @@ export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
-  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
+  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
 
   // Mobile menu expand/collapse state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -488,6 +490,20 @@ export default function App() {
             </button>
             <button
               onClick={() => {
+                setActiveTab("almanaques");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 flex items-center gap-1 ${
+                activeTab === "almanaques" 
+                  ? "text-brand-orange border-brand-orange font-black" 
+                  : "text-slate-600 border-transparent hover:text-brand-orange hover:border-brand-orange/35"
+              }`}
+            >
+              <span>ALMANAQUES</span>
+              <span className="text-[9px] bg-brand-orange/15 text-brand-orange px-1 rounded font-mono font-bold">2026</span>
+            </button>
+            <button
+              onClick={() => {
                 setActiveTab("mapa");
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
@@ -563,6 +579,7 @@ export default function App() {
                 {[
                   { id: "servicios", label: "🏢 SERVICIOS" },
                   { id: "litografia", label: "🖨️ PUBLICIDAD LITOGRÁFICA" },
+                  { id: "almanaques", label: "📅 ALMANAQUES 2026" },
                   { id: "mapa", label: "🗺️ MAPA INTERACTIVO" },
                   { id: "directorio", label: "📂 DIRECTORIO PYME" },
                   { id: "tarifas", label: "📊 TARIFAS / PRECIOS" },
@@ -1098,6 +1115,12 @@ export default function App() {
             {activeTab === "litografia" && (
               <div className="space-y-8" id="litografia-seccion">
                 <LitografiaSection customLithoImages={imageConfig.customLithoImages} />
+              </div>
+            )}
+
+            {activeTab === "almanaques" && (
+              <div className="space-y-8" id="almanaques-seccion">
+                <AlmanaquesSection onOpenAsistencia={handleAsistenciaLocal} />
               </div>
             )}
 
