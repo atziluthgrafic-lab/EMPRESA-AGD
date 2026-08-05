@@ -4,7 +4,6 @@ import MunicipalDirectory from "./components/MunicipalDirectory";
 import PricingCalculator from "./components/PricingCalculator";
 import ContactForm from "./components/ContactForm";
 import LitografiaSection from "./components/LitografiaSection";
-import AlmanaqueLandingPage from "./components/AlmanaqueLandingPage";
 import AdminDashboard from "./components/AdminDashboard";
 import { SubregionId } from "./types";
 import {
@@ -51,7 +50,7 @@ export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
-  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
+  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
 
   // Mobile menu expand/collapse state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -79,7 +78,6 @@ export default function App() {
     }>;
     customLithoImages?: Record<string, string>;
     categories?: string[];
-    almanaqueConfig?: import("./types").AlmanaqueConfig;
   }>({
     logoUrl: "/logo_atziluth.jpg",
     webDesignMockup: "",
@@ -245,34 +243,8 @@ export default function App() {
 
     fetchImageSettings();
     window.addEventListener("configUpdated", fetchImageSettings);
-
-    // Sync route path for /admin/panel.html or ?tab=admin
-    const urlParams = new URLSearchParams(window.location.search);
-    const initialPath = window.location.pathname.toLowerCase();
-    if (
-      urlParams.get("tab") === "admin" ||
-      initialPath.includes("/admin") ||
-      initialPath.includes("panel.html")
-    ) {
-      setActiveTab("admin");
-    }
-
-    const handlePopState = () => {
-      const params = new URLSearchParams(window.location.search);
-      const currentPath = window.location.pathname.toLowerCase();
-      if (
-        params.get("tab") === "admin" ||
-        currentPath.includes("/admin") ||
-        currentPath.includes("panel.html")
-      ) {
-        setActiveTab("admin");
-      }
-    };
-    window.addEventListener("popstate", handlePopState);
-
     return () => {
       window.removeEventListener("configUpdated", fetchImageSettings);
-      window.removeEventListener("popstate", handlePopState);
     };
   }, []);
 
@@ -507,7 +479,7 @@ export default function App() {
                 window.scrollTo({ top: 0, behavior: "smooth" });
               }}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
-                activeTab === "litografia" || activeTab === "almanaques"
+                activeTab === "litografia" 
                   ? "text-brand-orange border-brand-orange" 
                   : "text-slate-600 border-transparent hover:text-brand-orange hover:border-brand-orange/35"
               }`}
@@ -1123,13 +1095,9 @@ export default function App() {
               </>
             )}
 
-            {(activeTab === "litografia" || activeTab === "almanaques") && (
+            {activeTab === "litografia" && (
               <div className="space-y-8" id="litografia-seccion">
-                <LitografiaSection 
-                  customLithoImages={imageConfig.customLithoImages} 
-                  almanaqueConfig={imageConfig.almanaqueConfig}
-                  initialSubTab={activeTab === "almanaques" ? "almanaques" : "catalogo"}
-                />
+                <LitografiaSection customLithoImages={imageConfig.customLithoImages} />
               </div>
             )}
 
@@ -1154,7 +1122,6 @@ export default function App() {
                   onSelectSubregion={setActiveSub}
                   selectedMunicipality={activeMuni}
                   onSelectMunicipality={setActiveMuni}
-                  customLocations={imageConfig.customMapLocations}
                 />
               </div>
             )}
@@ -1201,7 +1168,7 @@ export default function App() {
                   </p>
                 </div>
 
-                <PricingCalculator customTariffs={imageConfig.customTariffs} />
+                <PricingCalculator />
               </div>
             )}
 
@@ -1239,7 +1206,7 @@ export default function App() {
           </div>
 
           <div className="text-center md:text-right space-y-2 font-mono text-[10px] text-slate-400 flex flex-col items-center md:items-end">
-            <p>© 2027 Atziluth Grafic Digital S.A.S. Todos los derechos reservados.</p>
+            <p>© 2026 Atziluth Grafic Digital S.A.S. Todos los derechos reservados.</p>
             <p className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-1.5 sm:gap-3">
               <span>Monitoreando telecomunicaciones y conversiones desde Medellín en tiempo de red.</span>
             </p>

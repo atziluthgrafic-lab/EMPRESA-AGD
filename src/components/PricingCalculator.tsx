@@ -2,13 +2,7 @@ import React, { useState } from "react";
 import { Check, Info, ArrowRight, Sparkles, HelpCircle, Sliders, MapPin } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
-import { TariffPlan } from "../types";
-
-interface PricingCalculatorProps {
-  customTariffs?: TariffPlan[];
-}
-
-export default function PricingCalculator({ customTariffs }: PricingCalculatorProps) {
+export default function PricingCalculator() {
   const [isAnnual, setIsAnnual] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState("crecimiento");
 
@@ -19,13 +13,13 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
 
   const discountMultiplier = isAnnual ? 0.8 : 1.0;
 
-  const defaultPlans: TariffPlan[] = [
+  const plans = [
     {
       id: "emprendedor",
       name: "Plan Emprendedor",
       description: "Ideal para pymes, artesanos y marcas locales en municipios pequeños que inician su aventura digital.",
       monthlyCostCOP: 280000,
-      annualCostCOP: 250000,
+      annualCostCOP: 250000, // 3.000.000 / 12 = 250.000 COP / mes
       totalAnnualCostCOP: 3000000,
       badge: "Esencial",
       color: "from-amber-50/50 to-white",
@@ -44,7 +38,7 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
       name: "Crecimiento Digital",
       description: "La opción preferida de hoteles en Guatapé, cafés en Jardín y marcas en expansión regional.",
       monthlyCostCOP: 400000,
-      annualCostCOP: 350000,
+      annualCostCOP: 350000, // 4.200.000 / 12 = 350.000 COP / mes
       totalAnnualCostCOP: 4200000,
       badge: "Recomendado",
       color: "from-orange-50/40 via-white to-white",
@@ -64,29 +58,26 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
       name: "Corporativo Antioquia",
       description: "Para agroindustrias en Urabá, lecheras en el Norte y pymes de alta facturación en Medellín.",
       monthlyCostCOP: 750000,
-      annualCostCOP: 650000,
-      totalAnnualCostCOP: 7800000,
-      badge: "Empresarial",
-      color: "from-cyan-50/40 via-white to-white",
+      annualCostCOP: 641667, // 7.700.000 / 12 = 641.667 COP / mes
+      totalAnnualCostCOP: 7700000,
+      badge: "Líder",
+      color: "from-cyan-50/30 to-white",
       textColor: "text-brand-cyan",
       features: [
-        "Portal Web Avanzado & Multi-subregión",
-        "E-Commerce Completo o PMS Hotelero",
-        "Integración de Software de Gestión / ERP",
-        "Campaña Completa de pauta Google/Meta",
-        "Mantenimiento Técnico Mensual 24/7",
-        "Diseño Gráfico Ilimitado con IA",
-        "Asesor Dedicado en Medellín/Rionegro",
+        "Desarrollo a Medida (Multi-idioma)",
+        "E-commerce de alto volumen integrado",
+        "Gestión de Campañas Google & Meta Ads",
+        "Estudio Fotográfico / Vídeo corporativo",
+        "Auditorías continuas de Conversión con IA",
+        "Banners Publicitarios Generativos Ilimitados",
+        "Administrador de Cuenta Dedicado",
       ],
     },
   ];
 
-  const plans = (customTariffs && customTariffs.length > 0) ? customTariffs : defaultPlans;
-
   // Selected Plan cost calculation
-  const activePlanObj = plans.find((p) => p.id === selectedPlan) || plans[0] || defaultPlans[0];
-  const planRate = isAnnual ? (activePlanObj.annualCostCOP || activePlanObj.monthlyCostCOP) : activePlanObj.monthlyCostCOP;
-
+  const basePlanPrice = plans.find((p) => p.id === selectedPlan)!;
+  const planRate = isAnnual ? basePlanPrice.annualCostCOP : basePlanPrice.monthlyCostCOP;
 
   // Addons cost calculation
   const ecommercePrice = addonEcommerce ? (isAnnual ? 40000 : 50000) : 0;
@@ -97,12 +88,11 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
 
   // Exact annual cost tracking to prevent roundoff errors
   const totalAnnualCOP = isAnnual
-    ? (activePlanObj.totalAnnualCostCOP || (activePlanObj.annualCostCOP ? activePlanObj.annualCostCOP * 12 : 0)) +
+    ? (basePlanPrice.totalAnnualCostCOP || 0) +
       (addonEcommerce ? 40000 * 12 : 0) +
       (addonAIVideo ? 80000 * 12 : 0) +
       (addonSocials ? 32000 * 12 : 0)
     : totalMonthlyCOP * 12;
-
 
   const formatCOP = (num: number) => {
     return new Intl.NumberFormat("es-CO", {
@@ -187,22 +177,19 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
                   </p>
                 </div>
 
-                {/* Price Box matching presentation */}
-                <div className="mt-3 bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1">
-                  <p className="text-xs font-mono text-cyan-400 font-bold">
-                    Mensual: {formatCOP(p.monthlyCostCOP)} /mes
-                  </p>
-                  <p className="text-xs font-mono text-emerald-400">
-                    Anual: {formatCOP(p.annualCostCOP)} /mes
-                  </p>
+                <div className="py-2">
+                  <span className="text-2xl lg:text-3xl font-black text-slate-900">
+                    {formatCOP(rate)}
+                  </span>
+                  <span className="text-slate-500 text-xs font-mono"> / mes</span>
                 </div>
               </div>
 
               {/* Plan Features */}
-              <ul className="space-y-2 my-4 pt-3 border-t border-slate-100">
+              <ul className="space-y-2.5 my-6 pt-4 border-t border-slate-100">
                 {p.features.map((f, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-xs text-slate-700 font-sans">
-                    <span className="text-brand-orange font-bold text-xs shrink-0 mt-0.5">•</span>
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                     <span>{f}</span>
                   </li>
                 ))}
@@ -330,10 +317,9 @@ export default function PricingCalculator({ customTariffs }: PricingCalculatorPr
             <h5 className="text-sm font-bold text-slate-900 mt-2 font-sans">Detalle de Cotización</h5>
             <div className="space-y-1.5 mt-3 text-xs text-slate-650 font-sans">
               <div className="flex justify-between">
-                <span>{activePlanObj.name} ({isAnnual ? "Anual" : "Mensual"}):</span>
+                <span>{basePlanPrice.name} ({isAnnual ? "Anual" : "Mensual"}):</span>
                 <span className="text-slate-900 font-bold font-mono">{formatCOP(planRate)}/m</span>
               </div>
-
               {addonEcommerce && (
                 <div className="flex justify-between text-[11px]">
                   <span>+ Carrito de Compras:</span>

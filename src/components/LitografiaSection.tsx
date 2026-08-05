@@ -19,12 +19,9 @@ import {
   Clock,
   ThumbsUp,
   ShieldCheck,
-  Calendar,
-  Lock
+  Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import AlmanaqueLandingPage from "./AlmanaqueLandingPage";
-import { AlmanaqueConfig } from "../types";
 
 interface LithoItem {
   id: string;
@@ -41,20 +38,9 @@ interface LithoItem {
 
 interface LitografiaSectionProps {
   customLithoImages?: Record<string, string>;
-  almanaqueConfig?: AlmanaqueConfig;
-  initialSubTab?: "catalogo" | "almanaques";
-  onSelectAlmanaques?: () => void;
-  onOpenAdmin?: () => void;
 }
 
-export default function LitografiaSection({ 
-  customLithoImages, 
-  almanaqueConfig,
-  initialSubTab = "catalogo",
-  onSelectAlmanaques,
-  onOpenAdmin
-}: LitografiaSectionProps) {
-  const [subTab, setSubTab] = useState<"catalogo" | "almanaques">(initialSubTab);
+export default function LitografiaSection({ customLithoImages }: LitografiaSectionProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [activeItem, setActiveItem] = useState<string | null>(null);
@@ -213,8 +199,8 @@ export default function LitografiaSection({
   };
 
   return (
-    <div className="space-y-10">
-      {/* Dynamic Header Block with Sub-Menu Selector */}
+    <div className="space-y-12">
+      {/* Dynamic Header Block with Floating Printers / Litho Visual context */}
       <div className="text-center space-y-4 max-w-4xl mx-auto">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-yellow-950/50 border border-yellow-800/40 rounded-full text-[10px] font-mono text-yellow-400">
           <Printer className="w-3.5 h-3.5 text-yellow-500 animate-pulse" />
@@ -224,87 +210,40 @@ export default function LitografiaSection({
           Publicidad <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-yellow-200 to-emerald-400">Litográfica Premium</span>
         </h2>
         <p className="text-sm text-neutral-300 max-w-2xl mx-auto leading-relaxed">
-          Materializa la presencia física de tu negocio en cualquier municipio de Antioquia. Impresión industrial offset, cartelería, souvenirs y especial de almanaques publicitarios.
+          Materializa la presencia física de tu negocio en cualquier municipio de Antioquia. Combinamos el arte del diseño digital vectorial moderno con técnicas de impresión industrial offset y de gran formato de alta precisión para maximizar tu impacto comercial.
         </p>
-
-        {/* Sub-menu Navigation for Publicidad Litográfica */}
-        <div className="flex flex-wrap items-center justify-center gap-2 max-w-2xl mx-auto p-1.5 bg-[#010515] border border-blue-900/50 rounded-2xl shadow-xl pt-2">
-          <button
-            onClick={() => setSubTab("catalogo")}
-            className={`flex-1 min-w-[140px] py-3 px-4 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
-              subTab === "catalogo"
-                ? "bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-900 text-white border border-blue-700/60 shadow-md ring-1 ring-blue-500/30"
-                : "text-neutral-400 hover:text-white hover:bg-blue-950/40"
-            }`}
-          >
-            <Printer className="w-4 h-4 text-yellow-400" />
-            Catálogo General
-          </button>
-          <button
-            onClick={() => setSubTab("almanaques")}
-            className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-2 cursor-pointer relative ${
-              subTab === "almanaques"
-                ? "bg-gradient-to-r from-yellow-400 via-amber-300 to-amber-400 text-neutral-950 font-black shadow-lg shadow-yellow-500/20"
-                : "text-yellow-400 hover:bg-yellow-400/10 border border-yellow-500/30"
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            Especial Almanaques
-            <span className="px-1.5 py-0.5 text-[9px] bg-red-500 text-white rounded-full font-sans font-bold uppercase animate-pulse">
-              2027
-            </span>
-          </button>
-          {onOpenAdmin && (
-            <button
-              onClick={onOpenAdmin}
-              className="py-3 px-4 rounded-xl text-xs font-mono font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-gradient-to-r from-amber-400 to-yellow-400 text-neutral-950 hover:opacity-90 shadow-md border border-yellow-300"
-              title="Panel de Administración para Editar Almanaques 2027"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>PANEL ADMIN</span>
-            </button>
-          )}
-        </div>
       </div>
 
-      {subTab === "almanaques" ? (
-        <AlmanaqueLandingPage 
-          config={almanaqueConfig} 
-          onBack={() => setSubTab("catalogo")} 
-          onOpenAdmin={onOpenAdmin}
-        />
-      ) : (
-        <>
-          {/* Trust guarantees badge list */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto pt-2">
-            <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400 border border-yellow-500/20">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white">Calidad Industrial</h4>
-                <p className="text-[10px] text-neutral-400">Tintas premium y papeles importados.</p>
-              </div>
-            </div>
-            <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white">Tiempos Optimizados</h4>
-                <p className="text-[10px] text-neutral-400">Impresión rápida y despachos coordinados.</p>
-              </div>
-            </div>
-            <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
-                <ThumbsUp className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-bold text-white">Asistencia de Diseño</h4>
-                <p className="text-[10px] text-neutral-400">Revisión de sangrados y vectores gratis.</p>
-              </div>
-            </div>
+      {/* Trust guarantees badge list */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto pt-2">
+        <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-yellow-500/10 flex items-center justify-center text-yellow-400 border border-yellow-500/20">
+            <ShieldCheck className="w-5 h-5" />
           </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">Calidad Industrial</h4>
+            <p className="text-[10px] text-neutral-400">Tintas premium y papeles importados.</p>
+          </div>
+        </div>
+        <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
+            <Clock className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">Tiempos Optimizados</h4>
+            <p className="text-[10px] text-neutral-400">Impresión rápida y despachos coordinados.</p>
+          </div>
+        </div>
+        <div className="bg-[#030e2f]/50 border border-blue-900/20 p-4 rounded-2xl flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+            <ThumbsUp className="w-5 h-5" />
+          </div>
+          <div>
+            <h4 className="text-xs font-bold text-white">Asistencia de Diseño</h4>
+            <p className="text-[10px] text-neutral-400">Revisión de sangrados y vectores gratis.</p>
+          </div>
+        </div>
+      </div>
 
       {/* Filter and Search Panel */}
       <div className="bg-[#020a22]/70 border border-blue-950/50 rounded-2xl p-4 max-w-5xl mx-auto flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -353,36 +292,25 @@ export default function LitografiaSection({
                   <motion.div
                     layout
                     key={item.id}
-                    onClick={() => {
-                      if (item.id === "almanaques") {
-                        setSubTab("almanaques");
-                        window.scrollTo({ top: 120, behavior: "smooth" });
-                      } else {
-                        setActiveItem(isExpanded ? null : item.id);
-                      }
-                    }}
-                    className={`bg-[#020a22]/75 border rounded-2xl p-5 hover:border-yellow-400/60 transition-all flex flex-col justify-between cursor-pointer group hover:bg-[#030e32]/80 relative overflow-hidden ${
-                      item.id === "almanaques" ? "border-yellow-400/60 shadow-lg shadow-yellow-500/10 ring-1 ring-yellow-400/20" : isExpanded ? "border-yellow-400 shadow-lg shadow-yellow-500/5 col-span-1 sm:col-span-2 lg:col-span-1" : "border-blue-900/30"
+                    onClick={() => setActiveItem(isExpanded ? null : item.id)}
+                    className={`bg-[#020a22]/75 border rounded-2xl p-5 hover:border-blue-900/70 transition-all flex flex-col justify-between cursor-pointer group hover:bg-[#030e32]/65 relative overflow-hidden ${
+                      isExpanded ? "border-yellow-400 shadow-lg shadow-yellow-500/5 col-span-1 sm:col-span-2 lg:col-span-1" : "border-blue-900/30"
                     }`}
                   >
                     {/* Decorative Background Glows */}
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-yellow-400/10 to-transparent rounded-full pointer-events-none group-hover:scale-125 transition-transform" />
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-yellow-400/5 to-transparent rounded-full pointer-events-none group-hover:scale-125 transition-transform" />
 
                     <div className="space-y-4">
                       {/* Top Row with Icon, Category & optional Badge */}
                       <div className="flex items-start justify-between">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#020a22] to-[#12224d] flex items-center justify-center text-yellow-400 border border-blue-900/30 group-hover:border-yellow-400/50 group-hover:scale-105 transition-all">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#020a22] to-[#12224d] flex items-center justify-center text-yellow-400 border border-blue-900/30 group-hover:border-yellow-400/30 group-hover:scale-105 transition-all">
                           <IconComponent className="w-6 h-6" />
                         </div>
-                        {item.id === "almanaques" ? (
-                          <span className="text-[10px] font-mono font-bold tracking-wide uppercase px-2.5 py-1 bg-yellow-400 text-neutral-950 rounded-lg shadow-sm">
-                            ⭐ Landing & Cotizador Activo
-                          </span>
-                        ) : item.badge ? (
+                        {item.badge && (
                           <span className="text-[10px] font-mono font-bold tracking-wide uppercase px-2.5 py-1 bg-yellow-450/10 text-yellow-400 border border-yellow-800/30 rounded-lg">
                             {item.badge}
                           </span>
-                        ) : null}
+                        )}
                       </div>
 
                       {/* Real watermark-free preview image of the litho product */}
@@ -394,13 +322,6 @@ export default function LitografiaSection({
                           referrerPolicy="no-referrer"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-transparent to-transparent opacity-60" />
-                        {item.id === "almanaques" && (
-                          <div className="absolute bottom-2 left-2 right-2 bg-neutral-950/90 backdrop-blur-md p-1.5 rounded-lg border border-yellow-400/40 text-center">
-                            <span className="text-[10px] font-mono text-yellow-400 font-bold block">
-                              Haz clic para ver la Landing Page & Precios
-                            </span>
-                          </div>
-                        )}
                       </div>
 
                       {/* Title & Tagline info */}
@@ -419,7 +340,7 @@ export default function LitografiaSection({
                       </p>
 
                       {/* Expandable Extended Details Container */}
-                      {isExpanded && item.id !== "almanaques" && (
+                      {isExpanded && (
                         <motion.div 
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: "auto" }}
@@ -441,34 +362,19 @@ export default function LitografiaSection({
                     {/* Footer Row with Cotizar action & arrow trigger info */}
                     <div className="mt-6 pt-4 border-t border-blue-900/20 flex items-center justify-between text-xs">
                       <span className="text-neutral-500 font-mono text-[10px] group-hover:text-neutral-300 transition-colors">
-                        {item.id === "almanaques" ? "Ingresar a Landing" : isExpanded ? "Haz clic para cerrar" : "Ver especificaciones"}
+                        {isExpanded ? "Haz clic para cerrar" : "Ver especificaciones"}
                       </span>
-                      {item.id === "almanaques" ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSubTab("almanaques");
-                            window.scrollTo({ top: 120, behavior: "smooth" });
-                          }}
-                          className="px-3.5 py-1.5 bg-gradient-to-r from-yellow-400 to-amber-400 text-neutral-950 rounded-xl font-black font-sans text-xs transition-all flex items-center gap-1.5 shadow-md cursor-pointer hover:scale-105"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          Ver Landing & Precios
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleQuoteOnWhatsApp(item.title);
-                          }}
-                          className="px-3.5 py-1.5 bg-[#030e2f] hover:bg-yellow-400 group-hover:bg-yellow-400 text-yellow-400 hover:text-neutral-950 group-hover:text-neutral-950 rounded-xl font-bold font-sans text-xs transition-all flex items-center gap-1.5 border border-yellow-400/30 hover:border-yellow-400 cursor-pointer shadow-sm"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                          Cotizar
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleQuoteOnWhatsApp(item.title);
+                        }}
+                        className="px-3.5 py-1.5 bg-[#030e2f] hover:bg-yellow-400 group-hover:bg-yellow-400 text-yellow-400 hover:text-neutral-950 group-hover:text-neutral-950 rounded-xl font-bold font-sans text-xs transition-all flex items-center gap-1.5 border border-yellow-400/30 hover:border-yellow-400 cursor-pointer shadow-sm"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        Cotizar
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
                     </div>
                   </motion.div>
                 );
@@ -515,8 +421,6 @@ export default function LitografiaSection({
           WhatsApp Asesor Litográfico
         </button>
       </div>
-    </>
-  )}
-</div>
+    </div>
   );
 }

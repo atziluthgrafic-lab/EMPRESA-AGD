@@ -133,11 +133,17 @@ if ($route === 'config/images') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         requireAdmin();
         
-        $existingConfig = loadImagesConfig($configFile);
-        $newConfig = array_merge($existingConfig, $input);
+        $webDesignMockup = isset($input['webDesignMockup']) ? $input['webDesignMockup'] : "";
+        $restaurantAppMockup = isset($input['restaurantAppMockup']) ? $input['restaurantAppMockup'] : "";
+        $municipalDirectoryBanner = isset($input['municipalDirectoryBanner']) ? $input['municipalDirectoryBanner'] : "";
+        $customBusinesses = isset($input['customBusinesses']) ? $input['customBusinesses'] : [];
+        $customAds = isset($input['customAds']) ? $input['customAds'] : [];
+        $categories = isset($input['categories']) ? $input['categories'] : [];
+        $customLithoImages = isset($input['customLithoImages']) ? $input['customLithoImages'] : [];
+        $clients = isset($input['clients']) ? $input['clients'] : [];
         
-        if (empty($newConfig['categories'])) {
-            $newConfig['categories'] = [
+        if (empty($categories)) {
+            $categories = [
                 "Ferreterías",
                 "Parqueaderos",
                 "Tiendas",
@@ -148,9 +154,20 @@ if ($route === 'config/images') {
             ];
         }
 
-        if (empty($newConfig['customLithoImages']) || (is_array($newConfig['customLithoImages']) && count($newConfig['customLithoImages']) === 0)) {
-            $newConfig['customLithoImages'] = (object)[];
+        if (empty($customLithoImages) || is_array($customLithoImages) && count($customLithoImages) === 0) {
+            $customLithoImages = (object)[];
         }
+        
+        $newConfig = [
+            "webDesignMockup" => $webDesignMockup,
+            "restaurantAppMockup" => $restaurantAppMockup,
+            "municipalDirectoryBanner" => $municipalDirectoryBanner,
+            "customBusinesses" => $customBusinesses,
+            "customAds" => $customAds,
+            "categories" => $categories,
+            "customLithoImages" => $customLithoImages,
+            "clients" => $clients
+        ];
         
         // Ensure parent directory of configuration exists
         $dir = dirname($configFile);
@@ -182,8 +199,8 @@ if ($route === 'config/images') {
             exit;
         }
         
-        // Decode base64 string safely for images, PDFs, and documents
-        $base64Clean = preg_replace('/^data:[a-zA-Z0-9\+\-\.\/]+;base64,/', '', $base64Data);
+        // Decode base64 string
+        $base64Clean = preg_replace('/^data:image\/\w+;base64,/', '', $base64Data);
         $binaryData = base64_decode($base64Clean);
         
         if ($binaryData === false) {
