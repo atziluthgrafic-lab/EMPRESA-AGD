@@ -228,6 +228,44 @@ if ($route === 'config/images') {
             exit;
         }
     }
+} elseif ($route === 'admin/upload-file' || $route === 'upload-file') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $fileName = isset($input['fileName']) ? $input['fileName'] : 'archivo.pdf';
+        $base64Data = isset($input['base64Data']) ? $input['base64Data'] : '';
+        
+        if (empty($base64Data)) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "error" => "No se proporcionaron datos de archivo."]);
+            exit;
+        }
+        
+        $base64Clean = preg_replace('/^data:[^;]+;base64,/', '', $base64Data);
+        $binaryData = base64_decode($base64Clean);
+        
+        if ($binaryData === false || strlen($binaryData) === 0) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "error" => "Los datos del archivo no son válidos."]);
+            exit;
+        }
+        
+        if (!file_exists($uploadsDir)) {
+            mkdir($uploadsDir, 0755, true);
+        }
+        
+        $timestamp = time();
+        $safeName = preg_replace('/[^a-zA-Z0-9.\-_]/', '_', $fileName);
+        $uniqueFileName = $timestamp . '_' . $safeName;
+        $targetPath = $uploadsDir . '/' . $uniqueFileName;
+        
+        if (file_put_contents($targetPath, $binaryData) !== false) {
+            echo json_encode(["success" => true, "url" => "/uploads/" . $uniqueFileName, "fileName" => $uniqueFileName]);
+            exit;
+        } else {
+            http_response_code(500);
+            echo json_encode(["success" => false, "error" => "Fallo al escribir el archivo subido en el servidor."]);
+            exit;
+        }
+    }
 }
 
 // Endpoint not found

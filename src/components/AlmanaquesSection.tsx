@@ -175,15 +175,6 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
               <ExternalLink className="w-4 h-4" />
               <span>Abrir Subpágina almanaques.html</span>
             </a>
-            <a
-              href="/admin/almanaques.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold rounded-xl flex items-center gap-2 transition-all"
-            >
-              <Lock className="w-4 h-4 text-brand-cyan" />
-              <span>Panel de Control Almanaques</span>
-            </a>
           </div>
         </div>
       </div>
@@ -227,7 +218,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
           <div>
-            <h2 class="text-xl font-display font-bold text-slate-900">Catálogo de Productos por Categoría</h2>
+            <h2 className="text-xl font-display font-bold text-slate-900">Catálogo de Productos por Categoría</h2>
             <p className="text-xs text-slate-500">Filtra por identificador de categoría o busca tu referencia</p>
           </div>
 

@@ -628,8 +628,8 @@ const handleUploadImageRequest = (req: any, res: any) => {
 app.post("/api/admin/upload-image", allowUpload, handleUploadImageRequest);
 app.post("/api/upload-image", allowUpload, handleUploadImageRequest);
 
-// 8. API: Upload PDF or General Files
-app.post("/api/admin/upload-file", allowUpload, (req: any, res: any) => {
+// 8. API: Upload PDF or General Files (Admin and Public Upload aliases)
+const handleUploadFileRequest = (req: any, res: any) => {
   try {
     const { fileName, base64Data } = req.body;
     if (!base64Data || typeof base64Data !== "string") {
@@ -666,7 +666,10 @@ app.post("/api/admin/upload-file", allowUpload, (req: any, res: any) => {
     console.error("Error al subir archivo:", err);
     res.status(500).json({ success: false, error: "Error al guardar el archivo en el servidor." });
   }
-});
+};
+
+app.post("/api/admin/upload-file", allowUpload, handleUploadFileRequest);
+app.post("/api/upload-file", allowUpload, handleUploadFileRequest);
 
 // Serve frontend assets
 async function startServer() {

@@ -841,7 +841,7 @@ export default function AdminDashboard() {
             </div>
             <div>
               <h3 className="text-base font-bold text-white">Resumen General de Contabilidad Mensual</h3>
-              <p class="text-xs text-slate-400">
+              <p className="text-xs text-slate-400">
                 Historial consolidado de todos los pagos registrados en la plataforma.
               </p>
             </div>
