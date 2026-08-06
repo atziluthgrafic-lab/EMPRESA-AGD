@@ -124,7 +124,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
       "none": "Sin Logotipo"
     };
 
-    const message = `Hola Atziluth! Deseo solicitar un pedido de *Almanaques 2026*:\n\n` +
+    const message = `Hola Atziluth! Deseo solicitar un pedido de *Almanaque para el 2027*:\n\n` +
       `📌 *REFERENCIA:* ${selectedProduct.ref} - ${selectedProduct.name}\n` +
       `📦 *CANTIDAD:* ${orderQty} unidades\n` +
       `🎨 *ACABADO:* ${selectedProduct.finish}\n` +
@@ -171,10 +171,10 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
         <div className="relative z-10 max-w-3xl space-y-4">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-brand-orange/20 border border-brand-orange/40 rounded-full text-brand-orange text-xs font-mono font-bold">
             <Sparkles className="w-4 h-4" />
-            <span>COLECCIÓN OFICIAL DE ALMANAQUES 2026</span>
+            <span>COLECCIÓN OFICIAL DE ALMANAQUE PARA EL 2027</span>
           </div>
           <h1 className="text-3xl md:text-5xl font-display font-extrabold tracking-tight">
-            Catálogo Comercial de <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-orange via-yellow-400 to-brand-magenta">Almanaques & Calendarios</span>
+            Catálogo Comercial de <span className="bg-clip-text text-transparent bg-gradient-to-r from-brand-orange via-yellow-400 to-brand-magenta">Almanaque para el 2027</span>
           </h1>
           <p className="text-slate-300 text-sm md:text-base leading-relaxed">
             Consigue la máxima exposición de tu empresa los 365 días del año. Explora nuestra gama por categoría con detalles de acabado, tipo de papel, varilla, argollado e impresiones personalizadas.
@@ -203,7 +203,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
             </div>
             <div>
               <h2 className="text-lg font-display font-bold text-slate-900">Visor de Catálogo PDF Completo</h2>
-              <p className="text-xs text-slate-500">Navega el folleto digital oficial de Almanaques 2026</p>
+              <p className="text-xs text-slate-500">Navega el folleto digital oficial de Almanaque para el 2027</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -220,7 +220,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
           </div>
         </div>
 
-        <div className="w-full h-[480px] bg-slate-900 rounded-xl overflow-hidden border border-slate-200">
+        <div className="w-full h-[950px] lg:h-[1100px] bg-slate-900 rounded-xl overflow-hidden border border-slate-200">
           <iframe
             src={`${data.pdfUrl}#toolbar=1&navpanes=1`}
             className="w-full h-full border-0"
@@ -301,7 +301,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
                 key={p.id}
                 className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
               >
-                <div className="relative h-52 bg-slate-100 overflow-hidden">
+                <div className="relative h-80 sm:h-96 w-full bg-slate-100 overflow-hidden">
                   <img
                     src={p.imageUrl}
                     alt={p.name}

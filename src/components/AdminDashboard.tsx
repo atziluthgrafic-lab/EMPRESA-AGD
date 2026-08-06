@@ -21,14 +21,405 @@ import {
   X,
   Building2,
   RefreshCw,
-  FolderOpen
+  FolderOpen,
+  MapPin,
+  Tag,
+  FileText,
+  Download,
+  Printer,
+  ShieldCheck,
+  Award,
+  Check
 } from "lucide-react";
 import { ClientRecord, ClientPayment } from "../types";
+
+export interface SellerRecord {
+  id: string;
+  name: string;
+  username: string;
+  password?: string;
+  supervisor?: string;
+  phone: string;
+  zone: string;
+  commissionRate: number;
+  municipalities: string[];
+  categories: string[];
+  createdAt: string;
+}
+
+const DEFAULT_SELLERS: SellerRecord[] = [
+  {
+    id: "sel_1",
+    name: "Carlos Mario Arango",
+    username: "carlos.ventas",
+    password: "123",
+    phone: "3004567890",
+    zone: "Valle de Aburrá Norte",
+    commissionRate: 5.0,
+    municipalities: ["Medellín", "Bello", "Copacabana", "Girardota"],
+    categories: ["Gran Formato & Pendones", "Calendarios & Almanaques 2026", "Litografía & Papelería Comercial"],
+    createdAt: "2026-01-15"
+  },
+  {
+    id: "sel_2",
+    name: "Camila Ospina Restrepo",
+    username: "camila.comercial",
+    password: "123",
+    phone: "3129876543",
+    zone: "Valle de Aburrá Sur",
+    commissionRate: 6.0,
+    municipalities: ["Envigado", "Itagüí", "Sabaneta", "Caldas", "La Estrella"],
+    categories: ["Litografía & Papelería Comercial", "Tarjetas de Presentación & Volantes", "Empaques & Cajas Personalizadas"],
+    createdAt: "2026-02-01"
+  },
+  {
+    id: "sel_3",
+    name: "Andrés Felipe Restrepo",
+    username: "andres.oriente",
+    password: "123",
+    phone: "3155551234",
+    zone: "Oriente Antioqueño",
+    commissionRate: 5.5,
+    municipalities: ["Rionegro", "Marinilla", "Guarne", "La Ceja", "El Retiro"],
+    categories: ["Calendarios & Almanaques 2026", "Gran Formato & Pendones", "Avisos Neón 3D & Acrílicos"],
+    createdAt: "2026-03-10"
+  }
+];
+
+const ANTIOQUIA_MUNICIPALITIES = [
+  "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Rionegro", 
+  "Copacabana", "Girardota", "Caldas", "La Estrella", "Marinilla", 
+  "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Barbosa", "Santa Fe de Antioquia"
+];
+
+const BUSINESS_CATEGORIES = [
+  "Gran Formato & Pendones",
+  "Calendarios & Almanaques 2026",
+  "Litografía & Papelería Comercial",
+  "Tarjetas de Presentación & Volantes",
+  "Avisos Neón 3D & Acrílicos",
+  "Empaques & Cajas Personalizadas",
+  "Diseño Web & Branding Digital"
+];
+
+export interface OrderReceiptRecord {
+  id: string;
+  orderNumber: string;
+  documentType: 'abono' | 'factura';
+  date: string;
+  sellerId: string;
+  sellerName: string;
+  sellerUsername: string;
+  sellerPhone: string;
+  sellerSupervisor?: string;
+  clientName: string;
+  clientDocument: string;
+  clientPhone: string;
+  clientMunicipality: string;
+  clientAddress: string;
+  productCategory: string;
+  productDescription: string;
+  quantity: number;
+  unitPrice: number;
+  totalAmount: number;
+  paidAmount: number;
+  balance: number;
+  paymentMethod: string;
+  status: 'pendiente' | 'completado' | 'entregado';
+  notes: string;
+  createdAt: string;
+}
+
+const DEFAULT_ORDERS: OrderReceiptRecord[] = [
+  {
+    id: "ord_101",
+    orderNumber: "PED-2026-001",
+    documentType: "abono",
+    date: "2026-08-01",
+    sellerId: "sel_1",
+    sellerName: "Carlos Mario Arango",
+    sellerUsername: "carlos.ventas",
+    sellerPhone: "3004567890",
+    sellerSupervisor: "Estiven Arango (Director Comercial)",
+    clientName: "Distribuidora El Triunfo S.A.S.",
+    clientDocument: "900.123.456-7",
+    clientPhone: "3115559876",
+    clientMunicipality: "Bello",
+    clientAddress: "Calle 50 # 45-12, Sector Niquía",
+    productCategory: "Calendarios & Almanaques 2026",
+    productDescription: "Almanaque de Pared 30x50cm - Tinta UV Full Color - Carátula Propalcote 300g",
+    quantity: 500,
+    unitPrice: 3800,
+    totalAmount: 1900000,
+    paidAmount: 900000,
+    balance: 1000000,
+    paymentMethod: "Transferencia Bancaria (Bancolombia)",
+    status: "pendiente",
+    notes: "Abono inicial del 47%. Saldo restante contra entrega programada.",
+    createdAt: "2026-08-01T10:00:00.000Z"
+  },
+  {
+    id: "ord_102",
+    orderNumber: "PED-2026-002",
+    documentType: "factura",
+    date: "2026-08-04",
+    sellerId: "sel_2",
+    sellerName: "Camila Ospina Restrepo",
+    sellerUsername: "camila.comercial",
+    sellerPhone: "3129876543",
+    sellerSupervisor: "Laura Gómez (Supervisora Metropolitana)",
+    clientName: "Calzado & Marroquinería Real",
+    clientDocument: "71.234.567",
+    clientPhone: "3014443322",
+    clientMunicipality: "Envigado",
+    clientAddress: "Carrera 43A # 32-10, Zona Comercial",
+    productCategory: "Portafolios Comerciales & Carpetas",
+    productDescription: "Portafolio Ejecutivo Plastificado Mate con Bolsillo Interno y Solapa",
+    quantity: 200,
+    unitPrice: 6500,
+    totalAmount: 1300000,
+    paidAmount: 1300000,
+    balance: 0,
+    paymentMethod: "Efectivo",
+    status: "completado",
+    notes: "Factura cancelada en su totalidad al momento de entrega.",
+    createdAt: "2026-08-04T14:30:00.000Z"
+  }
+];
 
 export default function AdminDashboard() {
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Vendedores State & LocalStorage persistence
+  const [sellers, setSellers] = useState<SellerRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("atziluth_vendedores") || localStorage.getItem("atziluth_sellers_data");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("Error loading sellers from localStorage:", e);
+    }
+    return DEFAULT_SELLERS;
+  });
+
+  // Save sellers to localStorage on update
+  useEffect(() => {
+    try {
+      localStorage.setItem("atziluth_vendedores", JSON.stringify(sellers));
+      localStorage.setItem("atziluth_sellers_data", JSON.stringify(sellers));
+    } catch (e) {
+      console.error("Error saving sellers to localStorage:", e);
+    }
+  }, [sellers]);
+
+  // New Seller Form State
+  const [newSellerName, setNewSellerName] = useState("");
+  const [newSellerUsername, setNewSellerUsername] = useState("");
+  const [newSellerPassword, setNewSellerPassword] = useState("");
+  const [newSellerSupervisor, setNewSellerSupervisor] = useState("Estiven Arango (Director Comercial)");
+  const [newSellerPhone, setNewSellerPhone] = useState("");
+  const [newSellerZone, setNewSellerZone] = useState("Valle de Aburrá Norte");
+  const [newSellerCommission, setNewSellerCommission] = useState(5.0);
+  const [newSellerMunicipalities, setNewSellerMunicipalities] = useState<string[]>(["Medellín", "Bello"]);
+  const [newSellerCategories, setNewSellerCategories] = useState<string[]>(["Gran Formato & Pendones", "Calendarios & Almanaques 2026"]);
+  const [sellerSearchQuery, setSellerSearchQuery] = useState("");
+
+  // Report Modal State
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedSellerForReport, setSelectedSellerForReport] = useState<SellerRecord | null>(null);
+  const [reportMonth, setReportMonth] = useState<number>(7); // Agosto default
+  const [reportYear, setReportYear] = useState<number>(2026);
+  const [reportCommissionBase, setReportCommissionBase] = useState<'ventas' | 'recaudo'>('ventas');
+  const [reportCommissionRate, setReportCommissionRate] = useState<number>(5.0);
+
+  const toggleMunicipality = (muni: string) => {
+    if (newSellerMunicipalities.includes(muni)) {
+      setNewSellerMunicipalities(newSellerMunicipalities.filter((m) => m !== muni));
+    } else {
+      setNewSellerMunicipalities([...newSellerMunicipalities, muni]);
+    }
+  };
+
+  const toggleCategory = (cat: string) => {
+    if (newSellerCategories.includes(cat)) {
+      setNewSellerCategories(newSellerCategories.filter((c) => c !== cat));
+    } else {
+      setNewSellerCategories([...newSellerCategories, cat]);
+    }
+  };
+
+  const handleAddSeller = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSellerName.trim() || !newSellerUsername.trim()) {
+      alert("Por favor ingrese el nombre y usuario del vendedor.");
+      return;
+    }
+
+    const newSeller: SellerRecord = {
+      id: "sel_" + Date.now(),
+      name: newSellerName.trim(),
+      username: newSellerUsername.trim().toLowerCase(),
+      password: newSellerPassword.trim() || "12345",
+      supervisor: newSellerSupervisor,
+      phone: newSellerPhone.trim() || "3000000000",
+      zone: newSellerZone,
+      commissionRate: Number(newSellerCommission) || 5.0,
+      municipalities: newSellerMunicipalities.length > 0 ? newSellerMunicipalities : ["Medellín"],
+      categories: newSellerCategories.length > 0 ? newSellerCategories : ["Gran Formato & Pendones"],
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    const updated = [newSeller, ...sellers];
+    setSellers(updated);
+
+    // Reset Form
+    setNewSellerName("");
+    setNewSellerUsername("");
+    setNewSellerPassword("");
+    setNewSellerPhone("");
+    setNewSellerMunicipalities(["Medellín", "Bello"]);
+    setNewSellerCategories(["Gran Formato & Pendones"]);
+  };
+
+  const handleDeleteSeller = (id: string, name: string) => {
+    if (confirm(`¿Está seguro de eliminar al vendedor "${name}" de la base de datos?`)) {
+      const updated = sellers.filter((s) => s.id !== id);
+      setSellers(updated);
+    }
+  };
+
+  const openReportForSeller = (seller: SellerRecord) => {
+    setSelectedSellerForReport(seller);
+    setReportCommissionRate(seller.commissionRate || 5.0);
+    setShowReportModal(true);
+  };
+
+  // Gestor de Pedidos, Recibos de Abono y Facturación
+  const [orders, setOrders] = useState<OrderReceiptRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("atziluth_pedidos_admin");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error("Error al cargar pedidos:", e);
+    }
+    return DEFAULT_ORDERS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("atziluth_pedidos_admin", JSON.stringify(orders));
+    } catch (e) {
+      console.error("Error al guardar pedidos:", e);
+    }
+  }, [orders]);
+
+  // Formulario Pedido / Recibo State
+  const [ordDocumentType, setOrdDocumentType] = useState<'abono' | 'factura'>('abono');
+  const [ordSellerId, setOrdSellerId] = useState<string>("admin");
+  const [ordClientName, setOrdClientName] = useState("");
+  const [ordClientDocument, setOrdClientDocument] = useState("");
+  const [ordClientPhone, setOrdClientPhone] = useState("");
+  const [ordClientMunicipality, setOrdClientMunicipality] = useState("Medellín");
+  const [ordClientAddress, setOrdClientAddress] = useState("");
+  const [ordProductCategory, setOrdProductCategory] = useState("Calendarios & Almanaques 2026");
+  const [ordProductDescription, setOrdProductDescription] = useState("");
+  const [ordQuantity, setOrdQuantity] = useState<number>(100);
+  const [ordUnitPrice, setOrdUnitPrice] = useState<number>(4500);
+  const [ordPaidAmount, setOrdPaidAmount] = useState<number>(200000);
+  const [ordPaymentMethod, setOrdPaymentMethod] = useState("Transferencia Bancaria (Bancolombia/Nequi)");
+  const [ordNotes, setOrdNotes] = useState("");
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+
+  // Receipt / Invoice Modal State
+  const [viewingReceiptOrder, setViewingReceiptOrder] = useState<OrderReceiptRecord | null>(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ordClientName.trim() || !ordProductDescription.trim()) {
+      alert("Por favor ingrese el nombre del cliente y la descripción del producto.");
+      return;
+    }
+
+    let sellerName = "Estiven Arango (Administrador General)";
+    let sellerUsername = "admin.general";
+    let sellerPhone = "3001234567";
+    let sellerSupervisor = "Dirección General";
+
+    if (ordSellerId !== "admin") {
+      const found = sellers.find((s) => s.id === ordSellerId);
+      if (found) {
+        sellerName = found.name;
+        sellerUsername = found.username;
+        sellerPhone = found.phone;
+        sellerSupervisor = found.supervisor || "Director Comercial";
+      }
+    }
+
+    const qty = Math.max(1, Number(ordQuantity) || 1);
+    const price = Math.max(0, Number(ordUnitPrice) || 0);
+    const total = qty * price;
+    const paid = Math.min(total, Math.max(0, Number(ordPaidAmount) || 0));
+    const bal = Math.max(0, total - paid);
+
+    const nextNumber = "PED-2026-" + String(orders.length + 1).padStart(3, "0");
+
+    const newOrder: OrderReceiptRecord = {
+      id: "ord_" + Date.now(),
+      orderNumber: nextNumber,
+      documentType: ordDocumentType,
+      date: new Date().toISOString().split("T")[0],
+      sellerId: ordSellerId,
+      sellerName,
+      sellerUsername,
+      sellerPhone,
+      sellerSupervisor,
+      clientName: ordClientName.trim(),
+      clientDocument: ordClientDocument.trim() || "No especificado",
+      clientPhone: ordClientPhone.trim() || "3000000000",
+      clientMunicipality: ordClientMunicipality,
+      clientAddress: ordClientAddress.trim() || "Medellín, Antioquia",
+      productCategory: ordProductCategory,
+      productDescription: ordProductDescription.trim(),
+      quantity: qty,
+      unitPrice: price,
+      totalAmount: total,
+      paidAmount: paid,
+      balance: bal,
+      paymentMethod: ordPaymentMethod,
+      status: bal === 0 ? "completado" : "pendiente",
+      notes: ordNotes.trim() || (ordDocumentType === 'abono' ? `Abono de $${paid.toLocaleString("es-CO")} COP recibido. Saldo de $${bal.toLocaleString("es-CO")} COP contra entrega.` : 'Factura cancelada en su totalidad.'),
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [newOrder, ...orders];
+    setOrders(updated);
+
+    // Auto open receipt / invoice preview
+    setViewingReceiptOrder(newOrder);
+    setShowReceiptModal(true);
+
+    // Reset Form
+    setOrdClientName("");
+    setOrdClientDocument("");
+    setOrdClientPhone("");
+    setOrdClientAddress("");
+    setOrdProductDescription("");
+    setOrdNotes("");
+  };
+
+  const handleDeleteOrder = (id: string, orderNumber: string) => {
+    if (confirm(`¿Está seguro de eliminar el registro de pedido "${orderNumber}"?`)) {
+      setOrders(orders.filter((o) => o.id !== id));
+    }
+  };
 
   // New Client Form State
   const [newClientName, setNewClientName] = useState("");
@@ -429,11 +820,21 @@ export default function AdminDashboard() {
             Panel de Administración, Clientes y Contabilidad
           </h1>
           <p className="text-xs md:text-sm text-slate-400">
-            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades y gestor de logo.
+            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades, vendedores y gestor de marca.
           </p>
         </div>
 
         <div className="flex items-center gap-2 self-start md:self-auto">
+          <a
+            href="/admin/ventas.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
+          >
+            <Wallet className="w-4 h-4" />
+            Portal de Ventas & Vendedores
+          </a>
+
           <a
             href="#gestor-logo-seccion"
             className="px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
@@ -447,10 +848,1149 @@ export default function AdminDashboard() {
             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-4 h-4 text-brand-orange" />
-            Actualizar Datos
+            Actualizar
           </button>
         </div>
       </div>
+
+      {/* PORTALES Y MÓDULOS DE ADMINISTRACIÓN DIRECTOS */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Portal 1: Ventas y Vendedores */}
+        <div className="bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <Wallet className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full uppercase">
+                Ruta: /admin/ventas.html
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-white font-display">Módulo de Ventas & Vendedores</h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Gestión de comerciales, asignación de zonas en Antioquia, creación de pedidos, recibos de abonos y <strong>Reporte Mensual PDF de Ventas y Comisiones</strong>.
+            </p>
+          </div>
+          <a
+            href="/admin/ventas.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>ABRIR PORTAL DE VENTAS & VENDEDORES ↗</span>
+          </a>
+        </div>
+
+        {/* Portal 2: Almanaques & Calendarios */}
+        <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded-full uppercase">
+                Ruta: /admin/almanaques.html
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-white font-display">Almanaques & Calendarios 2026</h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Administra los tipos de almanaques, listas de precios por cantidad, subida del catálogo en PDF y cotizaciones especiales.
+            </p>
+          </div>
+          <a
+            href="/admin/almanaques.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>ABRIR PANEL DE ALMANAQUES ↗</span>
+          </a>
+        </div>
+
+        {/* Portal 3: Editor Web General */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                <Building2 className="w-5 h-5" />
+              </div>
+              <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full uppercase">
+                Ruta: /admin/panel.html
+              </span>
+            </div>
+            <h3 className="text-base font-bold text-white font-display">Editor Dinámico de Contenido</h3>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Modifica banners principales, avisos publicitarios, directorio comercial de municipios y configuración global.
+            </p>
+          </div>
+          <a
+            href="/admin/panel.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-700 shadow cursor-pointer text-center"
+          >
+            <FolderOpen className="w-4 h-4" />
+            <span>ABRIR EDITOR DE CONTENIDO ↗</span>
+          </a>
+        </div>
+      </div>
+
+      {/* GESTIÓN DE VENDEDORES, MUNICIPIOS Y CATEGORÍAS (CRUD LOCALSTORAGE) */}
+      <div id="seccion-vendedores" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+              <Users className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-white font-display">Fuerza Comercial — Gestión de Vendedores</h2>
+                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                  CRUD LocalStorage Activo
+                </span>
+              </div>
+              <p className="text-xs md:text-sm text-slate-400 mt-0.5">
+                Crea, lista y elimina vendedores comerciales. Asigna municipios de Antioquia y líneas de negocio, calcula comisiones y genera reportes mensuales.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
+              <span className="text-[10px] font-mono uppercase text-slate-500 block">Vendedores Activos</span>
+              <span className="text-lg font-bold text-emerald-400 font-mono">{sellers.length} comercial(es)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* FORMULARIO DE CREACIÓN DE NUEVO VENDEDOR */}
+        <form onSubmit={handleAddSeller} className="bg-slate-950 p-5 md:p-6 rounded-2xl border border-slate-800 space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-mono uppercase text-emerald-400 font-bold flex items-center gap-2">
+              <PlusCircle className="w-4 h-4" /> Registrar Nuevo Vendedor Comercial
+            </h3>
+            <span className="text-[11px] text-slate-500 font-mono">Persistencia automática en LocalStorage</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Nombre Completo *
+              </label>
+              <input
+                type="text"
+                required
+                value={newSellerName}
+                onChange={(e) => setNewSellerName(e.target.value)}
+                placeholder="Ej: Carlos Mario Arango"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Usuario de Ingreso / Login *
+              </label>
+              <input
+                type="text"
+                required
+                value={newSellerUsername}
+                onChange={(e) => setNewSellerUsername(e.target.value)}
+                placeholder="Ej: carlos.ventas"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Contraseña / Clave
+              </label>
+              <input
+                type="text"
+                value={newSellerPassword}
+                onChange={(e) => setNewSellerPassword(e.target.value)}
+                placeholder="Ej: 12345"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Teléfono / WhatsApp
+              </label>
+              <input
+                type="text"
+                value={newSellerPhone}
+                onChange={(e) => setNewSellerPhone(e.target.value)}
+                placeholder="Ej: 300 456 7890"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Zona Comercial Asignada
+              </label>
+              <select
+                value={newSellerZone}
+                onChange={(e) => setNewSellerZone(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              >
+                <option value="Valle de Aburrá Norte">Valle de Aburrá Norte</option>
+                <option value="Valle de Aburrá Sur">Valle de Aburrá Sur</option>
+                <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
+                <option value="Oriente Antioqueño">Oriente Antioqueño</option>
+                <option value="Occidente / Urabá">Occidente / Urabá</option>
+                <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
+                <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Porcentaje de Comisión Base (%)
+              </label>
+              <input
+                type="number"
+                step="0.5"
+                min="0"
+                max="50"
+                value={newSellerCommission}
+                onChange={(e) => setNewSellerCommission(parseFloat(e.target.value) || 0)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Supervisor Asignado
+              </label>
+              <select
+                value={newSellerSupervisor}
+                onChange={(e) => setNewSellerSupervisor(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              >
+                <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
+                <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
+                <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
+                <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* SELECTOR INTERACTIVO DE MUNICIPIOS */}
+          <div className="space-y-2 pt-2 border-t border-slate-900">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados en Antioquia ({newSellerMunicipalities.length})
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">Haz clic para seleccionar o quitar</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
+                const isSelected = newSellerMunicipalities.includes(muni);
+                return (
+                  <button
+                    key={muni}
+                    type="button"
+                    onClick={() => toggleMunicipality(muni)}
+                    className={`px-3 py-1 rounded-lg text-xs font-mono transition-all border flex items-center gap-1 cursor-pointer ${
+                      isSelected
+                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-sm"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-850"
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-emerald-400" />}
+                    <span>{muni}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SELECTOR INTERACTIVO DE CATEGORÍAS */}
+          <div className="space-y-2 pt-2 border-t border-slate-900">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-indigo-400" /> Categorías & Líneas de Negocio Asignadas ({newSellerCategories.length})
+              </label>
+              <span className="text-[10px] text-slate-500 font-mono">Haz clic para seleccionar o quitar</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {BUSINESS_CATEGORIES.map((cat) => {
+                const isSelected = newSellerCategories.includes(cat);
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => toggleCategory(cat)}
+                    className={`px-3 py-1 rounded-lg text-xs font-mono transition-all border flex items-center gap-1 cursor-pointer ${
+                      isSelected
+                        ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/50 font-bold shadow-sm"
+                        : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-850"
+                    }`}
+                  >
+                    {isSelected && <Check className="w-3 h-3 text-indigo-400" />}
+                    <span>{cat}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="pt-3 flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>GUARDAR Y CREAR VENDEDOR</span>
+            </button>
+          </div>
+        </form>
+
+        {/* BÚSQUEDA Y LISTA DE VENDEDORES REGISTRADOS */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-white font-display uppercase tracking-wide flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" /> Listado Oficial de Vendedores ({sellers.length})
+            </h3>
+
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={sellerSearchQuery}
+                onChange={(e) => setSellerSearchQuery(e.target.value)}
+                placeholder="Buscar vendedor, municipio o zona..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+          </div>
+
+          {/* TABLA OFICIAL Y VISTA EN TARJETAS DE VENDEDORES */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">Vendedor / Nombre</th>
+                    <th className="px-4 py-3">Usuario & Clave</th>
+                    <th className="px-4 py-3">Supervisor</th>
+                    <th className="px-4 py-3">Zona & Municipios</th>
+                    <th className="px-4 py-3">Categorías Asignadas</th>
+                    <th className="px-4 py-3 text-center">Comisión</th>
+                    <th className="px-4 py-3 text-right">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-sans">
+                  {sellers
+                    .filter((s) => {
+                      if (!sellerSearchQuery) return true;
+                      const q = sellerSearchQuery.toLowerCase();
+                      return (
+                        s.name.toLowerCase().includes(q) ||
+                        s.username.toLowerCase().includes(q) ||
+                        s.zone.toLowerCase().includes(q) ||
+                        (s.supervisor || "").toLowerCase().includes(q) ||
+                        s.municipalities.some((m) => m.toLowerCase().includes(q))
+                      );
+                    })
+                    .map((seller) => (
+                      <tr key={seller.id} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 text-white font-bold flex items-center justify-center font-mono text-xs shadow-sm">
+                              {seller.name.substring(0, 2).toUpperCase()}
+                            </div>
+                            <div>
+                              <strong className="text-white font-medium block leading-snug">{seller.name}</strong>
+                              <span className="text-[10px] text-slate-400 font-mono">Tel: {seller.phone}</span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3 font-mono">
+                          <span className="text-emerald-400 font-bold block">@{seller.username}</span>
+                          <span className="text-[10px] text-slate-500 block">Clave: {seller.password || '•••••'}</span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span className="text-slate-300 font-medium block text-[11px]">{seller.supervisor || "Director Comercial"}</span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <strong className="text-slate-200 block text-[11px]">{seller.zone}</strong>
+                          <div className="flex flex-wrap gap-1 mt-0.5">
+                            {(seller.municipalities || []).slice(0, 3).map((m) => (
+                              <span key={m} className="px-1.5 py-0.2 bg-emerald-500/10 text-emerald-300 rounded text-[9px] font-mono">
+                                {m}
+                              </span>
+                            ))}
+                            {(seller.municipalities || []).length > 3 && (
+                              <span className="text-[9px] text-slate-500 font-mono">
+                                +{(seller.municipalities || []).length - 3} más
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3 max-w-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {(seller.categories || []).slice(0, 2).map((c) => (
+                              <span key={c} className="px-1.5 py-0.2 bg-indigo-500/10 text-indigo-300 rounded text-[9px] font-mono truncate max-w-[140px]">
+                                {c}
+                              </span>
+                            ))}
+                            {(seller.categories || []).length > 2 && (
+                              <span className="text-[9px] text-slate-500 font-mono">
+                                +{(seller.categories || []).length - 2} más
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        <td className="px-4 py-3 text-center font-mono">
+                          <span className="px-2 py-0.5 bg-emerald-950 border border-emerald-800 text-emerald-400 font-bold rounded-full text-[10px]">
+                            {seller.commissionRate}%
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => openReportForSeller(seller)}
+                              className="px-2.5 py-1 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/80 text-emerald-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Reporte Mensual"
+                            >
+                              <FileText className="w-3 h-3 text-emerald-400" />
+                              <span className="hidden sm:inline">Reporte</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteSeller(seller.id, seller.name)}
+                              className="p-1.5 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                              title="Eliminar Vendedor"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL IMPRESIÓN / DESCARGA REPORTE MENSUAL DE VENTAS & COMISIONES */}
+      {showReportModal && selectedSellerForReport && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <FileText className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Generador de Reporte Mensual de Ventas</h3>
+                  <p className="text-xs text-slate-400">
+                    Vendedor: <strong className="text-emerald-400">{selectedSellerForReport.name}</strong> (@{selectedSellerForReport.username})
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowReportModal(false)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Parámetros de Cálculo */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-950 p-4 rounded-2xl border border-slate-800">
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Mes del Período</label>
+                <select
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(parseInt(e.target.value))}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white"
+                >
+                  <option value={0}>Enero</option>
+                  <option value={1}>Febrero</option>
+                  <option value={2}>Marzo</option>
+                  <option value={3}>Abril</option>
+                  <option value={4}>Mayo</option>
+                  <option value={5}>Junio</option>
+                  <option value={6}>Julio</option>
+                  <option value={7}>Agosto</option>
+                  <option value={8}>Septiembre</option>
+                  <option value={9}>Octubre</option>
+                  <option value={10}>Noviembre</option>
+                  <option value={11}>Diciembre</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">Año</label>
+                <input
+                  type="number"
+                  value={reportYear}
+                  onChange={(e) => setReportYear(parseInt(e.target.value) || 2026)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono text-slate-400 uppercase mb-1">% Comisión</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  value={reportCommissionRate}
+                  onChange={(e) => setReportCommissionRate(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+
+            {/* VISTA PREVIA HOJA IMPRESA DEL REPORTE */}
+            <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl font-sans space-y-6 border border-slate-200">
+              {/* Encabezado Reporte */}
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                    ATZILUTH GRÁFIC DIGITAL S.A.S.
+                  </h2>
+                  <p className="text-xs font-mono text-slate-600">NIT: 901.458.321-9 • Medellín, Antioquia</p>
+                  <p className="text-xs font-mono text-slate-600">PBX / WhatsApp: +57 300 123 4567</p>
+                </div>
+                <div className="text-right">
+                  <span className="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-bold rounded uppercase">
+                    REPORTE MENSUAL
+                  </span>
+                  <p className="text-xs font-mono text-slate-600 mt-1">Fecha Emisión: {new Date().toLocaleDateString("es-CO")}</p>
+                </div>
+              </div>
+
+              {/* Info Vendedor */}
+              <div className="grid grid-cols-2 gap-4 bg-slate-100 p-4 rounded-xl text-xs">
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-slate-500 block">Vendedor Comercial:</span>
+                  <strong className="text-sm text-slate-900">{selectedSellerForReport.name}</strong>
+                  <span className="block font-mono text-slate-600">Usuario: @{selectedSellerForReport.username}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-slate-500 block">Zona & Municipios:</span>
+                  <strong className="text-slate-900">{selectedSellerForReport.zone}</strong>
+                  <span className="block text-[11px] text-slate-600">{selectedSellerForReport.municipalities.join(", ")}</span>
+                </div>
+              </div>
+
+              {/* KPIs Resumen */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 block">Ventas Brutas Totales</span>
+                  <strong className="text-sm font-mono font-bold text-slate-900">$2,490,000 COP</strong>
+                </div>
+                <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-center">
+                  <span className="text-[10px] font-mono uppercase text-emerald-800 block">Recaudo Efectivo</span>
+                  <strong className="text-sm font-mono font-bold text-emerald-800">$1,565,000 COP</strong>
+                </div>
+                <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-center">
+                  <span className="text-[10px] font-mono uppercase text-amber-800 block">Comisión a Pagar ({reportCommissionRate}%)</span>
+                  <strong className="text-sm font-mono font-bold text-emerald-700">$124,500 COP</strong>
+                </div>
+              </div>
+
+              {/* Firma y Cierre */}
+              <div className="pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
+                <div className="text-center w-48 border-t border-slate-400 pt-1">Firma Vendedor</div>
+                <div className="text-center w-48 border-t border-slate-400 pt-1">Aprobación Gerencia</div>
+              </div>
+            </div>
+
+            {/* Acciones Modal */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>IMPRIMIR / DESCARGAR PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SECCIÓN GENERACIÓN DE RECIBO DE ABONO Y FACTURA FINAL (PDF / IMPRESIÓN) */}
+      <div id="seccion-facturacion-abonos" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
+              <Receipt className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-white font-display">Facturación Comercial & Recibos de Abono</h2>
+                <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                  Generador PDF
+                </span>
+                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase flex items-center gap-1">
+                  <ShieldCheck className="w-3 h-3" /> Admin Acceso Total
+                </span>
+              </div>
+              <p className="text-xs md:text-sm text-slate-400 mt-0.5">
+                Crea pedidos, registra anticipos/abonos o facturas finales de almanaques, portafolios y gran formato. Genera comprobantes impresos o PDF con firma oficial.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
+              <span className="text-[10px] font-mono uppercase text-slate-500 block">Pedidos Registrados</span>
+              <span className="text-lg font-bold text-indigo-400 font-mono">{orders.length} comprobantes</span>
+            </div>
+          </div>
+        </div>
+
+        {/* FORMULARIO DE REGISTRO DE PEDIDO, ABONO O FACTURA */}
+        <form onSubmit={handleCreateOrder} className="bg-slate-950 p-5 md:p-6 rounded-2xl border border-slate-800 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+            <h3 className="text-xs font-mono uppercase text-indigo-400 font-bold flex items-center gap-2">
+              <PlusCircle className="w-4 h-4" /> Formulario de Registro de Pedido / Abono / Factura
+            </h3>
+
+            {/* Toggle Tipo de Documento */}
+            <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setOrdDocumentType('abono')}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                  ordDocumentType === 'abono'
+                    ? 'bg-amber-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Recibo de Abono
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrdDocumentType('factura')}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                  ordDocumentType === 'factura'
+                    ? 'bg-emerald-500 text-slate-950 shadow'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Factura Final
+              </button>
+            </div>
+          </div>
+
+          {/* DATOS DEL VENDEDOR Y TIPO */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Vendedor Asignado *
+              </label>
+              <select
+                value={ordSellerId}
+                onChange={(e) => setOrdSellerId(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+              >
+                <option value="admin">Estiven Arango (Administrador General)</option>
+                {sellers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} (@{s.username}) — {s.zone}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Cliente / Razón Social *
+              </label>
+              <input
+                type="text"
+                required
+                value={ordClientName}
+                onChange={(e) => setOrdClientName(e.target.value)}
+                placeholder="Ej: Graficas & Empaques del Aburrá S.A.S."
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                NIT / Cédula del Cliente
+              </label>
+              <input
+                type="text"
+                value={ordClientDocument}
+                onChange={(e) => setOrdClientDocument(e.target.value)}
+                placeholder="Ej: 901.888.777-2 o 71.333.444"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Teléfono / WhatsApp Cliente
+              </label>
+              <input
+                type="text"
+                value={ordClientPhone}
+                onChange={(e) => setOrdClientPhone(e.target.value)}
+                placeholder="Ej: 300 123 4567"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 font-mono"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Municipio de Entrega
+              </label>
+              <select
+                value={ordClientMunicipality}
+                onChange={(e) => setOrdClientMunicipality(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+              >
+                {ANTIOQUIA_MUNICIPALITIES.map((muni) => (
+                  <option key={muni} value={muni}>
+                    {muni}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Dirección de Entrega
+              </label>
+              <input
+                type="text"
+                value={ordClientAddress}
+                onChange={(e) => setOrdClientAddress(e.target.value)}
+                placeholder="Ej: Cra 50 # 42-15, Centro Medellín"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* DETALLES DEL PRODUCTO */}
+          <div className="pt-3 border-t border-slate-900 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Línea / Categoría de Producto *
+              </label>
+              <select
+                value={ordProductCategory}
+                onChange={(e) => setOrdProductCategory(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+              >
+                {BUSINESS_CATEGORIES.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Descripción Detallada del Trabajo / Producto *
+              </label>
+              <input
+                type="text"
+                required
+                value={ordProductDescription}
+                onChange={(e) => setOrdProductDescription(e.target.value)}
+                placeholder="Ej: Almanaque de Pared 30x50cm en Propalcote 300g, barniz UV full color, espiral doble O"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          {/* CANTIDAD, VALOR UNITARIO, ABONO, MÉTODO DE PAGO */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Cantidad
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={ordQuantity}
+                onChange={(e) => setOrdQuantity(parseInt(e.target.value) || 1)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Precio Unitario ($ COP)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="100"
+                value={ordUnitPrice}
+                onChange={(e) => setOrdUnitPrice(parseFloat(e.target.value) || 0)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Monto Abonado / Recibido ($ COP)
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="1000"
+                value={ordPaidAmount}
+                onChange={(e) => setOrdPaidAmount(parseFloat(e.target.value) || 0)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                Método de Pago
+              </label>
+              <select
+                value={ordPaymentMethod}
+                onChange={(e) => setOrdPaymentMethod(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+              >
+                <option value="Transferencia Bancaria (Bancolombia/Nequi)">Transferencia Bancaria / Nequi</option>
+                <option value="Efectivo en Caja">Efectivo en Caja</option>
+                <option value="Tarjeta de Crédito / Débito">Tarjeta de Crédito / Débito</option>
+                <option value="Consignación Directa">Consignación Directa</option>
+              </select>
+            </div>
+          </div>
+
+          {/* CÁLCULOS DINÁMICOS EN TIEMPO REAL */}
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <span className="text-[10px] font-mono uppercase text-slate-500 block">Total del Pedido:</span>
+              <strong className="text-base font-mono text-white font-bold">
+                ${(ordQuantity * ordUnitPrice).toLocaleString("es-CO")} COP
+              </strong>
+            </div>
+            <div>
+              <span className="text-[10px] font-mono uppercase text-emerald-500 block">Abonado Recibido:</span>
+              <strong className="text-base font-mono text-emerald-400 font-bold">
+                ${Math.min(ordQuantity * ordUnitPrice, ordPaidAmount).toLocaleString("es-CO")} COP
+              </strong>
+            </div>
+            <div>
+              <span className="text-[10px] font-mono uppercase text-amber-500 block">Saldo Pendiente:</span>
+              <strong className="text-base font-mono text-amber-400 font-bold">
+                ${Math.max(0, (ordQuantity * ordUnitPrice) - ordPaidAmount).toLocaleString("es-CO")} COP
+              </strong>
+            </div>
+          </div>
+
+          <div className="pt-2 flex justify-end">
+            <button
+              type="submit"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow-lg flex items-center gap-2 cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>GENERAR {ordDocumentType === 'abono' ? 'RECIBO DE ABONO' : 'FACTURA FINAL'} Y VISTA PDF</span>
+            </button>
+          </div>
+        </form>
+
+        {/* LISTADO DE COMPROBANTES Y PEDIDOS REGISTRADOS */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h3 className="text-sm font-bold text-white font-display uppercase tracking-wide flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-indigo-400" /> Historial de Pedidos & Comprobantes ({orders.length})
+            </h3>
+
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={orderSearchQuery}
+                onChange={(e) => setOrderSearchQuery(e.target.value)}
+                placeholder="Buscar por N° pedido, cliente o vendedor..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                  <tr>
+                    <th className="px-4 py-3">N° Pedido / Documento</th>
+                    <th className="px-4 py-3">Cliente / Empresa</th>
+                    <th className="px-4 py-3">Vendedor</th>
+                    <th className="px-4 py-3">Producto / Trabajo</th>
+                    <th className="px-4 py-3 text-right">Total</th>
+                    <th className="px-4 py-3 text-right">Abonado</th>
+                    <th className="px-4 py-3 text-right">Saldo</th>
+                    <th className="px-4 py-3 text-center">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 font-sans">
+                  {orders
+                    .filter((o) => {
+                      if (!orderSearchQuery) return true;
+                      const q = orderSearchQuery.toLowerCase();
+                      return (
+                        o.orderNumber.toLowerCase().includes(q) ||
+                        o.clientName.toLowerCase().includes(q) ||
+                        o.sellerName.toLowerCase().includes(q) ||
+                        o.productDescription.toLowerCase().includes(q) ||
+                        o.productCategory.toLowerCase().includes(q)
+                      );
+                    })
+                    .map((ord) => (
+                      <tr key={ord.id} className="hover:bg-slate-900/50 transition-colors">
+                        <td className="px-4 py-3 font-mono">
+                          <strong className="text-white block font-bold">{ord.orderNumber}</strong>
+                          <span
+                            className={`inline-block px-2 py-0.2 text-[9px] font-bold rounded uppercase mt-0.5 ${
+                              ord.documentType === "abono"
+                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                            }`}
+                          >
+                            {ord.documentType === "abono" ? "Recibo Abono" : "Factura Final"}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <strong className="text-slate-200 block font-medium">{ord.clientName}</strong>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {ord.clientMunicipality} • Tel: {ord.clientPhone}
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3">
+                          <span className="text-slate-300 font-medium block text-[11px]">{ord.sellerName}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">@{ord.sellerUsername}</span>
+                        </td>
+
+                        <td className="px-4 py-3 max-w-xs">
+                          <span className="text-slate-300 block text-[11px] truncate" title={ord.productDescription}>
+                            {ord.productDescription}
+                          </span>
+                          <span className="text-[10px] text-indigo-400 font-mono block">
+                            {ord.quantity} un. x ${ord.unitPrice.toLocaleString("es-CO")} COP
+                          </span>
+                        </td>
+
+                        <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                          ${ord.totalAmount.toLocaleString("es-CO")} COP
+                        </td>
+
+                        <td className="px-4 py-3 text-right font-mono text-emerald-400 font-bold">
+                          ${ord.paidAmount.toLocaleString("es-CO")} COP
+                        </td>
+
+                        <td className="px-4 py-3 text-right font-mono font-bold text-amber-400">
+                          ${ord.balance.toLocaleString("es-CO")} COP
+                        </td>
+
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setViewingReceiptOrder(ord);
+                                setShowReceiptModal(true);
+                              }}
+                              className="px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Ver / Imprimir Recibo PDF"
+                            >
+                              <Printer className="w-3 h-3 text-indigo-400" />
+                              <span>Ver PDF</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteOrder(ord.id, ord.orderNumber)}
+                              className="p-1.5 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                              title="Eliminar Pedido"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / FACTURA FINAL */}
+      {showReceiptModal && viewingReceiptOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                  <Receipt className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Vista Previa Comprobante Oficial — {viewingReceiptOrder.orderNumber}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Tipo: <strong className="text-indigo-400">{viewingReceiptOrder.documentType === 'abono' ? 'Recibo de Abono / Anticipo' : 'Factura Final de Venta'}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* VISTA PREVIA HOJA IMPRESA COMPROBANTE PDF */}
+            <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl font-sans space-y-6 border border-slate-200">
+              {/* Encabezado Oficial */}
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                    ATZILUTH GRÁFIC DIGITAL S.A.S.
+                  </h2>
+                  <p className="text-xs font-mono text-slate-600">NIT: 901.458.321-9 • Medellín, Colombia</p>
+                  <p className="text-xs font-mono text-slate-600">Línea de Atención & WhatsApp: +57 300 123 4567</p>
+                  <p className="text-xs font-mono text-slate-600">E-mail: ventas@atziluthgrafic.com</p>
+                </div>
+
+                <div className="text-right">
+                  <span
+                    className={`px-3 py-1 text-white font-mono text-xs font-bold rounded uppercase inline-block ${
+                      viewingReceiptOrder.documentType === 'abono' ? 'bg-amber-600' : 'bg-emerald-700'
+                    }`}
+                  >
+                    {viewingReceiptOrder.documentType === 'abono' ? 'RECIBO DE ABONO' : 'FACTURA FINAL'}
+                  </span>
+                  <p className="text-sm font-mono font-bold text-slate-900 mt-1">N° {viewingReceiptOrder.orderNumber}</p>
+                  <p className="text-xs font-mono text-slate-600">Fecha: {viewingReceiptOrder.date}</p>
+                </div>
+              </div>
+
+              {/* Grid Vendedor & Cliente */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL VENDEDOR:</span>
+                  <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.sellerName}</strong>
+                  <p className="font-mono text-slate-600">Usuario: @{viewingReceiptOrder.sellerUsername}</p>
+                  <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.sellerPhone}</p>
+                  <p className="text-slate-500 text-[10px]">Supervisor: {viewingReceiptOrder.sellerSupervisor || 'Dirección Comercial'}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL CLIENTE:</span>
+                  <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.clientName}</strong>
+                  <p className="font-mono text-slate-600">NIT / CC: {viewingReceiptOrder.clientDocument}</p>
+                  <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.clientPhone}</p>
+                  <p className="text-slate-600">Ubicación: {viewingReceiptOrder.clientMunicipality} — {viewingReceiptOrder.clientAddress}</p>
+                </div>
+              </div>
+
+              {/* Tabla Detalle de Trabajo / Producto */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                    <tr>
+                      <th className="p-2.5">Cant.</th>
+                      <th className="p-2.5">Descripción del Trabajo / Línea</th>
+                      <th className="p-2.5 text-right">V. Unitario</th>
+                      <th className="p-2.5 text-right">Subtotal</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200 font-sans">
+                    <tr>
+                      <td className="p-2.5 font-mono font-bold text-slate-900">{viewingReceiptOrder.quantity}</td>
+                      <td className="p-2.5">
+                        <strong className="text-slate-900 block">{viewingReceiptOrder.productCategory}</strong>
+                        <p className="text-slate-600 text-[11px]">{viewingReceiptOrder.productDescription}</p>
+                      </td>
+                      <td className="p-2.5 text-right font-mono text-slate-700">
+                        ${viewingReceiptOrder.unitPrice.toLocaleString("es-CO")} COP
+                      </td>
+                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                        ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Resumen Financiero */}
+              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+                <div>
+                  <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">VALOR TOTAL:</span>
+                  <strong className="text-base font-mono font-bold text-slate-900">
+                    ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
+                  </strong>
+                </div>
+
+                <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                  <span className="text-[10px] font-mono uppercase text-emerald-800 block font-bold">ABONO RECIBIDO:</span>
+                  <strong className="text-base font-mono font-bold text-emerald-700">
+                    ${viewingReceiptOrder.paidAmount.toLocaleString("es-CO")} COP
+                  </strong>
+                  <span className="text-[9px] font-mono text-emerald-800 block mt-0.5">{viewingReceiptOrder.paymentMethod}</span>
+                </div>
+
+                <div className="bg-amber-50 p-2 rounded-lg border border-amber-200">
+                  <span className="text-[10px] font-mono uppercase text-amber-800 block font-bold">SALDO PENDIENTE:</span>
+                  <strong className="text-base font-mono font-bold text-amber-700">
+                    ${viewingReceiptOrder.balance.toLocaleString("es-CO")} COP
+                  </strong>
+                </div>
+              </div>
+
+              {/* Notas y Términos */}
+              <div className="text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                <p><strong>Observaciones:</strong> {viewingReceiptOrder.notes}</p>
+                <p><strong>Cuentas Autorizadas para Pago:</strong> Bancolombia Cta Ahorros #123-456789-01 | Nequi / Daviplata: +57 300 123 4567</p>
+                <p className="text-slate-400">Atziluth Gráfic Digital S.A.S. — Medellín, Antioquia. Comprobante válido para soporte contable e inspección de trabajo.</p>
+              </div>
+
+              {/* Firmas */}
+              <div className="pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
+                <div className="text-center w-52 border-t border-slate-400 pt-1">Firma Asesor / Comercial</div>
+                <div className="text-center w-52 border-t border-slate-400 pt-1">Recibido Conforme Cliente</div>
+              </div>
+            </div>
+
+            {/* Acciones del Modal */}
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                onClick={() => window.print()}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+              >
+                <Printer className="w-4 h-4" />
+                <span>IMPRIMIR COMPROBANTE / DESCARGAR PDF</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ACCESO Y GESTOR PARA MONTAR Y CAMBIAR EL LOGO */}
       <div id="gestor-logo-seccion" className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">

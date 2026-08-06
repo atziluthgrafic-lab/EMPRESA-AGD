@@ -499,8 +499,7 @@ export default function App() {
                   : "text-slate-600 border-transparent hover:text-brand-orange hover:border-brand-orange/35"
               }`}
             >
-              <span>ALMANAQUES</span>
-              <span className="text-[9px] bg-brand-orange/15 text-brand-orange px-1 rounded font-mono font-bold">2026</span>
+              <span>ALMANAQUE PARA EL 2027</span>
             </button>
             <button
               onClick={() => {
@@ -579,7 +578,7 @@ export default function App() {
                 {[
                   { id: "servicios", label: "🏢 SERVICIOS" },
                   { id: "litografia", label: "🖨️ PUBLICIDAD LITOGRÁFICA" },
-                  { id: "almanaques", label: "📅 ALMANAQUES 2026" },
+                  { id: "almanaques", label: "📅 ALMANAQUE PARA EL 2027" },
                   { id: "mapa", label: "🗺️ MAPA INTERACTIVO" },
                   { id: "directorio", label: "📂 DIRECTORIO PYME" },
                   { id: "tarifas", label: "📊 TARIFAS / PRECIOS" },

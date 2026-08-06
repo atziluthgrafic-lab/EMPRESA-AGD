@@ -1,0 +1,1567 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Módulo de Ventas, Facturación y Vendedores | Atziluth Gráfic Digital</title>
+  <meta name="robots" content="noindex, nofollow">
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- html2pdf for client-side PDF generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              magenta: '#FF007F',
+              cyan: '#00F0FF',
+              yellow: '#FFE600',
+              orange: '#FF5500',
+              dark: '#030712',
+              darkCard: '#0f172a'
+            }
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+            display: ['Syne', 'sans-serif']
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #printable-receipt-container, #printable-receipt-container *,
+      #printable-monthly-report-container, #printable-monthly-report-container * { visibility: visible; }
+      #printable-receipt-container, #printable-monthly-report-container { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body class="h-full text-slate-100 font-sans antialiased bg-slate-950 flex flex-col">
+
+  <!-- ==================== 1. LOGIN SCREEN ==================== -->
+  <div id="login-screen" class="fixed inset-0 z-50 bg-slate-950 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md p-8 shadow-2xl relative overflow-hidden">
+      <div class="text-center mb-8">
+        <div class="w-16 h-16 mx-auto mb-4 bg-brand-orange/10 border border-brand-orange/30 rounded-2xl flex items-center justify-center shadow-lg">
+          <i data-lucide="badge-dollar-sign" class="w-8 h-8 text-brand-orange"></i>
+        </div>
+        <h1 class="text-2xl font-display font-extrabold text-white tracking-tight">Módulo de Ventas & Facturación</h1>
+        <p class="text-xs text-slate-400 mt-1 font-mono uppercase tracking-wider">Acceso Restringido &bull; Atziluth Gráfic Digital</p>
+      </div>
+
+      <form id="sales-login-form" onsubmit="handleSalesLogin(event)" class="space-y-5">
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1.5 tracking-wider">Usuario Vendedor / Admin</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i data-lucide="user" class="w-4 h-4"></i>
+            </span>
+            <input type="text" id="sales-username" required placeholder="Ej: carlos.ventas o Estiven"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-brand-orange transition-colors">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1.5 tracking-wider">Contraseña de Acceso</label>
+          <div class="relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+              <i data-lucide="key-round" class="w-4 h-4"></i>
+            </span>
+            <input type="password" id="sales-password" required placeholder="••••••••"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl py-3 pl-11 pr-4 text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-brand-orange transition-colors">
+          </div>
+        </div>
+
+        <div id="login-error-box" class="hidden text-xs text-brand-magenta bg-brand-magenta/10 border border-brand-magenta/20 p-3.5 rounded-xl flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 flex-shrink-0"></i>
+          <span id="login-error-msg">Credenciales incorrectas.</span>
+        </div>
+
+        <button type="submit" id="sales-login-btn"
+          class="w-full py-3.5 bg-gradient-to-r from-brand-orange to-brand-magenta text-white font-bold rounded-xl shadow-lg shadow-brand-orange/20 hover:opacity-95 transition-all flex items-center justify-center gap-2 text-sm uppercase tracking-wider cursor-pointer">
+          <span>Ingresar a Ventas</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+
+      <div class="text-center mt-8 text-[10px] text-slate-500 font-mono">
+        Medellín, Antioquia &bull; Sistema de Gestión de Pedidos & Facturación
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ==================== 2. MAIN APP CONTAINER ==================== -->
+  <div id="main-app" class="hidden flex-grow flex flex-col min-h-screen">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 px-4 sm:px-8 py-4">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-brand-orange/15 border border-brand-orange/30 rounded-xl flex items-center justify-center">
+            <i data-lucide="receipt" class="w-5 h-5 text-brand-orange"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-lg font-display font-extrabold text-white">Portal de Ventas & Facturación</h1>
+              <span id="badge-user-role" class="px-2 py-0.5 bg-brand-cyan/20 text-brand-cyan text-[10px] font-mono font-bold rounded">VENDEDOR</span>
+            </div>
+            <p id="user-welcome-subtitle" class="text-xs text-slate-400 font-mono">Atziluth Gráfic Digital</p>
+          </div>
+        </div>
+
+        <!-- System Tabs & Logout -->
+        <div class="flex items-center gap-2 overflow-x-auto w-full sm:w-auto">
+          <button onclick="switchTab('pedidos')" id="nav-btn-pedidos" class="px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-brand-orange text-white border-brand-orange cursor-pointer">
+            <i data-lucide="shopping-cart" class="w-4 h-4"></i> Pedidos & Facturas
+          </button>
+          <button onclick="openMonthlyReportModal()" id="nav-btn-reportes" class="px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-emerald-950/80 text-emerald-400 border-emerald-800/80 hover:bg-emerald-900 cursor-pointer">
+            <i data-lucide="file-bar-chart-2" class="w-4 h-4"></i> Reporte Mensual PDF
+          </button>
+          <button onclick="switchTab('clientes')" id="nav-btn-clientes" class="px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 cursor-pointer">
+            <i data-lucide="users" class="w-4 h-4"></i> Clientes
+          </button>
+          <button onclick="switchTab('vendedores')" id="nav-btn-vendedores" class="px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 cursor-pointer">
+            <i data-lucide="briefcase" class="w-4 h-4"></i> Vendedores (CRUD)
+          </button>
+          <button onclick="switchTab('branding')" id="nav-btn-branding" class="px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 cursor-pointer">
+            <i data-lucide="image" class="w-4 h-4"></i> Logo & Favicon
+          </button>
+
+          <a href="/admin/panel.html" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 text-yellow-400"></i>
+            <span class="hidden md:inline">Panel General</span>
+          </a>
+
+          <button onclick="handleLogout()" class="px-3 py-2 bg-red-950/60 border border-red-800/60 text-red-300 hover:bg-red-900/80 rounded-xl text-xs font-mono transition-all flex items-center gap-1.5 ml-auto cursor-pointer">
+            <i data-lucide="log-out" class="w-4 h-4"></i> Salir
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-8 py-8 flex-grow w-full space-y-8">
+
+      <!-- ==================== SECTION 1: PEDIDOS Y VENTAS ==================== -->
+      <section id="tab-pedidos" class="space-y-6">
+        <!-- Actions & Stats Header -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+          <div>
+            <h2 class="text-xl font-display font-bold text-white">Gestión de Pedidos & Emisión de Facturas</h2>
+            <p class="text-xs text-slate-400 mt-1 font-sans">Crea cotizaciones, emite recibos de abono parciales y genera facturas finales impresas para clientes de Antioquia.</p>
+          </div>
+          
+          <div class="flex flex-wrap items-center gap-3">
+            <button onclick="openMonthlyReportModal()" class="px-4 py-3 bg-slate-800 hover:bg-slate-700 border border-emerald-700/60 text-emerald-400 font-mono text-xs font-bold rounded-2xl shadow-lg transition-all flex items-center gap-2 cursor-pointer">
+              <i data-lucide="file-bar-chart-2" class="w-4 h-4 text-emerald-400"></i>
+              <span>REPORTE MENSUAL PDF</span>
+            </button>
+            <button onclick="openNewOrderModal()" class="px-5 py-3 bg-gradient-to-r from-brand-orange via-orange-500 to-brand-magenta text-white font-mono text-xs font-bold rounded-2xl shadow-lg hover:opacity-90 transition-all flex items-center gap-2.5 cursor-pointer">
+              <i data-lucide="plus-circle" class="w-5 h-5"></i>
+              <span>NUEVO PEDIDO / VENTA</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Orders Table Card -->
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div class="p-5 border-b border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2">
+              <i data-lucide="file-text" class="w-5 h-5 text-brand-orange"></i>
+              <h3 class="font-display font-bold text-base text-white">Historial de Pedidos Registrados</h3>
+            </div>
+
+            <div class="flex items-center gap-3 w-full sm:w-auto">
+              <input type="text" id="order-search" oninput="renderOrdersTable()" placeholder="Buscar cliente, número de pedido..."
+                class="bg-slate-950 border border-slate-800 text-xs rounded-xl px-3.5 py-2 text-slate-200 placeholder:text-slate-500 w-full sm:w-64 focus:outline-none focus:border-brand-orange">
+            </div>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="px-5 py-3.5">Pedido / Fecha</th>
+                  <th class="px-5 py-3.5">Cliente & NIT</th>
+                  <th class="px-5 py-3.5">Vendedor / Zona</th>
+                  <th class="px-5 py-3.5">Total Venta</th>
+                  <th class="px-5 py-3.5">Abonado / Saldo</th>
+                  <th class="px-5 py-3.5">Estado</th>
+                  <th class="px-5 py-3.5 text-right">Acciones & Documentos</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody" class="divide-y divide-slate-800/60 font-sans">
+                <!-- Rows dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ==================== SECTION 2: CLIENTES (CRUD) ==================== -->
+      <section id="tab-clientes" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+          <div>
+            <h2 class="text-xl font-display font-bold text-white">Directorio de Clientes</h2>
+            <p class="text-xs text-slate-400 mt-1 font-sans">Administra la base de datos de compradores, NIT, direcciones de despacho y contactos.</p>
+          </div>
+          <button onclick="openClientModal()" class="px-5 py-3 bg-brand-cyan text-slate-950 font-mono text-xs font-bold rounded-2xl shadow-lg hover:bg-cyan-400 transition-all flex items-center gap-2 cursor-pointer">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+            <span>CREAR NUEVO CLIENTE</span>
+          </button>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="px-5 py-3.5">Empresa / Nombre</th>
+                  <th class="px-5 py-3.5">NIT / CC</th>
+                  <th class="px-5 py-3.5">Contacto / Teléfono</th>
+                  <th class="px-5 py-3.5">Municipio & Dirección</th>
+                  <th class="px-5 py-3.5 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="clients-tbody" class="divide-y divide-slate-800/60">
+                <!-- Rows dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ==================== SECTION 3: VENDEDORES (CRUD) ==================== -->
+      <section id="tab-vendedores" class="hidden space-y-6">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+          <div>
+            <h2 class="text-xl font-display font-bold text-white">Gestión de Vendedores y Asignación de Zonas</h2>
+            <p class="text-xs text-slate-400 mt-1 font-sans">Asigna vendedores por categoría de catálogo y municipios/zonas específicas de Antioquia.</p>
+          </div>
+          <button onclick="openSellerModal()" class="px-5 py-3 bg-brand-yellow text-slate-950 font-mono text-xs font-bold rounded-2xl shadow-lg hover:bg-yellow-400 transition-all flex items-center gap-2 cursor-pointer">
+            <i data-lucide="user-check" class="w-5 h-5"></i>
+            <span>CREAR VENDEDOR</span>
+          </button>
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-950/80 uppercase font-mono text-[10px] text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="px-5 py-3.5">Vendedor</th>
+                  <th class="px-5 py-3.5">Usuario Acceso</th>
+                  <th class="px-5 py-3.5">Zona / Municipio Asignado</th>
+                  <th class="px-5 py-3.5">Categorías Habilitadas</th>
+                  <th class="px-5 py-3.5">Estado</th>
+                  <th class="px-5 py-3.5 text-right">Acciones</th>
+                </tr>
+              </thead>
+              <tbody id="sellers-tbody" class="divide-y divide-slate-800/60">
+                <!-- Rows dynamically rendered -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- ==================== SECTION 4: GESTIÓN DE LOGO Y FAVICON ==================== -->
+      <section id="tab-branding" class="hidden space-y-6">
+        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl space-y-6">
+          <div>
+            <h2 class="text-xl font-display font-bold text-white">Gestión de Logo y Favicon Corporativo</h2>
+            <p class="text-xs text-slate-400 mt-1">Sube la imagen del logo oficial de Atziluth Gráfic Digital. El sistema actualizará el logo en todas las páginas y la convertirá automáticamente en el favicon oficial del sitio web.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            <!-- Current Logo Preview -->
+            <div class="bg-slate-950 border border-slate-800 p-6 rounded-2xl flex flex-col items-center justify-center space-y-3">
+              <span class="text-xs font-mono text-slate-400">Logo y Favicon Actual:</span>
+              <img id="branding-preview-img" src="/imagenes/logo_atziluth.jpg" alt="Logo de Atziluth" class="h-24 w-auto object-contain bg-white/5 p-2 rounded-xl border border-slate-700">
+              <span class="text-[10px] text-emerald-400 font-mono">✓ Sincronizado automáticamente en favicon.ico y header</span>
+            </div>
+
+            <!-- Upload Control -->
+            <div class="space-y-4">
+              <label class="block text-xs font-mono text-slate-300 uppercase">Seleccionar Nueva Imagen de Logotipo (PNG / JPG)</label>
+              <input type="file" id="logo-file-input" accept="image/*" onchange="previewSelectedLogo(event)" class="block w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-mono file:font-bold file:bg-brand-orange file:text-white hover:file:opacity-90 cursor-pointer">
+              
+              <button onclick="uploadBrandLogoAndFavicon()" class="w-full py-3 bg-gradient-to-r from-brand-orange to-brand-magenta text-white font-mono text-xs font-bold rounded-xl shadow-lg hover:opacity-95 transition-all flex items-center justify-center gap-2 cursor-pointer">
+                <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                <span>ACTUALIZAR LOGO Y CONVERTIR A FAVICON</span>
+              </button>
+
+              <div id="branding-status" class="hidden text-xs p-3 rounded-xl font-mono text-center"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- MODAL 1: CREAR NUEVO PEDIDO -->
+  <div id="modal-order" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="shopping-bag" class="w-5 h-5 text-brand-orange"></i>
+          <span>Registrar Nuevo Pedido / Venta</span>
+        </h3>
+        <button onclick="closeModal('modal-order')" class="p-1 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form onsubmit="saveNewOrder(event)" class="p-6 space-y-4 overflow-y-auto">
+        <!-- Client Selection -->
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Seleccionar Cliente</label>
+          <select id="form-order-client" onchange="onOrderClientSelect()" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200">
+            <!-- Loaded dynamically -->
+          </select>
+        </div>
+
+        <!-- Product Selector -->
+        <div class="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+          <span class="text-xs font-mono font-bold text-brand-orange block uppercase">Añadir Producto del Catálogo</span>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Producto / Referencia</label>
+              <select id="form-order-product" onchange="onOrderProductSelect()" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+                <option value="ALM-101" data-name="Almanaque Escritorio PyME 2027" data-price="6500">ALM-101 - Almanaque Escritorio PyME 2027 ($6.500)</option>
+                <option value="ALM-102" data-name="Almanaque Pared Propalcote 2027" data-price="4200">ALM-102 - Almanaque Pared Propalcote 2027 ($4.200)</option>
+                <option value="ALM-103" data-name="Almanaque Bolsillo Laminado 2027" data-price="1800">ALM-103 - Almanaque Bolsillo Laminado 2027 ($1.800)</option>
+                <option value="LIT-201" data-name="Volantes Litográficos Full Color x 1000" data-price="120000">LIT-201 - Volantes Litográficos x 1000 ($120.000)</option>
+                <option value="LIT-202" data-name="Tarjetas de Presentación x 1000" data-price="85000">LIT-202 - Tarjetas Presentación x 1000 ($85.000)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Cantidad (Unidades)</label>
+              <input type="number" id="form-order-qty" value="100" min="1" oninput="recalcOrderTotal()" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Precio Unitario ($ COP)</label>
+              <input type="number" id="form-order-unitprice" value="6500" oninput="recalcOrderTotal()" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 font-mono">
+            </div>
+            <div>
+              <label class="block text-[10px] font-mono text-slate-400 uppercase mb-1">Total Producto ($ COP)</label>
+              <input type="text" id="form-order-itemtotal" readonly class="w-full bg-slate-900 border border-slate-800 rounded-xl p-2.5 text-xs text-emerald-400 font-mono font-bold">
+            </div>
+          </div>
+        </div>
+
+        <!-- Payment & Abono -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Monto de Abono Inicial ($ COP)</label>
+            <input type="number" id="form-order-abono" value="325000" oninput="recalcOrderTotal()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 font-mono">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Método de Pago</label>
+            <select id="form-order-paymentmethod" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+              <option value="Transferencia Bancaria / Nequi / Bancolombia">Transferencia Bancaria / Nequi / Bancolombia</option>
+              <option value="Efectivo en Punto">Efectivo en Punto</option>
+              <option value="Consignación Cheque">Consignación Cheque</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Total Summary Box -->
+        <div class="p-4 bg-slate-950 border border-slate-800 rounded-2xl space-y-1 font-mono text-xs">
+          <div class="flex justify-between text-slate-400">
+            <span>Total de la Venta:</span>
+            <span id="summary-total-val" class="text-white font-bold">$650.000 COP</span>
+          </div>
+          <div class="flex justify-between text-slate-400">
+            <span>Abono Inicial:</span>
+            <span id="summary-abono-val" class="text-emerald-400 font-bold">$325.000 COP</span>
+          </div>
+          <div class="flex justify-between text-slate-300 font-bold border-t border-slate-800 pt-1 mt-1">
+            <span>Saldo Pendiente:</span>
+            <span id="summary-balance-val" class="text-brand-orange">$325.000 COP</span>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-brand-orange to-brand-magenta text-white font-mono text-xs font-bold rounded-xl shadow-lg cursor-pointer">
+          GUARDAR Y EMITIR COMPROBANTE
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 2: GESTIONAR ABONOS -->
+  <div id="modal-abono" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="wallet" class="w-5 h-5 text-emerald-400"></i>
+          <span>Registrar Nuevo Abono</span>
+        </h3>
+        <button onclick="closeModal('modal-abono')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <input type="hidden" id="abono-order-id">
+      <div>
+        <p id="abono-order-info" class="text-xs text-slate-300 font-mono mb-3"></p>
+        <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Monto del Abono ($ COP)</label>
+        <input type="number" id="abono-amount-input" required class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono">
+      </div>
+
+      <div>
+        <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Método de Pago</label>
+        <select id="abono-method-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200">
+          <option value="Transferencia Bancaria / Nequi / Bancolombia">Transferencia Bancaria / Nequi / Bancolombia</option>
+          <option value="Efectivo">Efectivo</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Nota / Observación</label>
+        <input type="text" id="abono-note-input" placeholder="Ej: Pago segundo abono 30%" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200">
+      </div>
+
+      <button onclick="submitNewAbono()" class="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg cursor-pointer">
+        REGISTRAR ABONO Y ACTUALIZAR SALDO
+      </button>
+    </div>
+  </div>
+
+
+  <!-- MODAL 3: CREAR / EDITAR CLIENTE -->
+  <div id="modal-client" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-brand-cyan"></i>
+          <span id="modal-client-title">Crear Nuevo Cliente</span>
+        </h3>
+        <button onclick="closeModal('modal-client')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form onsubmit="saveClientForm(event)" class="space-y-3">
+        <input type="hidden" id="client-id-input">
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Nombre Comercial / Razón Social</label>
+          <input type="text" id="client-name-input" required placeholder="Ej: Almacenes El Progreso S.A.S." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">NIT / Cédula</label>
+          <input type="text" id="client-nit-input" required placeholder="Ej: 900.123.456-7" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Contacto Principal</label>
+            <input type="text" id="client-contact-input" placeholder="Ej: Juan Pérez" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Teléfono / WhatsApp</label>
+            <input type="text" id="client-phone-input" required placeholder="Ej: 300 123 4567" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Municipio (Antioquia)</label>
+            <input type="text" id="client-muni-input" required placeholder="Ej: Medellín, Rionegro" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Dirección de Despacho</label>
+            <input type="text" id="client-addr-input" placeholder="Ej: Calle 50 # 45-20" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-brand-cyan text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg cursor-pointer">
+          GUARDAR CLIENTE
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 4: CREAR / EDITAR VENDEDOR -->
+  <div id="modal-seller" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg shadow-2xl p-6 space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-check" class="w-5 h-5 text-brand-yellow"></i>
+          <span id="modal-seller-title">Crear / Editar Vendedor</span>
+        </h3>
+        <button onclick="closeModal('modal-seller')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <form onsubmit="saveSellerForm(event)" class="space-y-3">
+        <input type="hidden" id="seller-id-input">
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Nombre Completo del Vendedor</label>
+          <input type="text" id="seller-name-input" required placeholder="Ej: Carlos Mario Arango" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Usuario para Login</label>
+            <input type="text" id="seller-username-input" required placeholder="carlos.ventas" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Contraseña de Acceso</label>
+            <input type="text" id="seller-password-input" required placeholder="123" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200 font-mono">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Zona Comercial Requerida</label>
+          <input type="text" id="seller-zone-input" placeholder="Ej: Oriente Antioqueño, Valle de Aburrá Norte" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+        </div>
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Municipios Asignados (Separados por coma)</label>
+          <input type="text" id="seller-muni-input" placeholder="Ej: Rionegro, Marinilla, Guarne, La Ceja" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-xs text-slate-200">
+        </div>
+
+        <button type="submit" class="w-full py-3 bg-brand-yellow text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg cursor-pointer">
+          GUARDAR VENDEDOR
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- MODAL 5: CONTENEDOR DE IMPRESIÓN Y DESCARGA DE RECIBOS Y FACTURAS PDF -->
+  <div id="modal-pdf-preview" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+      <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 id="pdf-modal-title" class="text-sm font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="printer" class="w-4 h-4 text-brand-orange"></i> Documento Oficial Generado
+        </h3>
+        <div class="flex items-center gap-2">
+          <button onclick="downloadDocumentPdf()" class="px-3.5 py-1.5 bg-brand-orange hover:bg-orange-600 text-white font-mono text-xs font-bold rounded-xl shadow flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="download" class="w-4 h-4"></i> Descargar PDF
+          </button>
+          <button onclick="window.print()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+          </button>
+          <button onclick="closeModal('modal-pdf-preview')" class="p-1 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+
+      <!-- Printable Sheet Canvas -->
+      <div class="p-6 overflow-y-auto bg-slate-800/50 flex justify-center">
+        <div id="printable-receipt-container" class="bg-white text-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-2xl font-sans text-xs space-y-6">
+          <!-- Document Header -->
+          <div class="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+            <div>
+              <img src="/imagenes/logo_atziluth.jpg" alt="Atziluth Gráfic Digital" class="h-12 w-auto mb-2" onerror="this.src='/logo_atziluth.jpg'">
+              <h2 class="font-display font-extrabold text-base text-slate-900">Atziluth Gráfic Digital S.A.S.</h2>
+              <p class="text-[10px] text-slate-600 font-mono">NIT: 901.458.962-1 &bull; Régimen Común</p>
+              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 300 123 4567</p>
+            </div>
+            <div class="text-right font-mono">
+              <span id="doc-type-badge" class="px-2.5 py-1 bg-slate-900 text-white font-bold text-xs rounded-lg block mb-2">RECIBO DE ABONO</span>
+              <p class="text-xs font-bold text-slate-800" id="doc-number-text">N° REC-5001</p>
+              <p class="text-[10px] text-slate-500" id="doc-date-text">Fecha: 06/08/2026</p>
+            </div>
+          </div>
+
+          <!-- Customer & Seller Info -->
+          <div class="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+            <div>
+              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase block mb-1">INFORMACIÓN DEL CLIENTE</span>
+              <p id="doc-client-name" class="font-bold text-slate-900 text-sm">Distribuidora El Progreso</p>
+              <p id="doc-client-nit" class="text-slate-700 font-mono text-[11px]">NIT / CC: 900.123.456-7</p>
+              <p id="doc-client-phone" class="text-slate-600">Tel: 310 456 7890</p>
+              <p id="doc-client-muni" class="text-slate-600">Municipio: Medellín, Antioquia</p>
+            </div>
+            <div>
+              <span class="font-mono text-[10px] font-bold text-slate-500 uppercase block mb-1">VENDEDOR Y ZONA</span>
+              <p id="doc-seller-name" class="font-bold text-slate-900">Carlos Mario Arango</p>
+              <p id="doc-seller-username" class="text-slate-600 font-mono text-[11px]">Usuario: carlos.ventas</p>
+              <p id="doc-seller-zone" class="text-slate-600">Zona: Valle de Aburrá Norte</p>
+            </div>
+          </div>
+
+          <!-- Items Table -->
+          <div>
+            <span class="font-mono text-[10px] font-bold text-slate-500 uppercase block mb-2">DETALLE EXHAUSTIVO DEL PEDIDO</span>
+            <table class="w-full text-left border-collapse font-sans text-xs">
+              <thead>
+                <tr class="border-b-2 border-slate-300 font-mono text-[10px] text-slate-600 uppercase bg-slate-100">
+                  <th class="p-2">Ref / Descripción del Producto</th>
+                  <th class="p-2 text-center">Cant.</th>
+                  <th class="p-2 text-right">V. Unit.</th>
+                  <th class="p-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody id="doc-items-tbody" class="divide-y divide-slate-200">
+                <!-- Inserted dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Payments & Balance Summary -->
+          <div class="grid grid-cols-2 gap-4 pt-2">
+            <div id="doc-abonos-history" class="text-[10px] space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono">
+              <span class="font-bold text-slate-700 block uppercase border-b pb-1">HISTORIAL DE ABONOS RECIBIDOS</span>
+              <div id="doc-abonos-list"></div>
+            </div>
+
+            <div class="space-y-1.5 font-mono text-right text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-600">Subtotal Venta:</span>
+                <span id="doc-subtotal-val" class="font-bold text-slate-900">$0</span>
+              </div>
+              <div class="flex justify-between text-emerald-700 font-bold">
+                <span>Total Abonado:</span>
+                <span id="doc-total-paid-val">$0</span>
+              </div>
+              <div class="flex justify-between border-t border-slate-900 pt-1 text-sm font-extrabold text-slate-900">
+                <span>SALDO PENDIENTE:</span>
+                <span id="doc-balance-val" class="text-brand-orange">$0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer Signatures -->
+          <div class="pt-8 grid grid-cols-2 gap-8 text-center text-[10px] font-mono border-t border-slate-200">
+            <div>
+              <div class="border-b border-slate-400 w-32 mx-auto mb-1"></div>
+              <span>Firma y Sello Vendedor</span>
+            </div>
+            <div>
+              <div class="border-b border-slate-400 w-32 mx-auto mb-1"></div>
+              <span>Recibido Conforme Cliente</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 6: CONFIGURACIÓN DE REPORTE MENSUAL DE VENTAS, ABONOS Y COMISIONES -->
+  <div id="modal-monthly-report" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-xl shadow-2xl p-6 relative max-h-[95vh] overflow-y-auto space-y-5">
+      <button onclick="closeModal('modal-monthly-report')" class="absolute top-5 right-5 text-slate-400 hover:text-white cursor-pointer"><i data-lucide="x" class="w-5 h-5"></i></button>
+      
+      <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+          <i data-lucide="file-bar-chart-2" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-display font-bold text-white">Generar Reporte Mensual & Comisiones</h3>
+          <p class="text-xs text-slate-400 font-sans">Calcula el resumen de ventas, abonos recaudados y comisión a pagar por vendedor.</p>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Vendedor Filter -->
+        <div>
+          <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Vendedor / Comercial</label>
+          <select id="rep-seller-select" onchange="calculateReportStats()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-emerald-500">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <!-- Period Selectors: Mes y Año -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Mes del Reporte</label>
+            <select id="rep-month-select" onchange="calculateReportStats()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-emerald-500">
+              <option value="0">Enero</option>
+              <option value="1">Febrero</option>
+              <option value="2">Marzo</option>
+              <option value="3">Abril</option>
+              <option value="4">Mayo</option>
+              <option value="5">Junio</option>
+              <option value="6">Julio</option>
+              <option value="7" selected>Agosto</option>
+              <option value="8">Septiembre</option>
+              <option value="9">Octubre</option>
+              <option value="10">Noviembre</option>
+              <option value="11">Diciembre</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Año</label>
+            <select id="rep-year-select" onchange="calculateReportStats()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-emerald-500">
+              <option value="2026" selected>2026</option>
+              <option value="2027">2027</option>
+              <option value="2025">2025</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Porcentaje de Comisión y Base de Cálculo -->
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Porcentaje de Comisión (%)</label>
+            <div class="relative">
+              <input type="number" step="0.5" id="rep-commission-rate" value="5.0" oninput="calculateReportStats()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 font-mono focus:border-emerald-500">
+              <span class="absolute right-3 top-3 text-xs text-slate-500 font-mono">%</span>
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-mono text-slate-400 uppercase mb-1">Base para Comisión</label>
+            <select id="rep-commission-base" onchange="calculateReportStats()" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-emerald-500">
+              <option value="ventas" selected>Sobre Ventas Totales Brutas</option>
+              <option value="recaudo">Sobre Recaudo / Abonos del Mes</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Live Summary Box -->
+        <div class="bg-slate-950 border border-emerald-900/50 rounded-2xl p-4 space-y-3 font-mono">
+          <div class="flex justify-between text-xs text-slate-400 border-b border-slate-800/80 pb-2">
+            <span>Pedidos Registrados en Mes:</span>
+            <span id="rep-summary-orders-count" class="font-bold text-white">0 pedidos</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-300">
+            <span>Total Ventas Brutas del Mes:</span>
+            <span id="rep-summary-sales-total" class="font-bold text-white">$0 COP</span>
+          </div>
+          <div class="flex justify-between text-xs text-emerald-400">
+            <span>Total Recaudado (Abonos):</span>
+            <span id="rep-summary-recaudo-total" class="font-bold">$0 COP</span>
+          </div>
+          <div class="flex justify-between text-xs text-slate-400">
+            <span>Saldo Pendiente de Cobro:</span>
+            <span id="rep-summary-balance-total" class="font-bold text-amber-400">$0 COP</span>
+          </div>
+          <div class="flex justify-between text-sm text-emerald-300 border-t border-emerald-800/80 pt-2 font-extrabold bg-emerald-950/30 -mx-4 -mb-4 p-3 rounded-b-2xl">
+            <span>COMISIÓN ESTIMADA VENDEDOR:</span>
+            <span id="rep-summary-commission-total">$0 COP</span>
+          </div>
+        </div>
+
+        <button onclick="renderAndOpenReportPdfModal()" class="w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer">
+          <i data-lucide="file-check-2" class="w-4 h-4"></i>
+          <span>GENERAR PDF Y VISTA DE IMPRESIÓN</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- MODAL 7: VISTA PREVIA E IMPRESIÓN DEL REPORTE MENSUAL PDF -->
+  <div id="modal-report-pdf-preview" class="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-4 hidden">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[95vh]">
+      <div class="bg-slate-950 px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+        <h3 class="text-sm font-display font-bold text-white flex items-center gap-2">
+          <i data-lucide="file-text" class="w-4 h-4 text-emerald-400"></i> Reporte Mensual Oficial Generado
+        </h3>
+        <div class="flex items-center gap-2">
+          <button onclick="downloadReportPdf()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl shadow flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="download" class="w-4 h-4"></i> Descargar PDF
+          </button>
+          <button onclick="window.print()" class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="printer" class="w-4 h-4"></i> Imprimir
+          </button>
+          <button onclick="closeModal('modal-report-pdf-preview')" class="p-1 text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+      </div>
+
+      <!-- Printable Report Sheet Canvas -->
+      <div class="p-6 overflow-y-auto bg-slate-800/50 flex justify-center">
+        <div id="printable-monthly-report-container" class="bg-white text-slate-900 p-8 rounded-2xl shadow-2xl w-full max-w-3xl font-sans text-xs space-y-6">
+          <!-- Document Header -->
+          <div class="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+            <div>
+              <img src="/imagenes/logo_atziluth.jpg" alt="Atziluth Gráfic Digital" class="h-12 w-auto mb-2" onerror="this.src='/logo_atziluth.jpg'">
+              <h2 class="font-display font-extrabold text-base text-slate-900">Atziluth Gráfic Digital S.A.S.</h2>
+              <p class="text-[10px] text-slate-600 font-mono">NIT: 901.458.962-1 &bull; Régimen Común</p>
+              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 300 123 4567</p>
+            </div>
+            <div class="text-right font-mono">
+              <span class="px-2.5 py-1 bg-emerald-950 text-emerald-300 font-bold text-xs rounded-lg block mb-2 border border-emerald-800">REPORTE MENSUAL DE VENTAS</span>
+              <p class="text-xs font-bold text-slate-900" id="rep-doc-period">PERÍODO: AGOSTO 2026</p>
+              <p class="text-[10px] text-slate-500" id="rep-doc-date">Emisión: 06/08/2026</p>
+            </div>
+          </div>
+
+          <!-- Seller Details Banner -->
+          <div class="grid grid-cols-2 gap-4 bg-emerald-50/60 p-4 rounded-xl border border-emerald-200">
+            <div>
+              <span class="font-mono text-[10px] font-bold text-emerald-800 uppercase block mb-1">INFORMACIÓN DEL VENDEDOR</span>
+              <p id="rep-doc-seller-name" class="font-bold text-slate-900 text-sm">Carlos Mario Arango</p>
+              <p id="rep-doc-seller-user" class="text-slate-700 font-mono text-[11px]">Usuario: carlos.ventas</p>
+              <p id="rep-doc-seller-zone" class="text-slate-600">Zona Comercial: Valle de Aburrá Norte</p>
+            </div>
+            <div>
+              <span class="font-mono text-[10px] font-bold text-emerald-800 uppercase block mb-1">PARÁMETROS DE LIQUIDACIÓN</span>
+              <p id="rep-doc-rate" class="font-bold text-slate-900">Comisión: 5.0%</p>
+              <p id="rep-doc-base" class="text-slate-600">Calculada sobre: Ventas Totales Brutas</p>
+              <p id="rep-doc-muni" class="text-slate-600 text-[11px]">Municipios: Medellín, Bello, Copacabana</p>
+            </div>
+          </div>
+
+          <!-- Executive KPI Grid Cards -->
+          <div class="grid grid-cols-4 gap-3 text-center">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <span class="text-[10px] font-mono text-slate-500 uppercase block">VENTAS TOTALES</span>
+              <span id="rep-kpi-sales" class="font-bold text-slate-900 text-sm font-mono block mt-1">$0 COP</span>
+            </div>
+            <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-200">
+              <span class="text-[10px] font-mono text-emerald-700 uppercase block">RECAUDO / ABONOS</span>
+              <span id="rep-kpi-recaudo" class="font-bold text-emerald-900 text-sm font-mono block mt-1">$0 COP</span>
+            </div>
+            <div class="bg-amber-50 p-3 rounded-xl border border-amber-200">
+              <span class="text-[10px] font-mono text-amber-700 uppercase block">SALDO PENDIENTE</span>
+              <span id="rep-kpi-balance" class="font-bold text-amber-900 text-sm font-mono block mt-1">$0 COP</span>
+            </div>
+            <div class="bg-slate-900 text-white p-3 rounded-xl border border-slate-900">
+              <span class="text-[10px] font-mono text-emerald-400 uppercase block">COMISIÓN VENDEDOR</span>
+              <span id="rep-kpi-commission" class="font-bold text-emerald-300 text-sm font-mono block mt-1">$0 COP</span>
+            </div>
+          </div>
+
+          <!-- Itemized Table of Orders -->
+          <div>
+            <span class="font-mono text-[10px] font-bold text-slate-500 uppercase block mb-2">DETALLE DE PEDIDOS Y VENTAS DEL MES</span>
+            <table class="w-full text-left border-collapse font-sans text-xs">
+              <thead>
+                <tr class="border-b-2 border-slate-300 font-mono text-[10px] text-slate-600 uppercase bg-slate-100">
+                  <th class="p-2">Pedido / Fecha</th>
+                  <th class="p-2">Cliente</th>
+                  <th class="p-2 text-right">Total Venta</th>
+                  <th class="p-2 text-right">Abonado Mes</th>
+                  <th class="p-2 text-right">Saldo</th>
+                  <th class="p-2 text-right">Comisión</th>
+                </tr>
+              </thead>
+              <tbody id="rep-doc-orders-tbody" class="divide-y divide-slate-200">
+                <!-- Inserted dynamically -->
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Total Summary Bar -->
+          <div class="bg-slate-100 p-4 rounded-xl border border-slate-300 flex justify-between items-center font-mono">
+            <div>
+              <span class="text-slate-600 text-[11px] block">TOTAL A LIQUIDAR AL VENDEDOR:</span>
+              <span id="rep-doc-total-commission-text" class="text-base font-extrabold text-emerald-700">$0 COP</span>
+            </div>
+            <div class="text-right text-[10px] text-slate-500">
+              <span>Sujeto a verificación contable</span>
+            </div>
+          </div>
+
+          <!-- Signatures -->
+          <div class="pt-8 grid grid-cols-2 gap-8 text-center text-[10px] font-mono border-t border-slate-200">
+            <div>
+              <div class="border-b border-slate-400 w-36 mx-auto mb-1"></div>
+              <span>Firma y C.C. Vendedor</span>
+            </div>
+            <div>
+              <div class="border-b border-slate-400 w-36 mx-auto mb-1"></div>
+              <span>V°B° Gerencia / Contabilidad Atziluth</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- JavaScript Logic -->
+  <script>
+    let currentUser = null;
+    let currentOrders = [];
+    let currentClients = [];
+    let currentSellers = [];
+
+    // Initialize App on DOM ready
+    document.addEventListener('DOMContentLoaded', () => {
+      checkStoredSession();
+      if (window.lucide) lucide.createIcons();
+    });
+
+    function checkStoredSession() {
+      const storedToken = localStorage.getItem('atziluth_sales_token');
+      const storedUser = localStorage.getItem('atziluth_sales_user');
+      
+      if (storedToken && storedUser) {
+        try {
+          currentUser = JSON.parse(storedUser);
+          showMainApp();
+          loadSystemData();
+          return;
+        } catch(e) {}
+      }
+      showLoginScreen();
+    }
+
+    function showLoginScreen() {
+      document.getElementById('login-screen').classList.remove('hidden');
+      document.getElementById('main-app').classList.add('hidden');
+    }
+
+    function showMainApp() {
+      document.getElementById('login-screen').classList.add('hidden');
+      document.getElementById('main-app').classList.remove('hidden');
+      document.getElementById('badge-user-role').textContent = currentUser.role === 'admin' ? 'ADMINISTRADOR' : 'VENDEDOR';
+      document.getElementById('user-welcome-subtitle').textContent = `Vendedor: ${currentUser.seller.name} (${currentUser.seller.zone})`;
+    }
+
+    // Login Handle
+    async function handleSalesLogin(e) {
+      e.preventDefault();
+      const username = document.getElementById('sales-username').value;
+      const password = document.getElementById('sales-password').value;
+      const errorBox = document.getElementById('login-error-box');
+
+      try {
+        const res = await fetch('/api/sales/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          currentUser = data;
+          localStorage.setItem('atziluth_sales_token', data.token);
+          localStorage.setItem('atziluth_sales_user', JSON.stringify(data));
+          errorBox.classList.add('hidden');
+          showMainApp();
+          loadSystemData();
+        } else {
+          errorBox.classList.remove('hidden');
+          document.getElementById('login-error-msg').textContent = data.error || 'Credenciales inválidas.';
+        }
+      } catch(err) {
+        errorBox.classList.remove('hidden');
+        document.getElementById('login-error-msg').textContent = 'Error de conexión con el servidor.';
+      }
+    }
+
+    function handleLogout() {
+      localStorage.removeItem('atziluth_sales_token');
+      localStorage.removeItem('atziluth_sales_user');
+      location.reload();
+    }
+
+    // Load All Data
+    async function loadSystemData() {
+      await Promise.all([fetchOrders(), fetchClients(), fetchSellers()]);
+    }
+
+    async function fetchOrders() {
+      try {
+        const res = await fetch('/api/sales/orders');
+        const data = await res.json();
+        if (data.success) {
+          currentOrders = data.orders || [];
+          renderOrdersTable();
+        }
+      } catch(e) {}
+    }
+
+    async function fetchClients() {
+      try {
+        const res = await fetch('/api/sales/clients');
+        const data = await res.json();
+        if (data.success) {
+          currentClients = data.clients || [];
+          renderClientsTable();
+          populateOrderClientSelect();
+        }
+      } catch(e) {}
+    }
+
+    async function fetchSellers() {
+      try {
+        const res = await fetch('/api/admin/sellers');
+        const data = await res.json();
+        if (data.success) {
+          currentSellers = data.sellers || [];
+          renderSellersTable();
+        }
+      } catch(e) {}
+    }
+
+    // Render Orders
+    function renderOrdersTable() {
+      const tbody = document.getElementById('orders-tbody');
+      const query = (document.getElementById('order-search').value || '').toLowerCase();
+      
+      let filtered = currentOrders;
+      if (query) {
+        filtered = filtered.filter(o => 
+          o.orderNumber.toLowerCase().includes(query) ||
+          o.clientName.toLowerCase().includes(query) ||
+          o.sellerName.toLowerCase().includes(query)
+        );
+      }
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500 font-mono">No hay pedidos registrados en el sistema.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(o => `
+        <tr class="hover:bg-slate-800/40 transition-colors">
+          <td class="px-5 py-4 font-mono font-bold text-white">
+            ${o.orderNumber}
+            <span class="block text-[10px] text-slate-500 font-normal">${o.date}</span>
+          </td>
+          <td class="px-5 py-4">
+            <span class="font-bold text-white block">${o.clientName}</span>
+            <span class="text-[10px] text-slate-400 font-mono">NIT: ${o.clientNit} | ${o.clientMunicipality}</span>
+          </td>
+          <td class="px-5 py-4">
+            <span class="text-slate-200 block">${o.sellerName}</span>
+            <span class="text-[10px] text-brand-cyan font-mono">${o.sellerZone}</span>
+          </td>
+          <td class="px-5 py-4 font-mono font-bold text-white">$${o.totalAmount.toLocaleString('es-CO')}</td>
+          <td class="px-5 py-4 font-mono">
+            <span class="text-emerald-400 font-bold block">Abonado: $${o.totalPaid.toLocaleString('es-CO')}</span>
+            <span class="text-brand-orange text-[10px]">Saldo: $${o.balance.toLocaleString('es-CO')}</span>
+          </td>
+          <td class="px-5 py-4">
+            ${o.balance === 0 ? 
+              `<span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-mono font-bold">PAGADO TOTAL</span>` :
+              `<span class="px-2.5 py-1 bg-brand-orange/20 text-brand-orange border border-brand-orange/30 rounded-lg text-[10px] font-mono font-bold">PAGO PARCIAL</span>`
+            }
+          </td>
+          <td class="px-5 py-4 text-right space-x-1.5">
+            <button onclick="openAbonoModal('${o.id}')" class="px-2.5 py-1 bg-emerald-950 border border-emerald-800 text-emerald-300 rounded-lg text-[10px] font-mono hover:bg-emerald-900 cursor-pointer">
+              + Abono
+            </button>
+            <button onclick="generatePdfDocument('${o.id}', 'recibo')" class="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-mono hover:bg-slate-700 cursor-pointer">
+              Recibo PDF
+            </button>
+            <button onclick="generatePdfDocument('${o.id}', 'factura')" class="px-2.5 py-1 bg-brand-orange text-white rounded-lg text-[10px] font-mono hover:opacity-90 cursor-pointer">
+              Factura Final
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // Render Clients
+    function renderClientsTable() {
+      const tbody = document.getElementById('clients-tbody');
+      if (currentClients.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="p-8 text-center text-slate-500 font-mono">No hay clientes en el directorio.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = currentClients.map(c => `
+        <tr class="hover:bg-slate-800/40 transition-colors">
+          <td class="px-5 py-4 font-bold text-white">${c.name}</td>
+          <td class="px-5 py-4 font-mono text-slate-300">${c.nitCc}</td>
+          <td class="px-5 py-4">
+            <span class="block text-slate-200">${c.contact}</span>
+            <span class="text-[10px] text-brand-cyan font-mono">${c.phone}</span>
+          </td>
+          <td class="px-5 py-4">
+            <span class="block text-slate-300">${c.municipality}</span>
+            <span class="text-[10px] text-slate-500">${c.address}</span>
+          </td>
+          <td class="px-5 py-4 text-right">
+            <button onclick="deleteClient('${c.id}')" class="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </td>
+        </tr>
+      `).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Render Sellers
+    function renderSellersTable() {
+      const tbody = document.getElementById('sellers-tbody');
+      if (currentSellers.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-8 text-center text-slate-500 font-mono">No hay vendedores registrados.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = currentSellers.map(s => `
+        <tr class="hover:bg-slate-800/40 transition-colors">
+          <td class="px-5 py-4 font-bold text-white">${s.name}</td>
+          <td class="px-5 py-4 font-mono text-brand-cyan">${s.username}</td>
+          <td class="px-5 py-4">
+            <span class="font-bold text-slate-200 block">${s.zone}</span>
+            <span class="text-[10px] text-slate-400">${(s.municipalities || []).join(', ')}</span>
+          </td>
+          <td class="px-5 py-4 text-slate-300 text-[11px]">${(s.categories || []).join(', ')}</td>
+          <td class="px-5 py-4">
+            <span class="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-mono font-bold">${s.status || 'ACTIVO'}</span>
+          </td>
+          <td class="px-5 py-4 text-right">
+            <button onclick="deleteSeller('${s.id}')" class="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-950/50 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </td>
+        </tr>
+      `).join('');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Modal Helpers
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+    function openNewOrderModal() {
+      populateOrderClientSelect();
+      document.getElementById('modal-order').classList.remove('hidden');
+      recalcOrderTotal();
+    }
+    function openClientModal() { document.getElementById('modal-client').classList.remove('hidden'); }
+    function openSellerModal() { document.getElementById('modal-seller').classList.remove('hidden'); }
+
+    function populateOrderClientSelect() {
+      const select = document.getElementById('form-order-client');
+      select.innerHTML = currentClients.map(c => `
+        <option value="${c.id}" data-name="${c.name}" data-nit="${c.nitCc}" data-phone="${c.phone}" data-muni="${c.municipality}" data-address="${c.address}">
+          ${c.name} - NIT ${c.nitCc} (${c.municipality})
+        </option>
+      `).join('');
+    }
+
+    function onOrderProductSelect() {
+      const pSelect = document.getElementById('form-order-product');
+      const opt = pSelect.options[pSelect.selectedIndex];
+      document.getElementById('form-order-unitprice').value = opt.getAttribute('data-price');
+      recalcOrderTotal();
+    }
+
+    function recalcOrderTotal() {
+      const qty = Number(document.getElementById('form-order-qty').value) || 1;
+      const unit = Number(document.getElementById('form-order-unitprice').value) || 0;
+      const total = qty * unit;
+      const abono = Number(document.getElementById('form-order-abono').value) || 0;
+      const balance = Math.max(0, total - abono);
+
+      document.getElementById('form-order-itemtotal').value = `$${total.toLocaleString('es-CO')} COP`;
+      document.getElementById('summary-total-val').textContent = `$${total.toLocaleString('es-CO')} COP`;
+      document.getElementById('summary-abono-val').textContent = `$${abono.toLocaleString('es-CO')} COP`;
+      document.getElementById('summary-balance-val').textContent = `$${balance.toLocaleString('es-CO')} COP`;
+    }
+
+    // Save New Order
+    async function saveNewOrder(e) {
+      e.preventDefault();
+      const cSelect = document.getElementById('form-order-client');
+      const clientOpt = cSelect.options[cSelect.selectedIndex];
+      
+      const pSelect = document.getElementById('form-order-product');
+      const prodOpt = pSelect.options[pSelect.selectedIndex];
+
+      const qty = Number(document.getElementById('form-order-qty').value);
+      const unitPrice = Number(document.getElementById('form-order-unitprice').value);
+      const totalAmount = qty * unitPrice;
+      const initialAbono = Number(document.getElementById('form-order-abono').value);
+      const paymentMethod = document.getElementById('form-order-paymentmethod').value;
+
+      const payload = {
+        sellerId: currentUser.seller.id,
+        sellerName: currentUser.seller.name,
+        sellerUsername: currentUser.seller.username,
+        sellerZone: currentUser.seller.zone,
+        clientId: cSelect.value,
+        clientName: clientOpt.getAttribute('data-name'),
+        clientNit: clientOpt.getAttribute('data-nit'),
+        clientPhone: clientOpt.getAttribute('data-phone'),
+        clientMunicipality: clientOpt.getAttribute('data-muni'),
+        clientAddress: clientOpt.getAttribute('data-address'),
+        items: [{
+          id: pSelect.value,
+          ref: pSelect.value,
+          name: prodOpt.getAttribute('data-name'),
+          quantity: qty,
+          unitPrice: unitPrice,
+          totalPrice: totalAmount
+        }],
+        subtotal: totalAmount,
+        discount: 0,
+        totalAmount: totalAmount,
+        initialAbono: initialAbono,
+        paymentMethod: paymentMethod
+      };
+
+      try {
+        const res = await fetch('/api/sales/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('modal-order');
+          fetchOrders();
+          generatePdfDocument(data.order.id, 'recibo');
+        }
+      } catch(e) {}
+    }
+
+    // Abono Modal
+    function openAbonoModal(orderId) {
+      const order = currentOrders.find(o => o.id === orderId);
+      if (!order) return;
+      document.getElementById('abono-order-id').value = order.id;
+      document.getElementById('abono-order-info').textContent = `Pedido ${order.orderNumber} - Saldo Actual: $${order.balance.toLocaleString('es-CO')} COP`;
+      document.getElementById('abono-amount-input').value = order.balance;
+      document.getElementById('modal-abono').classList.remove('hidden');
+    }
+
+    async function submitNewAbono() {
+      const id = document.getElementById('abono-order-id').value;
+      const amount = Number(document.getElementById('abono-amount-input').value);
+      const paymentMethod = document.getElementById('abono-method-input').value;
+      const note = document.getElementById('abono-note-input').value;
+
+      try {
+        const res = await fetch(`/api/sales/orders/${id}/abono`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, paymentMethod, note })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('modal-abono');
+          fetchOrders();
+          generatePdfDocument(id, 'recibo');
+        }
+      } catch(e) {}
+    }
+
+    // PDF Receipt / Invoice Generation
+    function generatePdfDocument(orderId, type) {
+      const order = currentOrders.find(o => o.id === orderId);
+      if (!order) return;
+
+      document.getElementById('pdf-modal-title').textContent = type === 'factura' ? 'Factura Final de Venta' : 'Comprobante de Abono';
+      document.getElementById('doc-type-badge').textContent = type === 'factura' ? 'FACTURA FINAL DE VENTA' : 'COMPROBANTE DE ABONO';
+      document.getElementById('doc-number-text').textContent = type === 'factura' ? `FAC-${order.orderNumber.replace('PED-', '')}` : `REC-${order.orderNumber.replace('PED-', '')}`;
+      document.getElementById('doc-date-text').textContent = `Fecha: ${order.date}`;
+
+      document.getElementById('doc-client-name').textContent = order.clientName;
+      document.getElementById('doc-client-nit').textContent = `NIT / CC: ${order.clientNit}`;
+      document.getElementById('doc-client-phone').textContent = `Tel: ${order.clientPhone}`;
+      document.getElementById('doc-client-muni').textContent = `Municipio: ${order.clientMunicipality}`;
+
+      document.getElementById('doc-seller-name').textContent = order.sellerName;
+      document.getElementById('doc-seller-username').textContent = `Usuario: ${order.sellerUsername}`;
+      document.getElementById('doc-seller-zone').textContent = `Zona: ${order.sellerZone}`;
+
+      // Items
+      document.getElementById('doc-items-tbody').innerHTML = (order.items || []).map(item => `
+        <tr>
+          <td class="p-2 font-bold">${item.name} <span class="text-[10px] text-slate-500 font-mono">(${item.ref})</span></td>
+          <td class="p-2 text-center font-mono">${item.quantity}</td>
+          <td class="p-2 text-right font-mono">$${item.unitPrice.toLocaleString('es-CO')}</td>
+          <td class="p-2 text-right font-mono font-bold">$${item.totalPrice.toLocaleString('es-CO')}</td>
+        </tr>
+      `).join('');
+
+      // Abonos list
+      document.getElementById('doc-abonos-list').innerHTML = (order.abonos || []).map(ab => `
+        <div class="flex justify-between text-slate-600">
+          <span>${ab.date} (${ab.paymentMethod}):</span>
+          <span class="font-bold text-slate-900">$${ab.amount.toLocaleString('es-CO')}</span>
+        </div>
+      `).join('');
+
+      document.getElementById('doc-subtotal-val').textContent = `$${order.totalAmount.toLocaleString('es-CO')} COP`;
+      document.getElementById('doc-total-paid-val').textContent = `$${order.totalPaid.toLocaleString('es-CO')} COP`;
+      document.getElementById('doc-balance-val').textContent = `$${order.balance.toLocaleString('es-CO')} COP`;
+
+      document.getElementById('modal-pdf-preview').classList.remove('hidden');
+    }
+
+    function downloadDocumentPdf() {
+      const element = document.getElementById('printable-receipt-container');
+      const opt = {
+        margin:       0.3,
+        filename:     'Comprobante_Atziluth.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // CRUD Client & Seller Handlers
+    async function saveClientForm(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('client-name-input').value,
+        nitCc: document.getElementById('client-nit-input').value,
+        contact: document.getElementById('client-contact-input').value,
+        phone: document.getElementById('client-phone-input').value,
+        municipality: document.getElementById('client-muni-input').value,
+        address: document.getElementById('client-addr-input').value
+      };
+      await fetch('/api/sales/clients', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      closeModal('modal-client');
+      fetchClients();
+    }
+
+    async function deleteClient(id) {
+      if (!confirm('¿Seguro que deseas eliminar este cliente?')) return;
+      await fetch(`/api/sales/clients/${id}`, { method: 'DELETE' });
+      fetchClients();
+    }
+
+    async function saveSellerForm(e) {
+      e.preventDefault();
+      const payload = {
+        name: document.getElementById('seller-name-input').value,
+        username: document.getElementById('seller-username-input').value,
+        password: document.getElementById('seller-password-input').value,
+        zone: document.getElementById('seller-zone-input').value,
+        municipalities: document.getElementById('seller-muni-input').value.split(',').map(s => s.trim()),
+        categories: ['Almanaque para el 2027', 'Litografía General']
+      };
+      await fetch('/api/admin/sellers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      closeModal('modal-seller');
+      fetchSellers();
+    }
+
+    async function deleteSeller(id) {
+      if (!confirm('¿Seguro que deseas eliminar este vendedor?')) return;
+      await fetch(`/api/admin/sellers/${id}`, { method: 'DELETE' });
+      fetchSellers();
+    }
+
+    // Branding Logo & Favicon Upload
+    let selectedLogoBase64 = null;
+    function previewSelectedLogo(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        selectedLogoBase64 = evt.target.result;
+        document.getElementById('branding-preview-img').src = selectedLogoBase64;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function uploadBrandLogoAndFavicon() {
+      if (!selectedLogoBase64) {
+        alert('Por favor selecciona una imagen de logotipo primero.');
+        return;
+      }
+      const status = document.getElementById('branding-status');
+      status.classList.remove('hidden');
+      status.className = 'text-xs p-3 rounded-xl font-mono text-center bg-slate-800 text-slate-300';
+      status.textContent = 'Subiendo logo y actualizando favicon en todo el sistema...';
+
+      try {
+        const res = await fetch('/api/admin/update-logo-favicon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64Data: selectedLogoBase64, fileName: 'logo_brand.jpg' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          status.className = 'text-xs p-3 rounded-xl font-mono text-center bg-emerald-950 text-emerald-300 border border-emerald-800';
+          status.textContent = '✓ ¡Logo y Favicon actualizados con éxito en todo el sitio!';
+        } else {
+          status.className = 'text-xs p-3 rounded-xl font-mono text-center bg-red-950 text-red-300';
+          status.textContent = data.error || 'Error al actualizar.';
+        }
+      } catch(e) {
+        status.className = 'text-xs p-3 rounded-xl font-mono text-center bg-red-950 text-red-300';
+        status.textContent = 'Error de conexión.';
+      }
+    }
+
+    // Monthly Report Generator Functions
+    function openMonthlyReportModal() {
+      // Populate Seller Selector
+      const sel = document.getElementById('rep-seller-select');
+      sel.innerHTML = '';
+      
+      const isSellerRole = currentUser && currentUser.role === 'seller';
+      if (!isSellerRole) {
+        sel.innerHTML += `<option value="ALL">-- TODOS LOS VENDEDORES (Consolidado) --</option>`;
+      }
+      
+      (currentSellers || []).forEach(s => {
+        sel.innerHTML += `<option value="${s.username}">${s.name} (${s.username} - ${s.zone || 'Sin Zona'})</option>`;
+      });
+
+      if (isSellerRole) {
+        sel.value = currentUser.username;
+        sel.disabled = true;
+      } else {
+        sel.disabled = false;
+      }
+
+      // Set current month and year
+      const now = new Date();
+      document.getElementById('rep-month-select').value = now.getMonth();
+      document.getElementById('rep-year-select').value = now.getFullYear();
+
+      calculateReportStats();
+      document.getElementById('modal-monthly-report').classList.remove('hidden');
+    }
+
+    let calculatedReportData = null;
+
+    function calculateReportStats() {
+      const sellerUsername = document.getElementById('rep-seller-select').value;
+      const month = parseInt(document.getElementById('rep-month-select').value);
+      const year = parseInt(document.getElementById('rep-year-select').value);
+      const rate = parseFloat(document.getElementById('rep-commission-rate').value) || 0;
+      const base = document.getElementById('rep-commission-base').value;
+
+      // Filter orders by month & year & seller
+      const matchingOrders = (currentOrders || []).filter(o => {
+        if (!o.createdAt && !o.date) return false;
+        
+        let d = o.createdAt ? new Date(o.createdAt) : null;
+        if (!d || isNaN(d.getTime())) {
+          // Parse DD/MM/YYYY
+          const parts = (o.date || '').split('/');
+          if (parts.length === 3) {
+            d = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+          }
+        }
+        
+        if (!d || isNaN(d.getTime())) return false;
+
+        const isMonthMatch = d.getMonth() === month && d.getFullYear() === year;
+        const isSellerMatch = sellerUsername === 'ALL' || o.sellerUsername === sellerUsername;
+
+        return isMonthMatch && isSellerMatch;
+      });
+
+      let totalSales = 0;
+      let totalRecaudo = 0;
+      let totalBalance = 0;
+
+      matchingOrders.forEach(o => {
+        totalSales += (o.totalAmount || 0);
+        totalRecaudo += (o.totalPaid || 0);
+        totalBalance += (o.balance || 0);
+      });
+
+      const baseAmount = base === 'recaudo' ? totalRecaudo : totalSales;
+      const commissionTotal = Math.round(baseAmount * (rate / 100));
+
+      calculatedReportData = {
+        sellerUsername,
+        month,
+        year,
+        rate,
+        base,
+        orders: matchingOrders,
+        totalSales,
+        totalRecaudo,
+        totalBalance,
+        commissionTotal
+      };
+
+      // Update Live UI Summary
+      document.getElementById('rep-summary-orders-count').textContent = `${matchingOrders.length} pedido(s)`;
+      document.getElementById('rep-summary-sales-total').textContent = `$${totalSales.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-summary-recaudo-total').textContent = `$${totalRecaudo.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-summary-balance-total').textContent = `$${totalBalance.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-summary-commission-total').textContent = `$${commissionTotal.toLocaleString('es-CO')} COP`;
+    }
+
+    const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+    function renderAndOpenReportPdfModal() {
+      if (!calculatedReportData) calculateReportStats();
+      const d = calculatedReportData;
+
+      const monthName = MONTH_NAMES[d.month] || 'Mes';
+      document.getElementById('rep-doc-period').textContent = `PERÍODO: ${monthName.toUpperCase()} ${d.year}`;
+      document.getElementById('rep-doc-date').textContent = `Emisión: ${new Date().toLocaleDateString('es-CO')}`;
+
+      let sellerInfo = { name: 'Todos los Vendedores', username: 'ALL', zone: 'Todas las Zonas', municipalities: [] };
+      if (d.sellerUsername !== 'ALL') {
+        const found = (currentSellers || []).find(s => s.username === d.sellerUsername);
+        if (found) sellerInfo = found;
+      }
+
+      document.getElementById('rep-doc-seller-name').textContent = sellerInfo.name;
+      document.getElementById('rep-doc-seller-user').textContent = `Usuario: ${sellerInfo.username}`;
+      document.getElementById('rep-doc-seller-zone').textContent = `Zona Comercial: ${sellerInfo.zone || 'General'}`;
+      document.getElementById('rep-doc-rate').textContent = `Comisión: ${d.rate}%`;
+      document.getElementById('rep-doc-base').textContent = `Calculada sobre: ${d.base === 'recaudo' ? 'Recaudo / Abonos Efectivos' : 'Ventas Totales Brutas'}`;
+      document.getElementById('rep-doc-muni').textContent = `Municipios: ${(sellerInfo.municipalities || ['Antioquia']).join(', ')}`;
+
+      // KPIs
+      document.getElementById('rep-kpi-sales').textContent = `$${d.totalSales.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-kpi-recaudo').textContent = `$${d.totalRecaudo.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-kpi-balance').textContent = `$${d.totalBalance.toLocaleString('es-CO')} COP`;
+      document.getElementById('rep-kpi-commission').textContent = `$${d.commissionTotal.toLocaleString('es-CO')} COP`;
+
+      // Orders Table Rows
+      const tbody = document.getElementById('rep-doc-orders-tbody');
+      if (!d.orders || d.orders.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 font-mono">No se registraron ventas en este período para el vendedor seleccionado.</td></tr>`;
+      } else {
+        tbody.innerHTML = d.orders.map(o => {
+          const baseAmt = d.base === 'recaudo' ? (o.totalPaid || 0) : (o.totalAmount || 0);
+          const comm = Math.round(baseAmt * (d.rate / 100));
+          return `
+            <tr>
+              <td class="p-2 font-mono">
+                <span class="font-bold text-slate-900">${o.orderNumber}</span>
+                <span class="block text-[10px] text-slate-500">${o.date}</span>
+              </td>
+              <td class="p-2">
+                <span class="font-bold block text-slate-800">${o.clientName}</span>
+                <span class="text-[10px] text-slate-500 font-mono">${o.clientMunicipality}</span>
+              </td>
+              <td class="p-2 text-right font-mono font-bold text-slate-900">$${(o.totalAmount || 0).toLocaleString('es-CO')}</td>
+              <td class="p-2 text-right font-mono text-emerald-700 font-bold">$${(o.totalPaid || 0).toLocaleString('es-CO')}</td>
+              <td class="p-2 text-right font-mono text-amber-700">$${(o.balance || 0).toLocaleString('es-CO')}</td>
+              <td class="p-2 text-right font-mono font-bold text-emerald-800">$${comm.toLocaleString('es-CO')}</td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      document.getElementById('rep-doc-total-commission-text').textContent = `$${d.commissionTotal.toLocaleString('es-CO')} COP`;
+
+      document.getElementById('modal-report-pdf-preview').classList.remove('hidden');
+    }
+
+    function downloadReportPdf() {
+      const element = document.getElementById('printable-monthly-report-container');
+      const opt = {
+        margin:       0.3,
+        filename:     `Reporte_Mensual_Ventas_Comisiones.pdf`,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // Tabs Switcher
+    function switchTab(tab) {
+      if (tab === 'reportes') {
+        openMonthlyReportModal();
+        return;
+      }
+      ['pedidos', 'clientes', 'vendedores', 'branding'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.add('hidden');
+        document.getElementById(`nav-btn-${t}`).className = 'px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 cursor-pointer';
+      });
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+      document.getElementById(`nav-btn-${tab}`).className = 'px-3.5 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 bg-brand-orange text-white border-brand-orange cursor-pointer';
+    }
+  </script>
+</body>
+</html>
