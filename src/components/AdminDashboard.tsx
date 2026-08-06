@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import VendedorDashboard from "./VendedorDashboard";
 import {
   Users,
   Server,
@@ -29,9 +30,24 @@ import {
   Printer,
   ShieldCheck,
   Award,
-  Check
+  Check,
+  Lock,
+  LogOut,
+  Edit3,
+  Key,
+  ShieldAlert,
+  UserPlus
 } from "lucide-react";
 import { ClientRecord, ClientPayment } from "../types";
+
+export interface AuthSession {
+  isLoggedIn: boolean;
+  role: 'admin' | 'vendedor';
+  username: string;
+  name: string;
+  sellerId?: string;
+  sellerRecord?: SellerRecord;
+}
 
 export interface SellerRecord {
   id: string;
@@ -86,13 +102,13 @@ const DEFAULT_SELLERS: SellerRecord[] = [
   }
 ];
 
-const ANTIOQUIA_MUNICIPALITIES = [
+export const ANTIOQUIA_MUNICIPALITIES = [
   "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Rionegro", 
   "Copacabana", "Girardota", "Caldas", "La Estrella", "Marinilla", 
   "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Barbosa", "Santa Fe de Antioquia"
 ];
 
-const BUSINESS_CATEGORIES = [
+export const BUSINESS_CATEGORIES = [
   "Gran Formato & Pendones",
   "Calendarios & Almanaques 2026",
   "Litografía & Papelería Comercial",
@@ -188,9 +204,31 @@ const DEFAULT_ORDERS: OrderReceiptRecord[] = [
 ];
 
 export default function AdminDashboard() {
+  const [activeAdminTab, setActiveAdminTab] = useState<'vendedores' | 'clientes' | 'facturacion' | 'branding'>('vendedores');
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Authentication Session State
+  const [authSession, setAuthSession] = useState<AuthSession | null>(() => {
+    try {
+      const saved = localStorage.getItem("atziluth_admin_session");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.isLoggedIn && parsed.role) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.error("Error reading auth session:", e);
+    }
+    return null;
+  });
+
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginMode, setLoginMode] = useState<'vendedor' | 'admin'>('vendedor');
 
   // Vendedores State & LocalStorage persistence
   const [sellers, setSellers] = useState<SellerRecord[]>(() => {
@@ -215,6 +253,148 @@ export default function AdminDashboard() {
       console.error("Error saving sellers to localStorage:", e);
     }
   }, [sellers]);
+
+  // Edit Seller Modal State
+  const [editingSeller, setEditingSeller] = useState<SellerRecord | null>(null);
+  const [editSellerName, setEditSellerName] = useState("");
+  const [editSellerUsername, setEditSellerUsername] = useState("");
+  const [editSellerPassword, setEditSellerPassword] = useState("");
+  const [editSellerSupervisor, setEditSellerSupervisor] = useState("");
+  const [editSellerPhone, setEditSellerPhone] = useState("");
+  const [editSellerZone, setEditSellerZone] = useState("");
+  const [editSellerCommission, setEditSellerCommission] = useState(5.0);
+  const [editSellerMunicipalities, setEditSellerMunicipalities] = useState<string[]>([]);
+  const [editSellerCategories, setEditSellerCategories] = useState<string[]>([]);
+
+  const openEditSeller = (seller: SellerRecord) => {
+    setEditingSeller(seller);
+    setEditSellerName(seller.name);
+    setEditSellerUsername(seller.username);
+    setEditSellerPassword(seller.password || "123");
+    setEditSellerSupervisor(seller.supervisor || "Estiven Arango (Director Comercial)");
+    setEditSellerPhone(seller.phone || "");
+    setEditSellerZone(seller.zone || "Valle de Aburrá Norte");
+    setEditSellerCommission(seller.commissionRate || 5.0);
+    setEditSellerMunicipalities(seller.municipalities || ["Medellín"]);
+    setEditSellerCategories(seller.categories || ["Gran Formato & Pendones"]);
+  };
+
+  const handleUpdateSeller = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingSeller) return;
+    if (!editSellerName.trim() || !editSellerUsername.trim()) {
+      alert("Por favor ingrese el nombre y usuario del vendedor.");
+      return;
+    }
+
+    const updatedSeller: SellerRecord = {
+      ...editingSeller,
+      name: editSellerName.trim(),
+      username: editSellerUsername.trim().toLowerCase(),
+      password: editSellerPassword.trim() || "123",
+      supervisor: editSellerSupervisor,
+      phone: editSellerPhone.trim() || "3000000000",
+      zone: editSellerZone,
+      commissionRate: Number(editSellerCommission) || 5.0,
+      municipalities: editSellerMunicipalities.length > 0 ? editSellerMunicipalities : ["Medellín"],
+      categories: editSellerCategories.length > 0 ? editSellerCategories : ["Gran Formato & Pendones"],
+    };
+
+    const updatedList = sellers.map((s) => (s.id === editingSeller.id ? updatedSeller : s));
+    setSellers(updatedList);
+    setEditingSeller(null);
+  };
+
+  const toggleEditMunicipality = (muni: string) => {
+    if (editSellerMunicipalities.includes(muni)) {
+      setEditSellerMunicipalities(editSellerMunicipalities.filter((m) => m !== muni));
+    } else {
+      setEditSellerMunicipalities([...editSellerMunicipalities, muni]);
+    }
+  };
+
+  const toggleEditCategory = (cat: string) => {
+    if (editSellerCategories.includes(cat)) {
+      setEditSellerCategories(editSellerCategories.filter((c) => c !== cat));
+    } else {
+      setEditSellerCategories([...editSellerCategories, cat]);
+    }
+  };
+
+  // Auth Handlers
+  const handleLoginSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError(null);
+
+    const cleanUsername = loginUsername.trim().toLowerCase();
+    const cleanPassword = loginPassword.trim();
+
+    if (!cleanUsername || !cleanPassword) {
+      setLoginError("Por favor ingrese usuario y contraseña.");
+      return;
+    }
+
+    // 1. Admin Credentials
+    const isAdminUser = ["estiven", "admin", "estiven arango", "estivenarango", "direccion.general"].includes(cleanUsername);
+    const isAdminPass = ["lmrv1979", "lmrv.1979", "2026", "123456", "admin123"].includes(cleanPassword.toLowerCase());
+
+    if (isAdminUser && isAdminPass) {
+      const session: AuthSession = {
+        isLoggedIn: true,
+        role: "admin",
+        username: "Estiven",
+        name: "Estiven Arango (Administrador General)",
+      };
+      setAuthSession(session);
+      localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
+      setLoginUsername("");
+      setLoginPassword("");
+      return;
+    }
+
+    // 2. Seller Credentials from localStorage ('atziluth_vendedores')
+    const savedSellersRaw = localStorage.getItem("atziluth_vendedores") || localStorage.getItem("atziluth_sellers_data");
+    let currentSellersList: SellerRecord[] = sellers;
+    if (savedSellersRaw) {
+      try {
+        const parsed = JSON.parse(savedSellersRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) currentSellersList = parsed;
+      } catch (_) {}
+    }
+
+    const matchedSeller = currentSellersList.find((s) => {
+      const sUser = (s.username || "").trim().toLowerCase();
+      const sPass = s.password || "123";
+      return sUser === cleanUsername && sPass === cleanPassword;
+    });
+
+    if (matchedSeller) {
+      const session: AuthSession = {
+        isLoggedIn: true,
+        role: "vendedor",
+        username: matchedSeller.username,
+        name: matchedSeller.name,
+        sellerId: matchedSeller.id,
+        sellerRecord: matchedSeller,
+      };
+      setAuthSession(session);
+      localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
+      
+      // Auto select seller in order creation
+      setOrdSellerId(matchedSeller.id);
+
+      setLoginUsername("");
+      setLoginPassword("");
+      return;
+    }
+
+    setLoginError("Credenciales inválidas. Verifique su usuario y contraseña.");
+  };
+
+  const handleLogout = () => {
+    setAuthSession(null);
+    localStorage.removeItem("atziluth_admin_session");
+  };
 
   // New Seller Form State
   const [newSellerName, setNewSellerName] = useState("");
@@ -801,8 +981,745 @@ export default function AdminDashboard() {
     year: "numeric",
   }).format(new Date());
 
+  // 1. SI NO HA INICIADO SESIÓN, MOSTRAR PANTALLA DE LOGIN
+  if (!authSession || !authSession.isLoggedIn) {
+    return (
+      <div className="min-h-[80vh] flex items-center justify-center p-4 bg-slate-950 text-slate-100 rounded-3xl border border-slate-800 my-4 shadow-2xl">
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden backdrop-blur-xl">
+          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-emerald-500 via-brand-orange to-brand-magenta"></div>
+
+          <div className="text-center space-y-2">
+            <div className="w-16 h-16 mx-auto bg-slate-950 border border-slate-800 rounded-2xl flex items-center justify-center shadow-lg text-emerald-400">
+              <ShieldCheck className="w-8 h-8" />
+            </div>
+            <h2 className="text-2xl font-display font-bold text-white tracking-tight">Atziluth Gráfic Digital</h2>
+            <p className="text-xs font-mono uppercase text-emerald-400 font-bold tracking-wider">
+              Autenticación & Control de Acceso
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
+            <button
+              type="button"
+              onClick={() => { setLoginMode('vendedor'); setLoginUsername('carlos.ventas'); setLoginPassword('123'); setLoginError(null); }}
+              className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                loginMode === 'vendedor'
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" /> Vendedor
+            </button>
+            <button
+              type="button"
+              onClick={() => { setLoginMode('admin'); setLoginUsername('Estiven'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
+              className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                loginMode === 'admin'
+                  ? 'bg-brand-orange text-white shadow-md'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Lock className="w-3.5 h-3.5" /> Administrador
+            </button>
+          </div>
+
+          <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <div>
+              <label className="block text-[11px] font-mono text-slate-400 uppercase mb-1.5 font-bold">
+                {loginMode === 'vendedor' ? 'Usuario Comercial (Vendedor)' : 'Usuario Administrador'}
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  required
+                  value={loginUsername}
+                  onChange={(e) => setLoginUsername(e.target.value)}
+                  placeholder={loginMode === 'vendedor' ? "Ej: carlos.ventas" : "Ej: Estiven"}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-mono text-slate-400 uppercase mb-1.5 font-bold">
+                Contraseña / Clave
+              </label>
+              <div className="relative">
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="password"
+                  required
+                  value={loginPassword}
+                  onChange={(e) => setLoginPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
+                />
+              </div>
+            </div>
+
+            {loginError && (
+              <div className="p-3 bg-rose-950/80 border border-rose-800/80 rounded-xl text-xs text-rose-300 font-mono flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>{loginError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              className={`w-full py-3 text-white font-mono text-xs font-bold rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer uppercase tracking-wider ${
+                loginMode === 'vendedor'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500'
+                  : 'bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Ingresar como {loginMode === 'vendedor' ? 'Vendedor' : 'Administrador'}</span>
+            </button>
+          </form>
+
+          <div className="pt-4 border-t border-slate-800/80 space-y-2 text-[11px] font-mono text-slate-400">
+            <span className="block text-[10px] uppercase text-slate-500 text-center font-bold">
+              Acceso Rápido / Credenciales LocalStorage:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => { setLoginMode('vendedor'); setLoginUsername('carlos.ventas'); setLoginPassword('123'); setLoginError(null); }}
+                className="p-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-left transition-all cursor-pointer"
+              >
+                <strong className="text-emerald-400 block font-bold text-xs">Carlos (Vendedor)</strong>
+                <span className="text-[10px] text-slate-500 block">User: carlos.ventas | Clave: 123</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => { setLoginMode('admin'); setLoginUsername('Estiven'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
+                className="p-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-left transition-all cursor-pointer"
+              >
+                <strong className="text-brand-orange block font-bold text-xs">Estiven (Admin)</strong>
+                <span className="text-[10px] text-slate-500 block">User: Estiven | Clave: Lmrv1979</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. SI EL USUARIO ES UN VENDEDOR, RETORNAR VISTA DEDICADA DE VENTAS Y FACTURACIÓN
+  if (authSession.role === 'vendedor') {
+    return (
+      <VendedorDashboard
+        authSession={authSession}
+        onLogout={handleLogout}
+        orders={orders}
+        onSaveOrder={(newOrder) => {
+          const updated = [newOrder, ...orders];
+          setOrders(updated);
+          try {
+            localStorage.setItem("atziluth_orders_data", JSON.stringify(updated));
+          } catch (e) {
+            console.error("Error saving orders:", e);
+          }
+        }}
+        sellers={sellers}
+      />
+    );
+  }
+
+  // Legacy view block
+  if (false) {
+    return (
+      <div className="space-y-8 p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen rounded-3xl border border-slate-800 my-4 shadow-2xl">
+        {/* Top Session Bar para Vendedor */}
+        <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white font-display">{authSession.name}</h2>
+                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                  VENDEDOR AUTORIZADO
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 font-mono mt-0.5">
+                Usuario: <strong className="text-emerald-400">@{authSession.username}</strong> • Zona: {authSession.sellerRecord?.zone || 'Medellín / Antioquia'} • Teléfono: {authSession.sellerRecord?.phone || '3000000000'}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
+
+        {/* Banner de Vista Exclusiva */}
+        <div className="bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-800/80 p-5 rounded-2xl space-y-1 shadow-lg">
+          <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase inline-block">
+            Portal Exclusivo de Ventas & Facturación
+          </span>
+          <h1 className="text-xl font-bold text-white font-display">Creación de Pedidos, Recibos de Abono y Facturas</h1>
+          <p className="text-xs text-slate-300">
+            Vista limitada exclusivamente para gestión de ventas. Registra recibos de abono o facturas para tus clientes, emite comprobantes oficiales en PDF y consulta el historial. Acceso al panel general administrado únicamente por la Dirección Comercial.
+          </p>
+        </div>
+
+        {/* ÚNICA SECCIÓN VISIBLE PARA VENDEDOR: GESTOR DE PEDIDOS Y FACTURACIÓN */}
+        <div id="seccion-pedidos-ventas" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
+                <Receipt className="w-7 h-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white font-display">Portal de Pedidos, Recibos de Abono y Facturación</h2>
+                  <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                    Comprobantes PDF Activos
+                  </span>
+                </div>
+                <p className="text-xs md:text-sm text-slate-400 mt-0.5">
+                  Genera recibos de anticipo o facturas finales de venta. Imprime comprobantes PDF para tus clientes.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
+                <span className="text-[10px] font-mono uppercase text-slate-500 block">Pedidos Registrados</span>
+                <span className="text-lg font-bold text-indigo-400 font-mono">{orders.length} comprobantes</span>
+              </div>
+            </div>
+          </div>
+
+          {/* FORMULARIO DE REGISTRO DE PEDIDO PARA VENDEDOR */}
+          <form onSubmit={handleCreateOrder} className="bg-slate-950 p-5 md:p-6 rounded-2xl border border-slate-800 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800/80 pb-3">
+              <h3 className="text-xs font-mono uppercase text-indigo-400 font-bold flex items-center gap-2">
+                <PlusCircle className="w-4 h-4" /> Formulario de Registro de Pedido / Abono / Factura
+              </h3>
+
+              <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setOrdDocumentType('abono')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                    ordDocumentType === 'abono'
+                      ? 'bg-amber-500 text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Recibo de Abono
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrdDocumentType('factura')}
+                  className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                    ordDocumentType === 'factura'
+                      ? 'bg-emerald-500 text-slate-950 shadow'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Factura Final
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Vendedor Asignado *
+                </label>
+                <select
+                  value={ordSellerId}
+                  onChange={(e) => setOrdSellerId(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
+                >
+                  <option value={authSession.sellerId || "sel_1"}>
+                    {authSession.name} (@{authSession.username}) — Vendedor
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Cliente / Razón Social *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ej: Calzado San Juan S.A.S."
+                  value={ordClientName}
+                  onChange={(e) => setOrdClientName(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  NIT / Cédula Cliente
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: 900.123.456-7"
+                  value={ordClientDocument}
+                  onChange={(e) => setOrdClientDocument(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Teléfono / Celular Cliente
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: 310 987 6543"
+                  value={ordClientPhone}
+                  onChange={(e) => setOrdClientPhone(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Municipio de Envío / Entrega
+                </label>
+                <select
+                  value={ordClientMunicipality}
+                  onChange={(e) => setOrdClientMunicipality(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  {ANTIOQUIA_MUNICIPALITIES.map((muni) => (
+                    <option key={muni} value={muni}>
+                      {muni}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Dirección de Envío
+                </label>
+                <input
+                  type="text"
+                  placeholder="Ej: Calle 50 # 45-20 Local 102"
+                  value={ordClientAddress}
+                  onChange={(e) => setOrdClientAddress(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Categoría / Línea de Producto
+                </label>
+                <select
+                  value={ordProductCategory}
+                  onChange={(e) => setOrdProductCategory(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  {BUSINESS_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Cantidad *
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  required
+                  value={ordQuantity}
+                  onChange={(e) => setOrdQuantity(parseInt(e.target.value) || 1)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Precio Unitario ($ COP) *
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required
+                  value={ordUnitPrice}
+                  onChange={(e) => setOrdUnitPrice(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Monto de Abono / Pago Recibido ($ COP)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={ordPaidAmount}
+                  onChange={(e) => setOrdPaidAmount(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Método de Pago
+                </label>
+                <select
+                  value={ordPaymentMethod}
+                  onChange={(e) => setOrdPaymentMethod(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
+                  <option value="Nequi">Nequi</option>
+                  <option value="Daviplata">Daviplata</option>
+                  <option value="Efectivo al Cobro">Efectivo al Cobro</option>
+                  <option value="MercadoPago / Tarjeta">MercadoPago / Tarjeta</option>
+                </select>
+              </div>
+
+              <div className="sm:col-span-2 lg:col-span-3">
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Descripción Detallada del Trabajo
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Especifica medidas, tipo de papel, acabados, troquelado o notas especiales del trabajo..."
+                  value={ordProductDescription}
+                  onChange={(e) => setOrdProductDescription(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Cálculo de totales en vivo */}
+            <div className="p-4 bg-slate-900/90 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4 font-mono text-xs">
+              <div className="space-y-1">
+                <span className="text-[10px] text-slate-500 block uppercase">Resumen del Trabajo</span>
+                <p className="text-white font-bold">
+                  Valor Total: <span className="text-emerald-400">${(ordQuantity * ordUnitPrice).toLocaleString("es-CO")} COP</span>
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <p className="text-white font-bold">
+                  Abono Recibido: <span className="text-amber-400">${ordPaidAmount.toLocaleString("es-CO")} COP</span>
+                </p>
+                <p className="text-white font-bold">
+                  Saldo Restante: <span className="text-rose-400">${Math.max(0, (ordQuantity * ordUnitPrice) - ordPaidAmount).toLocaleString("es-CO")} COP</span>
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg cursor-pointer uppercase tracking-wider"
+              >
+                <Receipt className="w-4 h-4" />
+                <span>Generar Comprobante Oficial</span>
+              </button>
+            </div>
+          </form>
+
+          {/* HISTORIAL DE COMPROBANTES Y PEDIDOS */}
+          <div className="space-y-4 pt-4 border-t border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-indigo-400" />
+                Historial de Comprobantes Registrados
+              </h3>
+
+              <div className="relative w-full sm:w-72">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar por N° pedido o cliente..."
+                  value={orderSearchQuery}
+                  onChange={(e) => setOrderSearchQuery(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl py-1.5 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900 border-b border-slate-800 text-[10px] font-mono text-slate-400 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-4 py-3">N° Pedido / Fecha</th>
+                      <th className="px-4 py-3">Cliente</th>
+                      <th className="px-4 py-3">Línea de Trabajo</th>
+                      <th className="px-4 py-3 text-right">Monto Total</th>
+                      <th className="px-4 py-3 text-right">Abono / Saldo</th>
+                      <th className="px-4 py-3 text-center">Estado</th>
+                      <th className="px-4 py-3 text-right">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-sans">
+                    {orders
+                      .filter((ord) => {
+                        if (!orderSearchQuery) return true;
+                        const q = orderSearchQuery.toLowerCase();
+                        return (
+                          ord.orderNumber.toLowerCase().includes(q) ||
+                          ord.clientName.toLowerCase().includes(q) ||
+                          ord.productCategory.toLowerCase().includes(q)
+                        );
+                      })
+                      .map((ord) => (
+                        <tr key={ord.id} className="hover:bg-slate-900/50 transition-colors">
+                          <td className="px-4 py-3 font-mono">
+                            <strong className="text-indigo-400 block font-bold">{ord.orderNumber}</strong>
+                            <span className="text-[10px] text-slate-500 block">{ord.date}</span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <strong className="text-white block font-medium">{ord.clientName}</strong>
+                            <span className="text-[10px] text-slate-400 font-mono">{ord.clientMunicipality} • Tel: {ord.clientPhone}</span>
+                          </td>
+
+                          <td className="px-4 py-3">
+                            <span className="text-slate-200 block text-[11px] font-medium">{ord.productCategory}</span>
+                            <span className="text-[10px] text-slate-500 block truncate max-w-xs">{ord.productDescription}</span>
+                          </td>
+
+                          <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                            ${ord.totalAmount.toLocaleString("es-CO")}
+                          </td>
+
+                          <td className="px-4 py-3 text-right font-mono">
+                            <span className="text-emerald-400 block font-bold">${ord.paidAmount.toLocaleString("es-CO")}</span>
+                            <span className="text-[10px] text-amber-400 block">Saldo: ${ord.balance.toLocaleString("es-CO")}</span>
+                          </td>
+
+                          <td className="px-4 py-3 text-center">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                                ord.status === 'pagado'
+                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                  : ord.status === 'abono_parcial'
+                                  ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                                  : 'bg-slate-900 text-slate-400 border border-slate-800'
+                              }`}
+                            >
+                              {ord.status === 'pagado' ? 'Pagado Total' : 'Abono Parcial'}
+                            </span>
+                          </td>
+
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              onClick={() => {
+                                setViewingReceiptOrder(ord);
+                                setShowReceiptModal(true);
+                              }}
+                              className="px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-end gap-1 cursor-pointer ml-auto"
+                              title="Ver / Imprimir Recibo PDF"
+                            >
+                              <Printer className="w-3 h-3 text-indigo-400" />
+                              <span>Ver PDF</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / FACTURA FINAL */}
+        {showReceiptModal && viewingReceiptOrder && (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">
+                      Vista Previa Comprobante Oficial — {viewingReceiptOrder.orderNumber}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Tipo: <strong className="text-indigo-400">{viewingReceiptOrder.documentType === 'abono' ? 'Recibo de Abono / Anticipo' : 'Factura Final de Venta'}</strong>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setShowReceiptModal(false)}
+                  className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* VISTA PREVIA HOJA IMPRESA COMPROBANTE PDF */}
+              <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl font-sans space-y-6 border border-slate-200">
+                <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                      ATZILUTH GRÁFIC DIGITAL S.A.S.
+                    </h2>
+                    <p className="text-xs font-mono text-slate-600">NIT: 901.458.321-9 • Medellín, Colombia</p>
+                    <p className="text-xs font-mono text-slate-600">Línea de Atención & WhatsApp: +57 300 123 4567</p>
+                    <p className="text-xs font-mono text-slate-600">E-mail: ventas@atziluthgrafic.com</p>
+                  </div>
+
+                  <div className="text-right">
+                    <span
+                      className={`px-3 py-1 text-white font-mono text-xs font-bold rounded uppercase inline-block ${
+                        viewingReceiptOrder.documentType === 'abono' ? 'bg-amber-600' : 'bg-emerald-700'
+                      }`}
+                    >
+                      {viewingReceiptOrder.documentType === 'abono' ? 'RECIBO DE ABONO' : 'FACTURA FINAL'}
+                    </span>
+                    <p className="text-sm font-mono font-bold text-slate-900 mt-1">N° {viewingReceiptOrder.orderNumber}</p>
+                    <p className="text-xs font-mono text-slate-600">Fecha: {viewingReceiptOrder.date}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL VENDEDOR:</span>
+                    <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.sellerName}</strong>
+                    <p className="font-mono text-slate-600">Usuario: @{viewingReceiptOrder.sellerUsername}</p>
+                    <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.sellerPhone}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL CLIENTE:</span>
+                    <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.clientName}</strong>
+                    <p className="font-mono text-slate-600">NIT / CC: {viewingReceiptOrder.clientDocument}</p>
+                    <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.clientPhone}</p>
+                    <p className="text-slate-600">Ubicación: {viewingReceiptOrder.clientMunicipality} — {viewingReceiptOrder.clientAddress}</p>
+                  </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                      <tr>
+                        <th className="p-2.5">Cant.</th>
+                        <th className="p-2.5">Descripción del Trabajo / Línea</th>
+                        <th className="p-2.5 text-right">V. Unitario</th>
+                        <th className="p-2.5 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 font-sans">
+                      <tr>
+                        <td className="p-2.5 font-mono font-bold text-slate-900">{viewingReceiptOrder.quantity}</td>
+                        <td className="p-2.5">
+                          <strong className="text-slate-900 block">{viewingReceiptOrder.productCategory}</strong>
+                          <p className="text-slate-600 text-[11px]">{viewingReceiptOrder.productDescription}</p>
+                        </td>
+                        <td className="p-2.5 text-right font-mono text-slate-700">
+                          ${viewingReceiptOrder.unitPrice.toLocaleString("es-CO")} COP
+                        </td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                          ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">VALOR TOTAL:</span>
+                    <strong className="text-base font-mono font-bold text-slate-900">
+                      ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
+                    </strong>
+                  </div>
+
+                  <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                    <span className="text-[10px] font-mono uppercase text-emerald-800 block font-bold">ABONO RECIBIDO:</span>
+                    <strong className="text-base font-mono font-bold text-emerald-700">
+                      ${viewingReceiptOrder.paidAmount.toLocaleString("es-CO")} COP
+                    </strong>
+                    <span className="text-[9px] font-mono text-emerald-800 block mt-0.5">{viewingReceiptOrder.paymentMethod}</span>
+                  </div>
+
+                  <div className="bg-amber-50 p-2 rounded-lg border border-amber-200">
+                    <span className="text-[10px] font-mono uppercase text-amber-800 block font-bold">SALDO PENDIENTE:</span>
+                    <strong className="text-base font-mono font-bold text-amber-700">
+                      ${viewingReceiptOrder.balance.toLocaleString("es-CO")} COP
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <p><strong>Observaciones:</strong> {viewingReceiptOrder.notes}</p>
+                  <p><strong>Cuentas Autorizadas para Pago:</strong> Bancolombia Cta Ahorros #123-456789-01 | Nequi / Daviplata: +57 300 123 4567</p>
+                  <p className="text-slate-400">Atziluth Gráfic Digital S.A.S. — Medellín, Antioquia. Comprobante válido para soporte contable e inspección de trabajo.</p>
+                </div>
+
+                <div className="pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
+                  <div className="text-center w-52 border-t border-slate-400 pt-1">Firma Asesor / Comercial</div>
+                  <div className="text-center w-52 border-t border-slate-400 pt-1">Recibido Conforme Cliente</div>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>IMPRIMIR COMPROBANTE / DESCARGAR PDF</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // 3. VISTA COMPLETA PARA ADMINISTRADOR GENERAL
   return (
     <div className="space-y-8 p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen rounded-3xl border border-slate-800 my-4 shadow-2xl">
+      {/* Top Session Bar para Admin */}
+      <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white font-display">{authSession.name}</h2>
+              <span className="px-2.5 py-0.5 bg-brand-orange/20 text-brand-orange border border-brand-orange/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                ADMINISTRADOR GENERAL
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 font-mono mt-0.5">
+              Acceso total a clientes, mensualidades, gestión de vendedores (CRUD), facturación y marca Logotach.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleLogout}
+          className="px-4 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
         <div>
@@ -824,33 +1741,96 @@ export default function AdminDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 self-start md:self-auto">
-          <a
-            href="/admin/ventas.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
+        <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
+          <button
+            onClick={() => {
+              setActiveAdminTab('vendedores');
+              setTimeout(() => {
+                const el = document.getElementById("formulario-nuevo-vendedor") || document.getElementById("seccion-vendedores");
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }, 100);
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-xs font-mono font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg border border-emerald-400/30"
+          >
+            <PlusCircle className="w-4 h-4 text-emerald-200" />
+            <span>+ Agregar Vendedor</span>
+          </button>
+
+          <button
+            onClick={() => setActiveAdminTab('facturacion')}
+            className="px-4 py-2 bg-gradient-to-r from-teal-600 to-indigo-600 hover:from-teal-500 hover:to-indigo-500 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
           >
             <Wallet className="w-4 h-4" />
-            Portal de Ventas & Vendedores
-          </a>
+            <span>Portal Ventas & Facturación</span>
+          </button>
 
-          <a
-            href="#gestor-logo-seccion"
+          <button
+            onClick={() => setActiveAdminTab('branding')}
             className="px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-xs font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-md"
           >
             <ImageIcon className="w-4 h-4" />
-            Gestor de Logo
-          </a>
+            <span>Gestor de Logo</span>
+          </button>
 
           <button
             onClick={fetchConfig}
             className="px-4 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-mono text-slate-200 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
           >
             <RefreshCw className="w-4 h-4 text-brand-orange" />
-            Actualizar
+            <span>Actualizar</span>
           </button>
         </div>
+      </div>
+
+      {/* PESTAÑAS DE NAVEGACIÓN PRINCIPAL EN PANEL GENERAL */}
+      <div className="bg-slate-900/90 border border-slate-800 p-2 rounded-2xl flex flex-wrap items-center gap-2 shadow-xl sticky top-2 z-40 backdrop-blur-md">
+        <button
+          onClick={() => setActiveAdminTab('vendedores')}
+          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeAdminTab === 'vendedores'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg border border-emerald-500/30'
+              : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4 text-emerald-400" />
+          <span>👥 Gestión de Vendedores ({sellers.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('clientes')}
+          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeAdminTab === 'clientes'
+              ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg border border-indigo-500/30'
+              : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4 text-indigo-400" />
+          <span>💼 Clientes & Contabilidad</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('facturacion')}
+          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeAdminTab === 'facturacion'
+              ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg border border-amber-500/30'
+              : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <Receipt className="w-4 h-4 text-amber-400" />
+          <span>🧾 Ventas & Facturación</span>
+        </button>
+
+        <button
+          onClick={() => setActiveAdminTab('branding')}
+          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeAdminTab === 'branding'
+              ? 'bg-gradient-to-r from-brand-orange to-brand-magenta text-white shadow-lg border border-brand-orange/30'
+              : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <ImageIcon className="w-4 h-4 text-brand-orange" />
+          <span>🎨 Logo & Marca Logotach</span>
+        </button>
       </div>
 
       {/* PORTALES Y MÓDULOS DE ADMINISTRACIÓN DIRECTOS */}
@@ -1267,6 +2247,14 @@ export default function AdminDashboard() {
                             >
                               <FileText className="w-3 h-3 text-emerald-400" />
                               <span className="hidden sm:inline">Reporte</span>
+                            </button>
+
+                            <button
+                              onClick={() => openEditSeller(seller)}
+                              className="p-1.5 bg-slate-900 hover:bg-indigo-950 text-slate-400 hover:text-indigo-300 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                              title="Editar Vendedor"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
                             </button>
 
                             <button
@@ -2001,13 +2989,13 @@ export default function AdminDashboard() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">Logotach — Gestor Oficial de Logo & Marca</h2>
+                <h2 className="text-base font-bold text-white">Logotach — Gestor Oficial de Logo & Favicon Corporativo</h2>
                 <span className="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
                   Gestor Logotach
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Sube o cambia el logo oficial de Atziluth Gráfic Digital para actualizarlo en el encabezado, pie de página y portada.
+                Sube o cambia el logo oficial. Se actualizará en el encabezado, pie de página y portada, y se convertirá automáticamente en el favicon oficial de todo el sitio.
               </p>
             </div>
           </div>
@@ -2800,6 +3788,195 @@ function ClientCardItem({
           </div>
         </form>
       </div>
+
+      {/* MODAL EDITAR VENDEDOR */}
+      {editingSeller && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <Edit3 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-display">Editar Datos del Vendedor</h3>
+                  <p className="text-xs text-slate-400">
+                    Modifica credenciales, teléfono, comisión, zonas y categorías de <strong className="text-emerald-400">{editingSeller.name}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEditingSeller(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSeller} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editSellerName}
+                    onChange={(e) => setEditSellerName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Usuario Login *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editSellerUsername}
+                    onChange={(e) => setEditSellerUsername(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Contraseña / Clave</label>
+                  <input
+                    type="text"
+                    value={editSellerPassword}
+                    onChange={(e) => setEditSellerPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Teléfono / WhatsApp</label>
+                  <input
+                    type="text"
+                    value={editSellerPhone}
+                    onChange={(e) => setEditSellerPhone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Zona Comercial</label>
+                  <select
+                    value={editSellerZone}
+                    onChange={(e) => setEditSellerZone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Valle de Aburrá Norte">Valle de Aburrá Norte</option>
+                    <option value="Valle de Aburrá Sur">Valle de Aburrá Sur</option>
+                    <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
+                    <option value="Oriente Antioqueño">Oriente Antioqueño</option>
+                    <option value="Occidente / Urabá">Occidente / Urabá</option>
+                    <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
+                    <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Comisión Base (%)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="50"
+                    value={editSellerCommission}
+                    onChange={(e) => setEditSellerCommission(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Supervisor Asignado</label>
+                  <select
+                    value={editSellerSupervisor}
+                    onChange={(e) => setEditSellerSupervisor(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
+                    <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
+                    <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
+                    <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Municipios Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados ({editSellerMunicipalities.length})
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
+                    const isSel = editSellerMunicipalities.includes(muni);
+                    return (
+                      <button
+                        key={muni}
+                        type="button"
+                        onClick={() => toggleEditMunicipality(muni)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
+                          isSel
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold"
+                            : "bg-slate-950 text-slate-400 border-slate-800"
+                        }`}
+                      >
+                        {isSel && <Check className="w-3 h-3 text-emerald-400" />}
+                        <span>{muni}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Categorías Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-indigo-400" /> Categorías / Líneas de Negocio ({editSellerCategories.length})
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {BUSINESS_CATEGORIES.map((cat) => {
+                    const isSel = editSellerCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => toggleEditCategory(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
+                          isSel
+                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/50 font-bold"
+                            : "bg-slate-950 text-slate-400 border-slate-800"
+                        }`}
+                      >
+                        {isSel && <Check className="w-3 h-3 text-indigo-400" />}
+                        <span>{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingSeller(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

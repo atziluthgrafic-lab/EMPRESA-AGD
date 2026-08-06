@@ -114,20 +114,42 @@ if ($route === 'config/images') {
 } elseif ($route === 'admin/login') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $username = isset($input['username']) ? trim($input['username']) : '';
-        $password = isset($input['password']) ? $input['password'] : '';
+        $password = isset($input['password']) ? trim($input['password']) : '';
         
-        $configuredUsername = "Estiven";
+        $isAdminUser = in_array(strtolower($username), ['estiven', 'admin', 'estiven arango', 'estivenarango']);
+        $isAdminPass = in_array(strtolower($password), ['lmrv1979', 'lmrv.1979', '2026', '123456', 'admin123']);
         
-        $isUsernameMatch = strcasecmp($username, $configuredUsername) === 0;
-        $isPasswordMatch = ($password === "Lmrv1979" || $password === "Lmrv.1979");
-        
-        if ($isUsernameMatch && $isPasswordMatch) {
-            echo json_encode(["success" => true, "token" => "atziluth_secure_token_secret"]);
-            exit;
-        } else {
-            echo json_encode(["success" => false, "error" => "Usuario o contraseña de administrador incorrectos."]);
+        if ($isAdminUser && $isAdminPass) {
+            echo json_encode(["success" => true, "token" => "atziluth_secure_token_secret", "role" => "admin"]);
             exit;
         }
+        
+        // Check sellers_data.json for supervisor
+        $sellersFile = __DIR__ . '/../../sellers_data.json';
+        if (file_exists($sellersFile)) {
+            $sellers = json_decode(file_get_contents($sellersFile), true) ?: [];
+            foreach ($sellers as $s) {
+                if (strcasecmp($s['username'], $username) === 0 && $s['password'] === $password) {
+                    $isSupervisor = (isset($s['role']) && strtolower($s['role']) === 'supervisor') ||
+                                    (isset($s['isSupervisor']) && $s['isSupervisor'] === true) ||
+                                    (isset($s['zone']) && stripos($s['zone'], 'supervisor') !== false);
+                    if ($isSupervisor) {
+                        echo json_encode(["success" => true, "token" => "atziluth_secure_token_secret", "role" => "supervisor"]);
+                        exit;
+                    } else {
+                        http_response_code(403);
+                        echo json_encode([
+                            "success" => false,
+                            "error" => "Acceso denegado: Los vendedores no tienen acceso al Panel General Administrador. Ingrese exclusivamente al Módulo de Ventas & Facturación (/admin/ventas.html)."
+                        ]);
+                        exit;
+                    }
+                }
+            }
+        }
+
+        echo json_encode(["success" => false, "error" => "Usuario o contraseña de administrador / supervisor incorrectos."]);
+        exit;
     }
 } elseif ($route === 'admin/config') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -285,6 +307,165 @@ if ($route === 'config/images') {
             http_response_code(400);
             echo json_encode(["success" => false, "error" => "No se recibieron datos."]);
         }
+        exit;
+    }
+} elseif ($route === 'sales/login') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $username = isset($input['username']) ? trim($input['username']) : '';
+        $password = isset($input['password']) ? trim($input['password']) : '';
+        
+        $isAdminUser = in_array(strtolower($username), ['estiven', 'admin', 'estiven arango', 'estivenarango']);
+        $isAdminPass = in_array(strtolower($password), ['lmrv1979', 'lmrv.1979', '2026', '123456', 'admin123']);
+        
+        if ($isAdminUser && $isAdminPass) {
+            echo json_encode([
+                "success" => true,
+                "role" => "admin",
+                "seller" => [
+                    "id" => "admin-master",
+                    "name" => "Estiven Arango (Administrador General)",
+                    "username" => "Estiven",
+                    "zone" => "Todas las Zonas (Antioquia / Nacional)",
+                    "municipalities" => ["Todos los Municipios"],
+                    "categories" => ["Almanaque para el 2027", "Litografía Completa"]
+                ],
+                "token" => "atziluth_secure_token_secret"
+            ]);
+            exit;
+        }
+        
+        // Check sellers_data.json
+        $sellersFile = __DIR__ . '/../../sellers_data.json';
+        if (file_exists($sellersFile)) {
+            $sellers = json_decode(file_get_contents($sellersFile), true) ?: [];
+            foreach ($sellers as $s) {
+                if (strcasecmp($s['username'], $username) === 0 && $s['password'] === $password) {
+                    if (isset($s['status']) && $s['status'] === 'INACTIVO') {
+                        echo json_encode(["success" => false, "error" => "El usuario vendedor se encuentra inactivo."]);
+                        exit;
+                    }
+                    echo json_encode([
+                        "success" => true,
+                        "role" => "vendedor",
+                        "seller" => [
+                            "id" => $s['id'],
+                            "name" => $s['name'],
+                            "username" => $s['username'],
+                            "zone" => isset($s['zone']) ? $s['zone'] : 'General',
+                            "municipalities" => isset($s['municipalities']) ? $s['municipalities'] : [],
+                            "categories" => isset($s['categories']) ? $s['categories'] : []
+                        ],
+                        "token" => "seller_token_" . $s['id']
+                    ]);
+                    exit;
+                }
+            }
+        }
+        
+        echo json_encode(["success" => false, "error" => "Usuario o contraseña de ventas/admin incorrectos."]);
+        exit;
+    }
+} elseif ($route === 'sales/orders') {
+    $ordersFile = __DIR__ . '/../../sales_orders_data.json';
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $orders = file_exists($ordersFile) ? (json_decode(file_get_contents($ordersFile), true) ?: []) : [];
+        echo json_encode(["success" => true, "orders" => $orders]);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $orders = file_exists($ordersFile) ? (json_decode(file_get_contents($ordersFile), true) ?: []) : [];
+        $orderNumStr = "PED-" . (1000 + count($orders) + 1);
+        $totalAmount = isset($input['totalAmount']) ? floatval($input['totalAmount']) : 0;
+        $initialAbono = isset($input['initialAbono']) ? floatval($input['initialAbono']) : 0;
+        $balance = max(0, $totalAmount - $initialAbono);
+        
+        $abonosList = [];
+        if ($initialAbono > 0) {
+            $abonosList[] = [
+                "id" => "ab-1",
+                "date" => date("d/m/Y"),
+                "amount" => $initialAbono,
+                "paymentMethod" => isset($input['paymentMethod']) ? $input['paymentMethod'] : "Efectivo / Transferencia",
+                "note" => "Abono inicial en creación del pedido",
+                "receiptNumber" => "REC-" . (5000 + rand(100, 999))
+            ];
+        }
+        
+        $newOrder = [
+            "id" => "ord-" . time(),
+            "orderNumber" => $orderNumStr,
+            "date" => date("d/m/Y"),
+            "sellerId" => isset($input['sellerId']) ? $input['sellerId'] : 'sel-admin',
+            "sellerName" => isset($input['sellerName']) ? $input['sellerName'] : 'Estiven Arango',
+            "sellerUsername" => isset($input['sellerUsername']) ? $input['sellerUsername'] : 'Estiven',
+            "sellerZone" => isset($input['sellerZone']) ? $input['sellerZone'] : 'General',
+            "clientId" => isset($input['clientId']) ? $input['clientId'] : 'cli-gen',
+            "clientName" => isset($input['clientName']) ? $input['clientName'] : 'Cliente',
+            "clientNit" => isset($input['clientNit']) ? $input['clientNit'] : 'Sin NIT',
+            "clientPhone" => isset($input['clientPhone']) ? $input['clientPhone'] : 'Sin teléfono',
+            "clientMunicipality" => isset($input['clientMunicipality']) ? $input['clientMunicipality'] : 'Medellín',
+            "clientAddress" => isset($input['clientAddress']) ? $input['clientAddress'] : 'Medellín',
+            "items" => isset($input['items']) ? $input['items'] : [],
+            "subtotal" => $totalAmount,
+            "discount" => 0,
+            "totalAmount" => $totalAmount,
+            "abonos" => $abonosList,
+            "totalPaid" => $initialAbono,
+            "balance" => $balance,
+            "status" => $balance === 0 ? "PAGADO_TOTAL" : "PAGO_PARCIAL",
+            "createdAt" => date("c"),
+            "updatedAt" => date("c")
+        ];
+        array_unshift($orders, $newOrder);
+        file_put_contents($ordersFile, json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(["success" => true, "order" => $newOrder, "orders" => $orders]);
+        exit;
+    }
+} elseif ($route === 'sales/clients') {
+    $clientsFile = __DIR__ . '/../../clients_data.json';
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $clients = file_exists($clientsFile) ? (json_decode(file_get_contents($clientsFile), true) ?: []) : [];
+        echo json_encode(["success" => true, "clients" => $clients]);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $clients = file_exists($clientsFile) ? (json_decode(file_get_contents($clientsFile), true) ?: []) : [];
+        $newClient = [
+            "id" => "cli-" . time(),
+            "name" => isset($input['name']) ? $input['name'] : 'Cliente Nuevo',
+            "nitCc" => isset($input['nitCc']) ? $input['nitCc'] : 'Sin NIT',
+            "contact" => isset($input['contact']) ? $input['contact'] : '',
+            "phone" => isset($input['phone']) ? $input['phone'] : '',
+            "email" => isset($input['email']) ? $input['email'] : '',
+            "address" => isset($input['address']) ? $input['address'] : 'Medellín',
+            "municipality" => isset($input['municipality']) ? $input['municipality'] : 'Medellín',
+            "createdAt" => date("c")
+        ];
+        array_unshift($clients, $newClient);
+        file_put_contents($clientsFile, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(["success" => true, "client" => $newClient, "clients" => $clients]);
+        exit;
+    }
+} elseif ($route === 'admin/sellers') {
+    $sellersFile = __DIR__ . '/../../sellers_data.json';
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $sellers = file_exists($sellersFile) ? (json_decode(file_get_contents($sellersFile), true) ?: []) : [];
+        echo json_encode(["success" => true, "sellers" => $sellers]);
+        exit;
+    } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $sellers = file_exists($sellersFile) ? (json_decode(file_get_contents($sellersFile), true) ?: []) : [];
+        $newSeller = [
+            "id" => "sel-" . time(),
+            "name" => isset($input['name']) ? $input['name'] : 'Vendedor',
+            "username" => isset($input['username']) ? $input['username'] : 'vendedor',
+            "password" => isset($input['password']) ? $input['password'] : '123',
+            "zone" => isset($input['zone']) ? $input['zone'] : 'General',
+            "municipalities" => isset($input['municipalities']) ? $input['municipalities'] : [],
+            "categories" => isset($input['categories']) ? $input['categories'] : [],
+            "status" => "ACTIVO",
+            "createdAt" => date("c")
+        ];
+        array_unshift($sellers, $newSeller);
+        file_put_contents($sellersFile, json_encode($sellers, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        echo json_encode(["success" => true, "seller" => $newSeller, "sellers" => $sellers]);
         exit;
     }
 }

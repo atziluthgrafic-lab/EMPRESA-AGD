@@ -395,24 +395,65 @@ app.post("/api/almanaques/data", allowUpload, (req, res) => {
   }
 });
 
-// 5. API: Secure login for Admin Control Panel
+// 5. API: Secure login for Admin Control Panel (Administrators & Supervisors ONLY)
 app.post("/api/admin/login", (req, res) => {
-  const { username, password } = req.body;
-  const configuredUsername = "Estiven";
+  const cleanUsername = String(req.body?.username || "").trim();
+  const cleanPassword = String(req.body?.password || "").trim();
   const envPassword = process.env.ADMIN_PASSWORD;
   
-  const isUsernameMatch = username && username.trim().toLowerCase() === configuredUsername.toLowerCase();
+  const isAdminUser = cleanUsername && [
+    "estiven", "admin", "estiven arango", "estivenarango", "direccion.general"
+  ].includes(cleanUsername.toLowerCase());
   
-  // Accept both versions of the password (with or without dot) as fallback, as well as the env variable if set
-  const isPasswordMatch = 
-    password === "Lmrv1979" || 
-    password === "Lmrv.1979" || 
-    (envPassword && password === envPassword);
+  const isAdminPassword = 
+    cleanPassword === "Lmrv1979" || 
+    cleanPassword === "Lmrv.1979" || 
+    cleanPassword === "2026" ||
+    cleanPassword === "123456" ||
+    (envPassword && cleanPassword === envPassword);
 
-  if (isUsernameMatch && isPasswordMatch) {
-    return res.json({ success: true, token: "atziluth_secure_token_secret" });
+  // 1. Direct Administrator Authentication
+  if (isAdminUser && isAdminPassword) {
+    return res.json({
+      success: true,
+      token: "atziluth_secure_token_secret",
+      role: "admin",
+      user: { name: "Estiven Arango (Administrador General)", username: "Estiven", role: "admin" }
+    });
   }
-  res.json({ success: false, error: "Usuario o contraseña de administrador incorrectos." });
+
+  // 2. Check for Zone Supervisor in sellers_data.json
+  const sellers = loadSellersData();
+  const foundSeller = sellers.find(
+    (s: any) => s.username && s.username.toLowerCase().trim() === cleanUsername.toLowerCase() && s.password === cleanPassword
+  );
+
+  if (foundSeller) {
+    const isSupervisor = 
+      (foundSeller.role && foundSeller.role.toLowerCase() === "supervisor") ||
+      foundSeller.isSupervisor === true ||
+      (foundSeller.zone && foundSeller.zone.toLowerCase().includes("supervisor"));
+
+    if (isSupervisor) {
+      return res.json({
+        success: true,
+        token: "atziluth_secure_token_secret",
+        role: "supervisor",
+        user: { name: foundSeller.name, username: foundSeller.username, role: "supervisor" }
+      });
+    }
+
+    // Standard sellers are strictly forbidden from entering the General Admin Panel
+    return res.status(403).json({
+      success: false,
+      error: "Acceso denegado: Los vendedores NO tienen acceso al Panel General Administrador. Ingrese exclusivamente al Módulo de Ventas & Facturación (/admin/ventas.html)."
+    });
+  }
+
+  res.json({
+    success: false,
+    error: "Usuario o contraseña incorrectos. El acceso al Panel General está restringido únicamente a Administradores y Supervisores de Zona."
+  });
 });
 
 // Helper validation middleware to verify Admin session (or allow upload if authorization is optional for asset manager)
@@ -643,15 +684,16 @@ app.get(["/admin/Ventas.html", "/admin/ventas.html"], (req, res) => {
 
 // Seller Login Authentication Endpoint
 app.post("/api/sales/login", (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
+  const cleanUsername = String(req.body?.username || "").trim();
+  const cleanPassword = String(req.body?.password || "").trim();
+  if (!cleanUsername || !cleanPassword) {
     return res.status(400).json({ success: false, error: "Ingresa usuario y contraseña." });
   }
 
   // 1. Check seller list
   const sellers = loadSellersData();
   const seller = sellers.find(
-    (s: any) => s.username.toLowerCase().trim() === username.toLowerCase().trim() && s.password === password
+    (s: any) => s.username.toLowerCase().trim() === cleanUsername.toLowerCase() && s.password === cleanPassword
   );
 
   if (seller) {
@@ -674,10 +716,10 @@ app.post("/api/sales/login", (req, res) => {
   }
 
   // 2. Allow admin login as master seller
-  if (
-    (username.toLowerCase() === "estiven" || username.toLowerCase() === "admin") &&
-    (password === "Lmrv1979" || password === "Lmrv.1979" || password === "2026" || password === "123456")
-  ) {
+  const isAdminUser = ["estiven", "admin", "estiven arango", "estivenarango"].includes(cleanUsername.toLowerCase());
+  const isAdminPass = ["lmrv1979", "lmrv.1979", "2026", "123456", "admin123"].includes(cleanPassword.toLowerCase());
+
+  if (isAdminUser && isAdminPass) {
     return res.json({
       success: true,
       role: "admin",
