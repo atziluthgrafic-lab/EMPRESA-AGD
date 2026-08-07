@@ -1725,7 +1725,7 @@ export default function AdminDashboard() {
         <div>
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-brand-orange/20 text-brand-orange border border-brand-orange/30">
-              Módulo Contable & Marca
+              Panel General — Control Principal
             </span>
             {saveStatus && (
               <span className="text-xs font-mono text-emerald-400 animate-pulse">
@@ -1734,10 +1734,10 @@ export default function AdminDashboard() {
             )}
           </div>
           <h1 className="text-2xl md:text-3xl font-display font-bold text-white mt-2">
-            Panel de Administración, Clientes y Contabilidad
+            Panel General — Administración, Clientes y Vendedores
           </h1>
           <p className="text-xs md:text-sm text-slate-400">
-            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades, vendedores y gestor de marca.
+            Gestión integral de clientes, pagos iniciales de $400.000 (hosting/dominio), mensualidades, vendedores CRUD y gestor de marca.
           </p>
         </div>
 
@@ -1752,8 +1752,8 @@ export default function AdminDashboard() {
             }}
             className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-xs font-mono font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg border border-emerald-400/30"
           >
-            <PlusCircle className="w-4 h-4 text-emerald-200" />
-            <span>+ Agregar Vendedor</span>
+            <Users className="w-4 h-4 text-emerald-200" />
+            <span>Vendedores CRUD</span>
           </button>
 
           <button
@@ -1793,7 +1793,7 @@ export default function AdminDashboard() {
           }`}
         >
           <Users className="w-4 h-4 text-emerald-400" />
-          <span>👥 Gestión de Vendedores ({sellers.length})</span>
+          <span>👥 Vendedores CRUD ({sellers.length})</span>
         </button>
 
         <button
@@ -3464,6 +3464,195 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {/* MODAL EDITAR VENDEDOR */}
+      {editingSeller && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <Edit3 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-display">Editar Datos del Vendedor</h3>
+                  <p className="text-xs text-slate-400">
+                    Modifica credenciales, teléfono, comisión, zonas y categorías de <strong className="text-emerald-400">{editingSeller.name}</strong>
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEditingSeller(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateSeller} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Nombre Completo *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editSellerName}
+                    onChange={(e) => setEditSellerName(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Usuario Login *</label>
+                  <input
+                    type="text"
+                    required
+                    value={editSellerUsername}
+                    onChange={(e) => setEditSellerUsername(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Contraseña / Clave</label>
+                  <input
+                    type="text"
+                    value={editSellerPassword}
+                    onChange={(e) => setEditSellerPassword(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Teléfono / WhatsApp</label>
+                  <input
+                    type="text"
+                    value={editSellerPhone}
+                    onChange={(e) => setEditSellerPhone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Zona Comercial</label>
+                  <select
+                    value={editSellerZone}
+                    onChange={(e) => setEditSellerZone(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Valle de Aburrá Norte">Valle de Aburrá Norte</option>
+                    <option value="Valle de Aburrá Sur">Valle de Aburrá Sur</option>
+                    <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
+                    <option value="Oriente Antioqueño">Oriente Antioqueño</option>
+                    <option value="Occidente / Urabá">Occidente / Urabá</option>
+                    <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
+                    <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Comisión Base (%)</label>
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    max="50"
+                    value={editSellerCommission}
+                    onChange={(e) => setEditSellerCommission(parseFloat(e.target.value) || 0)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Supervisor Asignado</label>
+                  <select
+                    value={editSellerSupervisor}
+                    onChange={(e) => setEditSellerSupervisor(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
+                    <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
+                    <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
+                    <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Municipios Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados ({editSellerMunicipalities.length})
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
+                    const isSel = editSellerMunicipalities.includes(muni);
+                    return (
+                      <button
+                        key={muni}
+                        type="button"
+                        onClick={() => toggleEditMunicipality(muni)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
+                          isSel
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold"
+                            : "bg-slate-950 text-slate-400 border-slate-800"
+                        }`}
+                      >
+                        {isSel && <Check className="w-3 h-3 text-emerald-400" />}
+                        <span>{muni}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Categorías Selector */}
+              <div className="space-y-2 pt-2 border-t border-slate-800">
+                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                  <Tag className="w-3.5 h-3.5 text-indigo-400" /> Categorías / Líneas de Negocio ({editSellerCategories.length})
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {BUSINESS_CATEGORIES.map((cat) => {
+                    const isSel = editSellerCategories.includes(cat);
+                    return (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => toggleEditCategory(cat)}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
+                          isSel
+                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/50 font-bold"
+                            : "bg-slate-950 text-slate-400 border-slate-800"
+                        }`}
+                      >
+                        {isSel && <Check className="w-3 h-3 text-indigo-400" />}
+                        <span>{cat}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingSeller(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3788,195 +3977,6 @@ function ClientCardItem({
           </div>
         </form>
       </div>
-
-      {/* MODAL EDITAR VENDEDOR */}
-      {editingSeller && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
-                  <Edit3 className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white font-display">Editar Datos del Vendedor</h3>
-                  <p className="text-xs text-slate-400">
-                    Modifica credenciales, teléfono, comisión, zonas y categorías de <strong className="text-emerald-400">{editingSeller.name}</strong>
-                  </p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => setEditingSeller(null)}
-                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateSeller} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Nombre Completo *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editSellerName}
-                    onChange={(e) => setEditSellerName(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Usuario Login *</label>
-                  <input
-                    type="text"
-                    required
-                    value={editSellerUsername}
-                    onChange={(e) => setEditSellerUsername(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Contraseña / Clave</label>
-                  <input
-                    type="text"
-                    value={editSellerPassword}
-                    onChange={(e) => setEditSellerPassword(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Teléfono / WhatsApp</label>
-                  <input
-                    type="text"
-                    value={editSellerPhone}
-                    onChange={(e) => setEditSellerPhone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Zona Comercial</label>
-                  <select
-                    value={editSellerZone}
-                    onChange={(e) => setEditSellerZone(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Valle de Aburrá Norte">Valle de Aburrá Norte</option>
-                    <option value="Valle de Aburrá Sur">Valle de Aburrá Sur</option>
-                    <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
-                    <option value="Oriente Antioqueño">Oriente Antioqueño</option>
-                    <option value="Occidente / Urabá">Occidente / Urabá</option>
-                    <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
-                    <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Comisión Base (%)</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="50"
-                    value={editSellerCommission}
-                    onChange={(e) => setEditSellerCommission(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Supervisor Asignado</label>
-                  <select
-                    value={editSellerSupervisor}
-                    onChange={(e) => setEditSellerSupervisor(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
-                    <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
-                    <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
-                    <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Municipios Selector */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados ({editSellerMunicipalities.length})
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
-                    const isSel = editSellerMunicipalities.includes(muni);
-                    return (
-                      <button
-                        key={muni}
-                        type="button"
-                        onClick={() => toggleEditMunicipality(muni)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
-                          isSel
-                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold"
-                            : "bg-slate-950 text-slate-400 border-slate-800"
-                        }`}
-                      >
-                        {isSel && <Check className="w-3 h-3 text-emerald-400" />}
-                        <span>{muni}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Categorías Selector */}
-              <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
-                  <Tag className="w-3.5 h-3.5 text-indigo-400" /> Categorías / Líneas de Negocio ({editSellerCategories.length})
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {BUSINESS_CATEGORIES.map((cat) => {
-                    const isSel = editSellerCategories.includes(cat);
-                    return (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => toggleEditCategory(cat)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-mono border flex items-center gap-1 cursor-pointer ${
-                          isSel
-                            ? "bg-indigo-500/20 text-indigo-300 border-indigo-500/50 font-bold"
-                            : "bg-slate-950 text-slate-400 border-slate-800"
-                        }`}
-                      >
-                        {isSel && <Check className="w-3 h-3 text-indigo-400" />}
-                        <span>{cat}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setEditingSeller(null)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
-                >
-                  <Save className="w-4 h-4" />
-                  <span>Guardar Cambios</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
