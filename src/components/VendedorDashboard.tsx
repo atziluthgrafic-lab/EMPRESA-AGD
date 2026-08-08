@@ -12,6 +12,7 @@ import {
   FileText
 } from "lucide-react";
 import { AuthSession, SellerRecord, OrderReceiptRecord, ANTIOQUIA_MUNICIPALITIES, BUSINESS_CATEGORIES } from "./AdminDashboard";
+import { ClientRecord } from "../types";
 
 interface VendedorDashboardProps {
   authSession: AuthSession;
@@ -19,6 +20,7 @@ interface VendedorDashboardProps {
   orders: OrderReceiptRecord[];
   onSaveOrder: (newOrder: OrderReceiptRecord) => void;
   sellers: SellerRecord[];
+  clients?: ClientRecord[];
 }
 
 export default function VendedorDashboard({
@@ -26,7 +28,8 @@ export default function VendedorDashboard({
   onLogout,
   orders,
   onSaveOrder,
-  sellers
+  sellers,
+  clients = []
 }: VendedorDashboardProps) {
   // Order Form State
   const [ordDocumentType, setOrdDocumentType] = useState<'abono' | 'factura'>('abono');
@@ -65,7 +68,7 @@ export default function VendedorDashboard({
       name: authSession.name,
       username: authSession.username,
       phone: authSession.sellerRecord?.phone || "3000000000",
-      supervisor: "Estiven Arango (Director Comercial)",
+      supervisor: "Estivenson Navarro (Director Comercial)",
     };
 
     const newOrder: OrderReceiptRecord = {
@@ -77,7 +80,7 @@ export default function VendedorDashboard({
       sellerName: activeSeller.name,
       sellerUsername: activeSeller.username,
       sellerPhone: activeSeller.phone,
-      sellerSupervisor: activeSeller.supervisor || "Estiven Arango (Director Comercial)",
+      sellerSupervisor: activeSeller.supervisor || "Estivenson Navarro (Director Comercial)",
       clientName: ordClientName.trim(),
       clientDocument: ordClientDocument.trim() || "Consumidor Final",
       clientPhone: ordClientPhone.trim() || "N/A",
@@ -244,6 +247,31 @@ export default function VendedorDashboard({
                 ))}
               </select>
             </div>
+
+            {clients.length > 0 && (
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-indigo-400 mb-1 font-bold">
+                  Seleccionar Cliente Existente
+                </label>
+                <select
+                  onChange={(e) => {
+                    const sel = clients.find((c) => c.id === e.target.value);
+                    if (sel) {
+                      setOrdClientName(sel.clientName);
+                      setOrdClientPhone(sel.phone || "");
+                    }
+                  }}
+                  className="w-full bg-slate-900 border border-indigo-900/50 rounded-xl px-3.5 py-2 text-xs text-indigo-200 focus:outline-none focus:border-indigo-500 font-medium"
+                >
+                  <option value="">-- Cargar de Directorio de Clientes --</option>
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.clientName} ({c.projectName})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">

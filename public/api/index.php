@@ -323,8 +323,8 @@ if ($route === 'config/images') {
                 "role" => "admin",
                 "seller" => [
                     "id" => "admin-master",
-                    "name" => "Estiven Arango (Administrador General)",
-                    "username" => "Estiven",
+                    "name" => "Estivenson Navarro (Administrador General)",
+                    "username" => "Estivenson",
                     "zone" => "Todas las Zonas (Antioquia / Nacional)",
                     "municipalities" => ["Todos los Municipios"],
                     "categories" => ["Almanaque para el 2027", "Litografía Completa"]
@@ -395,8 +395,8 @@ if ($route === 'config/images') {
             "orderNumber" => $orderNumStr,
             "date" => date("d/m/Y"),
             "sellerId" => isset($input['sellerId']) ? $input['sellerId'] : 'sel-admin',
-            "sellerName" => isset($input['sellerName']) ? $input['sellerName'] : 'Estiven Arango',
-            "sellerUsername" => isset($input['sellerUsername']) ? $input['sellerUsername'] : 'Estiven',
+            "sellerName" => isset($input['sellerName']) ? $input['sellerName'] : 'Estivenson Navarro',
+            "sellerUsername" => isset($input['sellerUsername']) ? $input['sellerUsername'] : 'Estivenson',
             "sellerZone" => isset($input['sellerZone']) ? $input['sellerZone'] : 'General',
             "clientId" => isset($input['clientId']) ? $input['clientId'] : 'cli-gen',
             "clientName" => isset($input['clientName']) ? $input['clientName'] : 'Cliente',

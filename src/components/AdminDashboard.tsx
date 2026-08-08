@@ -36,7 +36,8 @@ import {
   Edit3,
   Key,
   ShieldAlert,
-  UserPlus
+  UserPlus,
+  LayoutDashboard
 } from "lucide-react";
 import { ClientRecord, ClientPayment } from "../types";
 
@@ -103,9 +104,16 @@ const DEFAULT_SELLERS: SellerRecord[] = [
 ];
 
 export const ANTIOQUIA_MUNICIPALITIES = [
-  "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Rionegro", 
-  "Copacabana", "Girardota", "Caldas", "La Estrella", "Marinilla", 
-  "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Barbosa", "Santa Fe de Antioquia"
+  // Valle de Aburrá
+  "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota", "Caldas", "La Estrella", "Barbosa",
+  // Oriente
+  "Rionegro", "Marinilla", "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Guatapé", "San Vicente", "La Unión", "Sonsón",
+  // Occidente & Urabá
+  "Santa Fe de Antioquia", "Sopetrán", "San Jerónimo", "Apartadó", "Turbo", "Chigorodó", "Carepa", "Necoclí",
+  // Suroeste
+  "Amagá", "Andes", "Ciudad Bolívar", "Jericó", "Fredonia", "Santa Bárbara", "Támesis",
+  // Bajo Cauca, Norte & Magdalena Medio
+  "Caucasia", "El Bagre", "Zaragoza", "Yarumal", "Santa Rosa de Osos", "Puerto Berrío", "Segovia", "Remedios"
 ];
 
 export const BUSINESS_CATEGORIES = [
@@ -156,7 +164,7 @@ const DEFAULT_ORDERS: OrderReceiptRecord[] = [
     sellerName: "Carlos Mario Arango",
     sellerUsername: "carlos.ventas",
     sellerPhone: "3004567890",
-    sellerSupervisor: "Estiven Arango (Director Comercial)",
+    sellerSupervisor: "Estivenson Navarro (Director Comercial)",
     clientName: "Distribuidora El Triunfo S.A.S.",
     clientDocument: "900.123.456-7",
     clientPhone: "3115559876",
@@ -204,7 +212,7 @@ const DEFAULT_ORDERS: OrderReceiptRecord[] = [
 ];
 
 export default function AdminDashboard() {
-  const [activeAdminTab, setActiveAdminTab] = useState<'vendedores' | 'clientes' | 'facturacion' | 'branding'>('vendedores');
+  const [activeAdminTab, setActiveAdminTab] = useState<'panel_general' | 'vendedores' | 'clientes' | 'facturacion' | 'branding'>('panel_general');
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
@@ -265,13 +273,37 @@ export default function AdminDashboard() {
   const [editSellerCommission, setEditSellerCommission] = useState(5.0);
   const [editSellerMunicipalities, setEditSellerMunicipalities] = useState<string[]>([]);
   const [editSellerCategories, setEditSellerCategories] = useState<string[]>([]);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+
+  const toggleShowPassword = (sellerId: string) => {
+    setShowPasswords((prev) => ({ ...prev, [sellerId]: !prev[sellerId] }));
+  };
+
+  const selectMunicipalitiesPreset = (type: 'aburra' | 'oriente' | 'all' | 'clear', isEdit = false) => {
+    let targetList: string[] = [];
+    if (type === 'aburra') {
+      targetList = ["Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota", "Caldas", "La Estrella", "Barbosa"];
+    } else if (type === 'oriente') {
+      targetList = ["Rionegro", "Marinilla", "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Guatapé", "San Vicente", "La Unión", "Sonsón"];
+    } else if (type === 'all') {
+      targetList = [...ANTIOQUIA_MUNICIPALITIES];
+    } else if (type === 'clear') {
+      targetList = [];
+    }
+
+    if (isEdit) {
+      setEditSellerMunicipalities(targetList);
+    } else {
+      setNewSellerMunicipalities(targetList);
+    }
+  };
 
   const openEditSeller = (seller: SellerRecord) => {
     setEditingSeller(seller);
     setEditSellerName(seller.name);
     setEditSellerUsername(seller.username);
     setEditSellerPassword(seller.password || "123");
-    setEditSellerSupervisor(seller.supervisor || "Estiven Arango (Director Comercial)");
+    setEditSellerSupervisor(seller.supervisor || "Estivenson Navarro (Director Comercial)");
     setEditSellerPhone(seller.phone || "");
     setEditSellerZone(seller.zone || "Valle de Aburrá Norte");
     setEditSellerCommission(seller.commissionRate || 5.0);
@@ -302,6 +334,21 @@ export default function AdminDashboard() {
 
     const updatedList = sellers.map((s) => (s.id === editingSeller.id ? updatedSeller : s));
     setSellers(updatedList);
+
+    // If currently logged-in user is updated, update active session
+    if (authSession && authSession.sellerId === editingSeller.id) {
+      const updatedSession: AuthSession = {
+        ...authSession,
+        username: updatedSeller.username,
+        name: updatedSeller.name,
+        sellerRecord: updatedSeller,
+      };
+      setAuthSession(updatedSession);
+      try {
+        localStorage.setItem("atziluth_admin_session", JSON.stringify(updatedSession));
+      } catch (_) {}
+    }
+
     setEditingSeller(null);
   };
 
@@ -335,15 +382,15 @@ export default function AdminDashboard() {
     }
 
     // 1. Admin Credentials
-    const isAdminUser = ["estiven", "admin", "estiven arango", "estivenarango", "direccion.general"].includes(cleanUsername);
+    const isAdminUser = ["estivenson", "estivensonavarro", "estivenson navarro", "estiven", "admin", "estiven arango", "estivenarango", "direccion.general"].includes(cleanUsername);
     const isAdminPass = ["lmrv1979", "lmrv.1979", "2026", "123456", "admin123"].includes(cleanPassword.toLowerCase());
 
     if (isAdminUser && isAdminPass) {
       const session: AuthSession = {
         isLoggedIn: true,
         role: "admin",
-        username: "Estiven",
-        name: "Estiven Arango (Administrador General)",
+        username: "Estivenson",
+        name: "Estivenson Navarro (Administrador General)",
       };
       setAuthSession(session);
       localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
@@ -400,7 +447,7 @@ export default function AdminDashboard() {
   const [newSellerName, setNewSellerName] = useState("");
   const [newSellerUsername, setNewSellerUsername] = useState("");
   const [newSellerPassword, setNewSellerPassword] = useState("");
-  const [newSellerSupervisor, setNewSellerSupervisor] = useState("Estiven Arango (Director Comercial)");
+  const [newSellerSupervisor, setNewSellerSupervisor] = useState("Estivenson Navarro (Director Comercial)");
   const [newSellerPhone, setNewSellerPhone] = useState("");
   const [newSellerZone, setNewSellerZone] = useState("Valle de Aburrá Norte");
   const [newSellerCommission, setNewSellerCommission] = useState(5.0);
@@ -528,7 +575,7 @@ export default function AdminDashboard() {
       return;
     }
 
-    let sellerName = "Estiven Arango (Administrador General)";
+    let sellerName = "Estivenson Navarro (Administrador General)";
     let sellerUsername = "admin.general";
     let sellerPhone = "3001234567";
     let sellerSupervisor = "Dirección General";
@@ -1012,7 +1059,7 @@ export default function AdminDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => { setLoginMode('admin'); setLoginUsername('Estiven'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
+              onClick={() => { setLoginMode('admin'); setLoginUsername('Estivenson'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
               className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 loginMode === 'admin'
                   ? 'bg-brand-orange text-white shadow-md'
@@ -1035,7 +1082,7 @@ export default function AdminDashboard() {
                   required
                   value={loginUsername}
                   onChange={(e) => setLoginUsername(e.target.value)}
-                  placeholder={loginMode === 'vendedor' ? "Ej: carlos.ventas" : "Ej: Estiven"}
+                  placeholder={loginMode === 'vendedor' ? "Ej: carlos.ventas" : "Ej: Estivenson"}
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl py-2.5 pl-10 pr-4 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500 font-mono"
                 />
               </div>
@@ -1093,11 +1140,11 @@ export default function AdminDashboard() {
               </button>
               <button
                 type="button"
-                onClick={() => { setLoginMode('admin'); setLoginUsername('Estiven'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
+                onClick={() => { setLoginMode('admin'); setLoginUsername('Estivenson'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
                 className="p-2 bg-slate-950 hover:bg-slate-850 border border-slate-800 rounded-xl text-left transition-all cursor-pointer"
               >
-                <strong className="text-brand-orange block font-bold text-xs">Estiven (Admin)</strong>
-                <span className="text-[10px] text-slate-500 block">User: Estiven | Clave: Lmrv1979</span>
+                <strong className="text-brand-orange block font-bold text-xs">Estivenson (Admin)</strong>
+                <span className="text-[10px] text-slate-500 block">User: Estivenson | Clave: Lmrv1979</span>
               </button>
             </div>
           </div>
@@ -1123,6 +1170,7 @@ export default function AdminDashboard() {
           }
         }}
         sellers={sellers}
+        clients={clients}
       />
     );
   }
@@ -1752,8 +1800,8 @@ export default function AdminDashboard() {
             }}
             className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-xs font-mono font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg border border-emerald-400/30"
           >
-            <Users className="w-4 h-4 text-emerald-200" />
-            <span>Vendedores CRUD</span>
+            <PlusCircle className="w-4 h-4 text-emerald-200" />
+            <span>+ Crear / Gestionar Vendedores</span>
           </button>
 
           <button
@@ -1782,11 +1830,23 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* PESTAÑAS DE NAVEGACIÓN PRINCIPAL EN PANEL GENERAL */}
+      {/* PESTAÑAS DE NAVEGACIÓN PRINCIPAL EN ADMIN DASHBOARD */}
       <div className="bg-slate-900/90 border border-slate-800 p-2 rounded-2xl flex flex-wrap items-center gap-2 shadow-xl sticky top-2 z-40 backdrop-blur-md">
         <button
+          onClick={() => setActiveAdminTab('panel_general')}
+          className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+            activeAdminTab === 'panel_general'
+              ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg border border-brand-orange/30'
+              : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
+          }`}
+        >
+          <LayoutDashboard className="w-4 h-4 text-brand-orange" />
+          <span>📊 Panel General</span>
+        </button>
+
+        <button
           onClick={() => setActiveAdminTab('vendedores')}
-          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+          className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeAdminTab === 'vendedores'
               ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg border border-emerald-500/30'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -1798,7 +1858,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveAdminTab('clientes')}
-          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+          className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeAdminTab === 'clientes'
               ? 'bg-gradient-to-r from-indigo-600 to-blue-600 text-white shadow-lg border border-indigo-500/30'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -1810,7 +1870,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveAdminTab('facturacion')}
-          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+          className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeAdminTab === 'facturacion'
               ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg border border-amber-500/30'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -1822,7 +1882,7 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => setActiveAdminTab('branding')}
-          className={`flex-1 min-w-[180px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+          className={`flex-1 min-w-[160px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
             activeAdminTab === 'branding'
               ? 'bg-gradient-to-r from-brand-orange to-brand-magenta text-white shadow-lg border border-brand-orange/30'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -1834,119 +1894,134 @@ export default function AdminDashboard() {
       </div>
 
       {/* PORTALES Y MÓDULOS DE ADMINISTRACIÓN DIRECTOS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Portal 1: Ventas y Vendedores */}
-        <div className="bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-                <Wallet className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full uppercase">
-                Ruta: /admin/ventas.html
-              </span>
-            </div>
-            <h3 className="text-base font-bold text-white font-display">Módulo de Ventas & Vendedores</h3>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Gestión de comerciales, asignación de zonas en Antioquia, creación de pedidos, recibos de abonos y <strong>Reporte Mensual PDF de Ventas y Comisiones</strong>.
-            </p>
-          </div>
-          <a
-            href="/admin/ventas.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
-          >
-            <FolderOpen className="w-4 h-4" />
-            <span>ABRIR PORTAL DE VENTAS & VENDEDORES ↗</span>
-          </a>
-        </div>
-
-        {/* Portal 2: Almanaques & Calendarios */}
-        <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
-                <Calendar className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded-full uppercase">
-                Ruta: /admin/almanaques.html
-              </span>
-            </div>
-            <h3 className="text-base font-bold text-white font-display">Almanaques & Calendarios 2026</h3>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Administra los tipos de almanaques, listas de precios por cantidad, subida del catálogo en PDF y cotizaciones especiales.
-            </p>
-          </div>
-          <a
-            href="/admin/almanaques.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
-          >
-            <FolderOpen className="w-4 h-4" />
-            <span>ABRIR PANEL DE ALMANAQUES ↗</span>
-          </a>
-        </div>
-
-        {/* Portal 3: Editor Web General */}
-        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
-                <Building2 className="w-5 h-5" />
-              </div>
-              <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full uppercase">
-                Ruta: /admin/panel.html
-              </span>
-            </div>
-            <h3 className="text-base font-bold text-white font-display">Editor Dinámico de Contenido</h3>
-            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-              Modifica banners principales, avisos publicitarios, directorio comercial de municipios y configuración global.
-            </p>
-          </div>
-          <a
-            href="/admin/panel.html"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-700 shadow cursor-pointer text-center"
-          >
-            <FolderOpen className="w-4 h-4" />
-            <span>ABRIR EDITOR DE CONTENIDO ↗</span>
-          </a>
-        </div>
-      </div>
-
-      {/* GESTIÓN DE VENDEDORES, MUNICIPIOS Y CATEGORÍAS (CRUD LOCALSTORAGE) */}
-      <div id="seccion-vendedores" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
-              <Users className="w-7 h-7" />
-            </div>
+      {activeAdminTab === 'panel_general' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Portal 1: Ventas y Vendedores */}
+          <div className="bg-gradient-to-br from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white font-display">Fuerza Comercial — Gestión de Vendedores</h2>
-                <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
-                  CRUD LocalStorage Activo
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950 border border-emerald-800 px-2 py-0.5 rounded-full uppercase">
+                  Ruta: /admin/ventas.html
                 </span>
               </div>
-              <p className="text-xs md:text-sm text-slate-400 mt-0.5">
-                Crea, lista y elimina vendedores comerciales. Asigna municipios de Antioquia y líneas de negocio, calcula comisiones y genera reportes mensuales.
+              <h3 className="text-base font-bold text-white font-display">Módulo de Ventas & Vendedores</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Gestión de comerciales, asignación de zonas en Antioquia, creación de pedidos, recibos de abonos y <strong>Reporte Mensual PDF de Ventas y Comisiones</strong>.
               </p>
             </div>
+            <a
+              href="/admin/ventas.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>ABRIR PORTAL DE VENTAS & VENDEDORES ↗</span>
+            </a>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
-              <span className="text-[10px] font-mono uppercase text-slate-500 block">Vendedores Activos</span>
-              <span className="text-lg font-bold text-emerald-400 font-mono">{sellers.length} comercial(es)</span>
+          {/* Portal 2: Almanaques & Calendarios */}
+          <div className="bg-gradient-to-br from-indigo-950/80 via-slate-900 to-slate-900 border border-indigo-800/80 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold text-indigo-400 bg-indigo-950 border border-indigo-800 px-2 py-0.5 rounded-full uppercase">
+                  Ruta: /admin/almanaques.html
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white font-display">Almanaques & Calendarios 2026</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Administra los tipos de almanaques, listas de precios por cantidad, subida del catálogo en PDF y cotizaciones especiales.
+              </p>
             </div>
+            <a
+              href="/admin/almanaques.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>ABRIR PANEL DE ALMANAQUES ↗</span>
+            </a>
+          </div>
+
+          {/* Portal 3: Editor Web General */}
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between shadow-xl">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded-full uppercase">
+                  Ruta: /admin/panel.html
+                </span>
+              </div>
+              <h3 className="text-base font-bold text-white font-display">Editor Dinámico de Contenido</h3>
+              <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                Modifica banners principales, avisos publicitarios, directorio comercial de municipios y configuración global.
+              </p>
+            </div>
+            <a
+              href="/admin/panel.html"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all border border-slate-700 shadow cursor-pointer text-center"
+            >
+              <FolderOpen className="w-4 h-4" />
+              <span>ABRIR EDITOR DE CONTENIDO ↗</span>
+            </a>
           </div>
         </div>
+      )}
+
+      {/* GESTIÓN DE VENDEDORES, MUNICIPIOS Y CATEGORÍAS (CRUD LOCALSTORAGE) */}
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'vendedores') && (
+        <div id="seccion-vendedores" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+                <Users className="w-7 h-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-bold text-white font-display">Fuerza Comercial — Gestión de Vendedores</h2>
+                  <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase">
+                    CRUD LocalStorage Activo
+                  </span>
+                </div>
+                <p className="text-xs md:text-sm text-slate-400 mt-0.5">
+                  Crea, edita, establece claves de acceso y elimina vendedores comerciales. Asigna municipios de Antioquia, líneas de negocio, calcula comisiones y genera reportes mensuales.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById("formulario-nuevo-vendedor");
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 transition-all shadow-lg cursor-pointer"
+              >
+                <PlusCircle className="w-4 h-4" />
+                <span>+ CREAR NUEVO VENDEDOR</span>
+              </button>
+
+              <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
+                <span className="text-[10px] font-mono uppercase text-slate-500 block">Vendedores Activos</span>
+                <span className="text-lg font-bold text-emerald-400 font-mono">{sellers.length} comercial(es)</span>
+              </div>
+            </div>
+          </div>
 
         {/* FORMULARIO DE CREACIÓN DE NUEVO VENDEDOR */}
-        <form onSubmit={handleAddSeller} className="bg-slate-950 p-5 md:p-6 rounded-2xl border border-slate-800 space-y-5">
+        <form id="formulario-nuevo-vendedor" onSubmit={handleAddSeller} className="bg-slate-950 p-5 md:p-6 rounded-2xl border border-emerald-500/30 space-y-5 shadow-xl">
           <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
             <h3 className="text-xs font-mono uppercase text-emerald-400 font-bold flex items-center gap-2">
               <PlusCircle className="w-4 h-4" /> Registrar Nuevo Vendedor Comercial
@@ -2052,7 +2127,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setNewSellerSupervisor(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
               >
-                <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
+                <option value="Estivenson Navarro (Director Comercial)">Estivenson Navarro (Director Comercial)</option>
                 <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
                 <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
                 <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
@@ -2062,13 +2137,42 @@ export default function AdminDashboard() {
 
           {/* SELECTOR INTERACTIVO DE MUNICIPIOS */}
           <div className="space-y-2 pt-2 border-t border-slate-900">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados en Antioquia ({newSellerMunicipalities.length})
               </label>
-              <span className="text-[10px] text-slate-500 font-mono">Haz clic para seleccionar o quitar</span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => selectMunicipalitiesPreset('aburra', false)}
+                  className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                >
+                  + Valle Aburrá
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMunicipalitiesPreset('oriente', false)}
+                  className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                >
+                  + Oriente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMunicipalitiesPreset('all', false)}
+                  className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMunicipalitiesPreset('clear', false)}
+                  className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-rose-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                >
+                  Limpiar
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
+            <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto p-1.5 bg-slate-950/80 rounded-xl border border-slate-900">
               {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
                 const isSelected = newSellerMunicipalities.includes(muni);
                 return (
@@ -2076,7 +2180,7 @@ export default function AdminDashboard() {
                     key={muni}
                     type="button"
                     onClick={() => toggleMunicipality(muni)}
-                    className={`px-3 py-1 rounded-lg text-xs font-mono transition-all border flex items-center gap-1 cursor-pointer ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all border flex items-center gap-1 cursor-pointer ${
                       isSelected
                         ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/50 font-bold shadow-sm"
                         : "bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-850"
@@ -2194,7 +2298,19 @@ export default function AdminDashboard() {
 
                         <td className="px-4 py-3 font-mono">
                           <span className="text-emerald-400 font-bold block">@{seller.username}</span>
-                          <span className="text-[10px] text-slate-500 block">Clave: {seller.password || '•••••'}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              Clave: {showPasswords[seller.id] ? (seller.password || "123") : "••••••••"}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => toggleShowPassword(seller.id)}
+                              className="text-slate-500 hover:text-emerald-400 transition-colors p-0.5 cursor-pointer"
+                              title={showPasswords[seller.id] ? "Ocultar Contraseña" : "Mostrar Contraseña"}
+                            >
+                              <Key className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
 
                         <td className="px-4 py-3">
@@ -2274,6 +2390,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+      )}
 
       {/* MODAL IMPRESIÓN / DESCARGA REPORTE MENSUAL DE VENTAS & COMISIONES */}
       {showReportModal && selectedSellerForReport && (
@@ -2417,7 +2534,8 @@ export default function AdminDashboard() {
       )}
 
       {/* SECCIÓN GENERACIÓN DE RECIBO DE ABONO Y FACTURA FINAL (PDF / IMPRESIÓN) */}
-      <div id="seccion-facturacion-abonos" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'facturacion') && (
+        <div id="seccion-facturacion-abonos" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
@@ -2492,7 +2610,7 @@ export default function AdminDashboard() {
                 onChange={(e) => setOrdSellerId(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
               >
-                <option value="admin">Estiven Arango (Administrador General)</option>
+                <option value="admin">Estivenson Navarro (Administrador General)</option>
                 {sellers.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} (@{s.username}) — {s.zone}
@@ -2825,6 +2943,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+      )}
 
       {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / FACTURA FINAL */}
       {showReceiptModal && viewingReceiptOrder && (
@@ -2981,7 +3100,8 @@ export default function AdminDashboard() {
       )}
 
       {/* ACCESO Y GESTOR PARA MONTAR Y CAMBIAR EL LOGO */}
-      <div id="gestor-logo-seccion" className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'branding') && (
+        <div id="gestor-logo-seccion" className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
@@ -3092,9 +3212,12 @@ export default function AdminDashboard() {
           <span className="text-slate-500 font-mono">Formatos admitidos: PNG, JPG, WEBP, SVG</span>
         </div>
       </div>
+      )}
 
-      {/* KPI METRICS OVERVIEW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* KPI METRICS & DIRECTORIO DE CLIENTES */}
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'clientes') && (
+        <div id="seccion-clientes" className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-2 relative overflow-hidden">
           <div className="flex justify-between items-center text-slate-400">
             <span className="text-xs font-mono uppercase">Clientes Activos</span>
@@ -3464,6 +3587,8 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+      </div>
+      )}
 
       {/* MODAL EDITAR VENDEDOR */}
       {editingSeller && (
@@ -3571,7 +3696,7 @@ export default function AdminDashboard() {
                     onChange={(e) => setEditSellerSupervisor(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="Estiven Arango (Director Comercial)">Estiven Arango (Director Comercial)</option>
+                    <option value="Estivenson Navarro (Director Comercial)">Estivenson Navarro (Director Comercial)</option>
                     <option value="Laura Gómez (Supervisora Metropolitana)">Laura Gómez (Supervisora Metropolitana)</option>
                     <option value="Luz Elena Restrepo (Supervisora Oriente)">Luz Elena Restrepo (Supervisora Oriente)</option>
                     <option value="Sin Supervisor (Directo)">Sin Supervisor (Directo)</option>
@@ -3581,10 +3706,42 @@ export default function AdminDashboard() {
 
               {/* Municipios Selector */}
               <div className="space-y-2 pt-2 border-t border-slate-800">
-                <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados ({editSellerMunicipalities.length})
-                </label>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <label className="text-[11px] font-mono uppercase text-slate-300 font-bold flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Municipios Asignados en Antioquia ({editSellerMunicipalities.length})
+                  </label>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => selectMunicipalitiesPreset('aburra', true)}
+                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                    >
+                      + Valle Aburrá
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectMunicipalitiesPreset('oriente', true)}
+                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                    >
+                      + Oriente
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectMunicipalitiesPreset('all', true)}
+                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectMunicipalitiesPreset('clear', true)}
+                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-rose-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-slate-950/80 rounded-xl border border-slate-900">
                   {ANTIOQUIA_MUNICIPALITIES.map((muni) => {
                     const isSel = editSellerMunicipalities.includes(muni);
                     return (
