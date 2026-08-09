@@ -249,13 +249,24 @@ export default function VendedorDashboard({
           </div>
         </div>
 
-        <button
-          onClick={onLogout}
-          className="px-4 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Cerrar Sesión</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setVendorTab('agregar_cliente')}
+            className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-mono font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 border border-emerald-300/40"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ AGREGAR NUEVO CLIENTE</span>
+          </button>
+
+          <button
+            onClick={onLogout}
+            className="px-4 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
       </div>
 
       {/* Banner de Vista Exclusiva Vendedor */}
@@ -345,7 +356,16 @@ export default function VendedorDashboard({
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setVendorTab('agregar_cliente')}
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-mono text-xs font-extrabold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:scale-105 active:scale-95 border border-emerald-300/30"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ NUEVO CLIENTE</span>
+            </button>
+
             <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-right">
               <span className="text-[10px] font-mono uppercase text-slate-500 block">Pedidos Registrados</span>
               <span className="text-lg font-bold text-indigo-400 font-mono">{orders.length} comprobantes</span>
