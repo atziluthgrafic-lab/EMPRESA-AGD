@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, Filter, Search, MapPin, Briefcase, FileText, StickyNote, Code2, Check, Edit3, X, ShieldAlert } from 'lucide-react';
+import { Users, Filter, Search, MapPin, Briefcase, FileText, StickyNote, Code2, Check, Edit3, X, ShieldAlert, CheckCircle2, Clock, XCircle, Tag } from 'lucide-react';
 import { ClientRecord, SellerRecord } from '../types';
 import { actualizarNotasAdminCliente } from '../utils/customerService';
 
@@ -18,6 +18,7 @@ export default function CustomerList({
 }: CustomerListProps) {
   const [selectedZone, setSelectedZone] = useState<string>('all');
   const [selectedSeller, setSelectedSeller] = useState<string>('all');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   // Editing notes state
@@ -39,6 +40,14 @@ export default function CustomerList({
 
   // Filter logic
   const filteredClients = clients.filter((client) => {
+    // Commercial status filter
+    if (selectedStatus !== 'all') {
+      const clientStatus = (client.estadoComercial || 'Activo').toLowerCase();
+      if (clientStatus !== selectedStatus.toLowerCase()) {
+        return false;
+      }
+    }
+
     // Zone filter
     if (selectedZone !== 'all') {
       const clientZone = (client.location || client.ubicacion?.zone || client.municipality || '').toLowerCase();
@@ -61,14 +70,37 @@ export default function CustomerList({
       const matchProject = client.projectName?.toLowerCase().includes(q);
       const matchLoc = (client.location || client.municipality || '').toLowerCase().includes(q);
       const matchBiz = (client.businessType || '').toLowerCase().includes(q);
+      const matchStatus = (client.estadoComercial || 'Activo').toLowerCase().includes(q);
       const matchChars = (client.specificCharacteristics || client.notes || '').toLowerCase().includes(q);
-      if (!matchName && !matchProject && !matchLoc && !matchBiz && !matchChars) {
+      if (!matchName && !matchProject && !matchLoc && !matchBiz && !matchChars && !matchStatus) {
         return false;
       }
     }
 
     return true;
   });
+
+  const renderStatusBadge = (status?: string) => {
+    const st = (status || 'Activo').toLowerCase().trim();
+    if (st.includes('prospecto')) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase tracking-wider">
+          <Clock className="w-3 h-3 text-sky-400" /> PROSPECTO
+        </span>
+      );
+    } else if (st.includes('inactivo')) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 uppercase tracking-wider">
+          <XCircle className="w-3 h-3 text-rose-400" /> INACTIVO
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 uppercase tracking-wider">
+        <CheckCircle2 className="w-3 h-3 text-emerald-400" /> ACTIVO
+      </span>
+    );
+  };
 
   const handleSaveNotes = (clientId: string) => {
     actualizarNotasAdminCliente(clientId, tempNotes);
@@ -108,7 +140,7 @@ export default function CustomerList({
       </div>
 
       {/* Filters Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-950 p-3.5 rounded-xl border border-slate-800">
         {/* Search */}
         <div className="relative">
           <Search className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
@@ -119,6 +151,21 @@ export default function CustomerList({
             placeholder="Buscar por cliente, tipo, ciudad..."
             className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
           />
+        </div>
+
+        {/* Filter Status */}
+        <div className="relative">
+          <Tag className="w-3.5 h-3.5 absolute left-3 top-3 text-slate-500" />
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+          >
+            <option value="all">🏷️ Todos los Estados</option>
+            <option value="Activo">🟢 Activo</option>
+            <option value="Prospecto">🔵 Prospecto</option>
+            <option value="Inactivo">🔴 Inactivo</option>
+          </select>
         </div>
 
         {/* Filter Zone */}
@@ -176,10 +223,13 @@ export default function CustomerList({
                   {/* Top Bar */}
                   <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2.5">
                     <div>
-                      <h4 className="text-sm font-bold text-white flex items-center gap-1.5 font-mono">
-                        {client.clientName}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-white flex items-center gap-1.5 font-mono">
+                          {client.clientName}
+                        </h4>
+                        {renderStatusBadge(client.estadoComercial)}
+                      </div>
+                      <p className="text-[11px] text-slate-400 truncate mt-0.5">
                         {client.projectName || 'Sin nombre de proyecto específico'}
                       </p>
                     </div>

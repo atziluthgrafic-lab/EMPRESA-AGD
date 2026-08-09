@@ -24,6 +24,7 @@ export default function CustomerRegistrationForm({
   const [tipoNegocio, setTipoNegocio] = useState('');
   const [caracteristicas, setCaracteristicas] = useState('');
   const [notasAdmin, setNotasAdmin] = useState('');
+  const [estadoComercial, setEstadoComercial] = useState<'Activo' | 'Prospecto' | 'Inactivo'>('Activo');
   const [selectedSellerId, setSelectedSellerId] = useState(sellerId || '');
   const [phone, setPhone] = useState('');
 
@@ -60,6 +61,7 @@ export default function CustomerRegistrationForm({
       vendedorId: selectedSellerId || sellerId,
       vendedorNombre: sellerName,
       estadoComision: 'Pendiente',
+      estadoComercial: estadoComercial,
       fechaRegistro: new Date().toISOString(),
     };
 
@@ -106,6 +108,7 @@ export default function CustomerRegistrationForm({
       vendedorNombre: assignedSellerName,
       beneficiarioNombre: assignedSellerName,
       estadoComision: 'Pendiente',
+      estadoComercial: estadoComercial,
       fichaClienteJson: fichaJson,
       createdAt: new Date().toISOString(),
     };
@@ -237,6 +240,21 @@ export default function CustomerRegistrationForm({
               className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
             ></textarea>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-mono text-brand-cyan font-bold uppercase mb-1">
+            5. Estado Comercial *
+          </label>
+          <select
+            value={estadoComercial}
+            onChange={(e) => setEstadoComercial(e.target.value as 'Activo' | 'Prospecto' | 'Inactivo')}
+            className="w-full bg-slate-950 border border-brand-cyan/40 rounded-xl px-3.5 py-2.5 text-xs text-brand-cyan font-bold focus:outline-none focus:border-brand-cyan font-mono"
+          >
+            <option value="Activo">🟢 ACTIVO (Cliente Confirmado / En Operación)</option>
+            <option value="Prospecto">🔵 PROSPECTO (En Negociación / Cotización)</option>
+            <option value="Inactivo">🔴 INACTIVO (Inoperativo / Cancelado)</option>
+          </select>
         </div>
 
         {isAdmin && sellers.length > 0 && (

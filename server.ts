@@ -601,6 +601,7 @@ function getDefaultClients() {
       beneficiarioComision: "sel-101",
       beneficiarioNombre: "Carlos Mario Arango",
       estadoComision: "Pendiente",
+      estadoComercial: "Activo",
       promociones: ["Descuento por Volumen 2027"],
       descuentoPorcentaje: 5,
       createdAt: new Date().toISOString()

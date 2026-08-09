@@ -75,6 +75,7 @@ export default function VendedorDashboard({
   const [cliEmail, setCliEmail] = useState("");
   const [cliBudget, setCliBudget] = useState(1500000);
   const [cliPeriodicity, setCliPeriodicity] = useState("Mensual");
+  const [cliEstadoComercial, setCliEstadoComercial] = useState<"Activo" | "Prospecto" | "Inactivo">("Activo");
   const [cliNotes, setCliNotes] = useState("");
 
   const [clientSuccessMsg, setClientSuccessMsg] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export default function VendedorDashboard({
       beneficiarioComision: sellerId,
       beneficiarioNombre: sellerName,
       estadoComision: "Pendiente" as const,
+      estadoComercial: cliEstadoComercial,
       promociones: [],
       descuentoPorcentaje: 0,
       createdAt: new Date().toISOString()

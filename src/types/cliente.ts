@@ -20,5 +20,6 @@ export interface ClienteAtziluth {
   vendedorId?: string;
   vendedorNombre?: string;
   estadoComision?: 'Pendiente' | 'Aprobada' | 'Pagada' | 'Disponible para Reasignación';
+  estadoComercial?: 'Prospecto' | 'Activo' | 'Inactivo' | string;
   fechaRegistro?: string;
 }

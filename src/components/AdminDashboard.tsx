@@ -996,6 +996,7 @@ export default function AdminDashboard() {
   const [newClientCharacteristics, setNewClientCharacteristics] = useState("");
   const [newClientSellerId, setNewClientSellerId] = useState("");
   const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEstadoComercial, setNewClientEstadoComercial] = useState<"Activo" | "Prospecto" | "Inactivo">("Activo");
   const [newClientStartDate, setNewClientStartDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -1211,6 +1212,7 @@ export default function AdminDashboard() {
       vendedorNombre: assignedSellerName,
       beneficiarioNombre: assignedSellerName,
       estadoComision: "Pendiente",
+      estadoComercial: newClientEstadoComercial,
       fichaClienteJson: fichaClienteJson,
       createdAt: new Date().toISOString(),
     };
@@ -3840,22 +3842,39 @@ export default function AdminDashboard() {
               ></textarea>
             </div>
 
-            <div>
-              <label className="block text-xs font-mono text-indigo-400 uppercase font-bold mb-1">
-                Vendedor / Comercial Asignado
-              </label>
-              <select
-                value={newClientSellerId}
-                onChange={(e) => setNewClientSellerId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
-              >
-                <option value="">🏛️ ADMINISTRACIÓN_CENTRAL (Sin Vendedor Asignado)</option>
-                {sellers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    👤 {s.name} (@{s.username}) — Zona: {s.zone || "Aburrá"}
-                  </option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-mono text-indigo-400 uppercase font-bold mb-1">
+                  Vendedor / Comercial Asignado
+                </label>
+                <select
+                  value={newClientSellerId}
+                  onChange={(e) => setNewClientSellerId(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
+                >
+                  <option value="">🏛️ ADMINISTRACIÓN_CENTRAL (Sin Vendedor)</option>
+                  {sellers.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      👤 {s.name} (@{s.username}) — {s.zone || "Aburrá"}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-mono text-brand-cyan uppercase font-bold mb-1">
+                  5. Estado Comercial *
+                </label>
+                <select
+                  value={newClientEstadoComercial}
+                  onChange={(e) => setNewClientEstadoComercial(e.target.value as "Activo" | "Prospecto" | "Inactivo")}
+                  className="w-full bg-slate-950 border border-brand-cyan/40 rounded-xl px-3.5 py-2.5 text-xs text-brand-cyan font-bold focus:outline-none focus:border-brand-cyan font-mono"
+                >
+                  <option value="Activo">🟢 ACTIVO (Cliente Confirmado)</option>
+                  <option value="Prospecto">🔵 PROSPECTO (En Negociación)</option>
+                  <option value="Inactivo">🔴 INACTIVO (Sin Operación)</option>
+                </select>
+              </div>
             </div>
 
             <div>

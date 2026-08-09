@@ -127,6 +127,7 @@ export interface ClientRecord {
   beneficiarioComision?: string;
   beneficiarioNombre?: string;
   estadoComision?: 'Pendiente' | 'Aprobada' | 'Pagada' | 'Disponible para Reasignación';
+  estadoComercial?: 'Prospecto' | 'Activo' | 'Inactivo' | string;
   notasAdmin?: string;
   promociones?: string[];
   descuentoPorcentaje?: number;
