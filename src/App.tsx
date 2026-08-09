@@ -6,6 +6,9 @@ import ContactForm from "./components/ContactForm";
 import LitografiaSection from "./components/LitografiaSection";
 import AdminDashboard from "./components/AdminDashboard";
 import AlmanaquesSection from "./components/AlmanaquesSection";
+import CustomerList from "./components/CustomerList";
+import CustomerRegistrationForm from "./components/CustomerRegistrationForm";
+import { obtenerClientes } from "./utils/customerService";
 import { SubregionId } from "./types";
 import {
   Sparkles,
@@ -13,6 +16,7 @@ import {
   Activity,
   Award,
   Users,
+  UserPlus,
   Building,
   ArrowRight,
   MessageSquare,
@@ -53,6 +57,21 @@ export default function App() {
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
   const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
+
+  // HashRouter hash listening for isolated views
+  const [currentHash, setCurrentHash] = useState<string>(window.location.hash || "");
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const h = window.location.hash || "";
+      setCurrentHash(h);
+      if (h === "#admin") {
+        setActiveTab("admin");
+      }
+    };
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
 
   // Mobile menu expand/collapse state
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -412,6 +431,126 @@ export default function App() {
     }
   };
 
+  // Dedicated HashRouter isolated view check for sellers and administrative navigation
+  const isCustomerListRoute = currentHash === "#customer-list" || currentHash === "#clientes";
+  const isCustomerRegistrationRoute = currentHash === "#customer-registration" || currentHash === "#nuevo-cliente";
+
+  if (isCustomerListRoute || isCustomerRegistrationRoute) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans antialiased selection:bg-emerald-500 selection:text-slate-950">
+        {/* MENÚ DE NAVEGACIÓN ESPECÍFICO PARA VENDEDORES */}
+        <header className="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 p-4 shadow-xl">
+          <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="relative w-10 h-10 rounded-xl overflow-hidden border border-emerald-500/30 flex items-center justify-center bg-slate-900">
+                <img
+                  src={imageConfig.logoUrl || "/logo_atziluth.jpg"}
+                  alt="Logo Atziluth"
+                  className="w-full h-full object-contain p-0.5"
+                />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-white tracking-tight block">
+                  MENÚ VENDEDORES — ATZILUTH
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono block">
+                  Gestión Comercial & Directorio de Cartera
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 font-mono text-xs">
+              <button
+                onClick={() => {
+                  window.location.hash = "#customer-list";
+                }}
+                className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+                  isCustomerListRoute
+                    ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/20"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                <Users className="w-4 h-4 text-indigo-300" />
+                <span>CustomerList (Directorio)</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.hash = "#customer-registration";
+                }}
+                className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all font-bold cursor-pointer ${
+                  isCustomerRegistrationRoute
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
+                    : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                }`}
+              >
+                <UserPlus className="w-4 h-4 text-emerald-300" />
+                <span>CustomerRegistrationForm</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  window.location.hash = "#admin";
+                  setActiveTab("admin");
+                }}
+                className="px-3.5 py-2 bg-slate-900 text-slate-400 hover:text-white rounded-xl border border-slate-800 flex items-center gap-1.5 transition-all cursor-pointer text-xs"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Volver al Portal</span>
+              </button>
+            </div>
+          </div>
+        </header>
+
+        <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+          {isCustomerListRoute && (
+            <div className="space-y-4">
+              <div className="bg-indigo-950/40 border border-indigo-500/30 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2 font-mono">
+                    <Users className="w-5 h-5 text-indigo-400" />
+                    Vista Aislada: CustomerList (HashRouter)
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Buscador, filtro por zona comercial y gestión de clientes persistidos en local storage.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-full font-mono text-[10px] font-bold">
+                  Ruta Hash: #customer-list
+                </span>
+              </div>
+              <CustomerList clients={obtenerClientes() as any} isAdmin={true} />
+            </div>
+          )}
+
+          {isCustomerRegistrationRoute && (
+            <div className="space-y-4 max-w-4xl mx-auto">
+              <div className="bg-emerald-950/40 border border-emerald-500/30 p-4 rounded-2xl flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2 font-mono">
+                    <UserPlus className="w-5 h-5 text-emerald-400" />
+                    Vista Aislada: CustomerRegistrationForm (HashRouter)
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Formulario aislado de captura de datos con generación de Ficha JSON y persistencia local.
+                  </p>
+                </div>
+                <span className="px-3 py-1 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full font-mono text-[10px] font-bold">
+                  Ruta Hash: #customer-registration
+                </span>
+              </div>
+              <CustomerRegistrationForm
+                onClientAdded={() => {
+                  window.location.hash = "#customer-list";
+                }}
+              />
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-850 font-sans selection:bg-brand-magenta selection:text-white overflow-x-hidden relative">
       {/* Eye-catching flag strips at the absolute top representing Colombia (Yellow-Blue-Red) and Antioquia (White-Green) */}
@@ -610,7 +749,7 @@ export default function App() {
                   );
                 })}
 
-                <div className="pt-4 border-t border-blue-900/40">
+                <div className="pt-4 border-t border-blue-900/40 space-y-2">
                   <button
                     onClick={handleAsistenciaLocal}
                     className="w-full py-3.5 bg-gradient-to-r from-yellow-400 to-emerald-500 hover:from-yellow-350 hover:to-emerald-450 text-neutral-950 font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-yellow-500/20 cursor-pointer"

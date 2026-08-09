@@ -571,6 +571,7 @@ function getDefaultClients() {
     {
       id: "cli-1001",
       name: "Distribuidora El Progreso S.A.S.",
+      clientName: "Distribuidora El Progreso S.A.S.",
       nitCc: "900.123.456-7",
       contact: "Juan Guillermo Vélez",
       phone: "310 456 7890",
@@ -578,6 +579,30 @@ function getDefaultClients() {
       address: "Calle 50 # 45-20, Centro",
       municipality: "Medellín",
       categoryZone: "Valle de Aburrá / Comercio Mayorista",
+      ubicacion: {
+        municipality: "Medellín",
+        address: "Calle 50 # 45-20, Centro",
+        zone: "Valle de Aburrá Norte"
+      },
+      businessType: "Comercio Mayorista & Distribución",
+      caracteristicasEspecificas: {
+        nitCc: "900.123.456-7",
+        personaContacto: "Juan Guillermo Vélez",
+        telefono: "310 456 7890",
+        email: "contacto@elprogresomed.com",
+        presupuestoEstimado: 3500000,
+        periodicidad: "Mensual",
+        notasEspecificas: "Pedido mensual de almanaques 2027 y papelería impresa corporativa."
+      },
+      createdBySellerId: "sel-101",
+      createdBySellerName: "Carlos Mario Arango",
+      vendedorId: "sel-101",
+      vendedorNombre: "Carlos Mario Arango",
+      beneficiarioComision: "sel-101",
+      beneficiarioNombre: "Carlos Mario Arango",
+      estadoComision: "Pendiente",
+      promociones: ["Descuento por Volumen 2027"],
+      descuentoPorcentaje: 5,
       createdAt: new Date().toISOString()
     }
   ];
@@ -799,15 +824,45 @@ app.delete("/api/admin/sellers/:id", allowUpload, (req, res) => {
   try {
     const { id } = req.params;
     let sellers = loadSellersData();
+    const sellerToDelete = sellers.find((s: any) => s.id === id);
     sellers = sellers.filter((s: any) => s.id !== id);
     saveSellersData(sellers);
-    res.json({ success: true, sellers });
+
+    // Rule 3: Reassign departing seller's clients & commissions automatically to ADMINISTRACIÓN_CENTRAL
+    let clients = loadClientsData();
+    let reassignedCount = 0;
+    clients = clients.map((c: any) => {
+      if (c.vendedorId === id || c.beneficiarioComision === id || c.createdBySellerId === id) {
+        reassignedCount++;
+        return {
+          ...c,
+          beneficiarioComision: "ADMINISTRACIÓN_CENTRAL",
+          beneficiarioNombre: "Administración Central Atziluth",
+          estadoComision: "Disponible para Reasignación",
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return c;
+    });
+
+    if (reassignedCount > 0) {
+      saveClientsData(clients);
+    }
+
+    res.json({ 
+      success: true, 
+      sellers, 
+      clients, 
+      reassignedCount, 
+      deletedSellerName: sellerToDelete?.name || id,
+      message: `Vendedor eliminado. ${reassignedCount} cliente(s) y sus comisiones se transfirieron a ADMINISTRACIÓN_CENTRAL ("Disponible para Reasignación").`
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Error al eliminar vendedor." });
   }
 });
 
-// Clients API
+// Clients API (AGREGAR_CLIENTE & EDITAR_CUALIDADES)
 app.get("/api/sales/clients", (req, res) => {
   const clients = loadClientsData();
   res.json({ success: true, clients });
@@ -815,27 +870,86 @@ app.get("/api/sales/clients", (req, res) => {
 
 app.post("/api/sales/clients", (req, res) => {
   try {
-    const { id, name, nitCc, contact, phone, email, address, municipality, categoryZone } = req.body;
-    if (!name || !phone) {
-      return res.status(400).json({ success: false, error: "Nombre/Empresa y teléfono son requeridos." });
+    const {
+      id,
+      name,
+      clientName,
+      nitCc,
+      contact,
+      phone,
+      email,
+      address,
+      municipality,
+      categoryZone,
+      ubicacion,
+      businessType,
+      tipoDeNegocio,
+      caracteristicasEspecificas,
+      createdBySellerId,
+      createdBySellerName,
+      vendedorId,
+      vendedorNombre,
+      beneficiarioComision,
+      beneficiarioNombre,
+      estadoComision,
+      promociones,
+      descuentoPorcentaje
+    } = req.body;
+
+    const finalName = clientName || name;
+    if (!finalName) {
+      return res.status(400).json({ success: false, error: "El nombre del cliente o empresa es obligatorio." });
     }
 
     const clients = loadClientsData();
     let updatedClient: any;
+
+    const finalUbicacion = ubicacion || {
+      municipality: municipality || "Medellín",
+      address: address || "Despacho Local",
+      zone: categoryZone || "General"
+    };
+
+    const finalBusinessType = tipoDeNegocio || businessType || categoryZone || "Comercio & Litografía";
+
+    const finalFeatures = caracteristicasEspecificas || {
+      nitCc: nitCc || "Sin NIT",
+      personaContacto: contact || finalName,
+      telefono: phone || "300 000 0000",
+      email: email || "",
+      presupuestoEstimado: 0,
+      periodicidad: "Ocasional",
+      notasEspecificas: "Registro directo de cliente."
+    };
+
+    const finalSellerId = vendedorId || createdBySellerId || "ADMINISTRACIÓN_CENTRAL";
+    const finalSellerName = vendedorNombre || createdBySellerName || "Administración Central Atziluth";
+    const finalBeneficiaryId = beneficiarioComision || finalSellerId;
+    const finalBeneficiaryName = beneficiarioNombre || (finalBeneficiaryId === "ADMINISTRACIÓN_CENTRAL" ? "Administración Central Atziluth" : finalSellerName);
 
     if (id) {
       const idx = clients.findIndex((c: any) => c.id === id);
       if (idx !== -1) {
         clients[idx] = {
           ...clients[idx],
-          name,
-          nitCc: nitCc || "Sin NIT",
-          contact: contact || name,
-          phone,
-          email: email || "",
-          address: address || "Medellín",
-          municipality: municipality || "Medellín",
-          categoryZone: categoryZone || "General",
+          name: finalName,
+          clientName: finalName,
+          nitCc: finalFeatures.nitCc || nitCc || "Sin NIT",
+          contact: finalFeatures.personaContacto || contact || finalName,
+          phone: finalFeatures.telefono || phone || "300 000 0000",
+          email: finalFeatures.email || email || "",
+          address: finalUbicacion.address || address || "Medellín",
+          municipality: finalUbicacion.municipality || municipality || "Medellín",
+          categoryZone: finalUbicacion.zone || categoryZone || "General",
+          ubicacion: finalUbicacion,
+          businessType: finalBusinessType,
+          tipoDeNegocio: finalBusinessType,
+          caracteristicasEspecificas: finalFeatures,
+          beneficiarioComision: finalBeneficiaryId,
+          beneficiarioNombre: finalBeneficiaryName,
+          estadoComision: estadoComision || clients[idx].estadoComision || "Pendiente",
+          promociones: Array.isArray(promociones) ? promociones : (clients[idx].promociones || []),
+          descuentoPorcentaje: typeof descuentoPorcentaje === "number" ? descuentoPorcentaje : (clients[idx].descuentoPorcentaje || 0),
           updatedAt: new Date().toISOString()
         };
         updatedClient = clients[idx];
@@ -845,14 +959,28 @@ app.post("/api/sales/clients", (req, res) => {
     if (!updatedClient) {
       updatedClient = {
         id: id || "cli-" + Date.now(),
-        name,
-        nitCc: nitCc || "Sin NIT",
-        contact: contact || name,
-        phone,
-        email: email || "",
-        address: address || "Medellín",
-        municipality: municipality || "Medellín",
-        categoryZone: categoryZone || "General",
+        name: finalName,
+        clientName: finalName,
+        nitCc: finalFeatures.nitCc || nitCc || "Sin NIT",
+        contact: finalFeatures.personaContacto || contact || finalName,
+        phone: finalFeatures.telefono || phone || "300 000 0000",
+        email: finalFeatures.email || email || "",
+        address: finalUbicacion.address || address || "Medellín",
+        municipality: finalUbicacion.municipality || municipality || "Medellín",
+        categoryZone: finalUbicacion.zone || categoryZone || "General",
+        ubicacion: finalUbicacion,
+        businessType: finalBusinessType,
+        tipoDeNegocio: finalBusinessType,
+        caracteristicasEspecificas: finalFeatures,
+        createdBySellerId: finalSellerId,
+        createdBySellerName: finalSellerName,
+        vendedorId: finalSellerId,
+        vendedorNombre: finalSellerName,
+        beneficiarioComision: finalBeneficiaryId,
+        beneficiarioNombre: finalBeneficiaryName,
+        estadoComision: estadoComision || "Pendiente",
+        promociones: Array.isArray(promociones) ? promociones : [],
+        descuentoPorcentaje: typeof descuentoPorcentaje === "number" ? descuentoPorcentaje : 0,
         createdAt: new Date().toISOString()
       };
       clients.unshift(updatedClient);
@@ -862,6 +990,40 @@ app.post("/api/sales/clients", (req, res) => {
     res.json({ success: true, client: updatedClient, clients });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Error al guardar cliente." });
+  }
+});
+
+// Endpoint for ASIGNAR_ZONA / Bulk Reassign Clients to new seller
+app.post("/api/admin/reassign-clients", (req, res) => {
+  try {
+    const { clientIds, newSellerId, newSellerName } = req.body;
+    if (!clientIds || !Array.isArray(clientIds) || !newSellerId) {
+      return res.status(400).json({ success: false, error: "clientIds (array) y newSellerId son requeridos." });
+    }
+
+    let clients = loadClientsData();
+    let updatedCount = 0;
+
+    clients = clients.map((c: any) => {
+      if (clientIds.includes(c.id)) {
+        updatedCount++;
+        return {
+          ...c,
+          vendedorId: newSellerId === "ADMINISTRACIÓN_CENTRAL" ? c.vendedorId : newSellerId,
+          vendedorNombre: newSellerId === "ADMINISTRACIÓN_CENTRAL" ? c.vendedorNombre : newSellerName,
+          beneficiarioComision: newSellerId,
+          beneficiarioNombre: newSellerName || (newSellerId === "ADMINISTRACIÓN_CENTRAL" ? "Administración Central Atziluth" : newSellerId),
+          estadoComision: newSellerId === "ADMINISTRACIÓN_CENTRAL" ? "Disponible para Reasignación" : "Pendiente",
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return c;
+    });
+
+    saveClientsData(clients);
+    res.json({ success: true, clients, updatedCount });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Error al reasignar comisiones de clientes." });
   }
 });
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, Info, ArrowRight, Sparkles, HelpCircle, Sliders, MapPin } from "lucide-react";
+import { Check, Info, ArrowRight, Sparkles, HelpCircle, Sliders, MapPin, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
 export default function PricingCalculator() {
@@ -369,6 +369,16 @@ export default function PricingCalculator() {
             >
               Agendar Asesoría Gratuita
               <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            <button
+              onClick={() => {
+                window.location.hash = "#customer-registration";
+              }}
+              className="w-full mt-2 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer border border-emerald-500/30"
+            >
+              <UserPlus className="w-4 h-4 text-emerald-200" />
+              <span>+ Registrar Cliente para esta Cotización</span>
             </button>
           </div>
         </div>

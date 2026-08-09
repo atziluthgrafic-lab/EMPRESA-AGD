@@ -9,10 +9,15 @@ import {
   LogOut,
   AlertCircle,
   CheckCircle,
-  FileText
+  FileText,
+  UserPlus,
+  BarChart3
 } from "lucide-react";
 import { AuthSession, SellerRecord, OrderReceiptRecord, ANTIOQUIA_MUNICIPALITIES, BUSINESS_CATEGORIES } from "./AdminDashboard";
 import { ClientRecord } from "../types";
+import CustomerRegistrationForm from "./CustomerRegistrationForm";
+import CustomerList from "./CustomerList";
+import PerformanceSummary from "./PerformanceSummary";
 
 interface VendedorDashboardProps {
   authSession: AuthSession;
@@ -21,6 +26,7 @@ interface VendedorDashboardProps {
   onSaveOrder: (newOrder: OrderReceiptRecord) => void;
   sellers: SellerRecord[];
   clients?: ClientRecord[];
+  onAddClient?: (newClient: ClientRecord) => void;
 }
 
 export default function VendedorDashboard({
@@ -29,7 +35,8 @@ export default function VendedorDashboard({
   orders,
   onSaveOrder,
   sellers,
-  clients = []
+  clients = [],
+  onAddClient
 }: VendedorDashboardProps) {
   // Order Form State
   const [ordDocumentType, setOrdDocumentType] = useState<'abono' | 'factura'>('abono');
@@ -50,7 +57,107 @@ export default function VendedorDashboard({
   // Search & Modal State
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showOrderClientModal, setShowOrderClientModal] = useState(false);
   const [viewingReceiptOrder, setViewingReceiptOrder] = useState<OrderReceiptRecord | null>(null);
+
+  // Vendor Navigation & AGREGAR_CLIENTE State
+  const [vendorTab, setVendorTab] = useState<'pedidos' | 'agregar_cliente' | 'mi_cartera' | 'rendimiento'>('pedidos');
+
+  // AGREGAR_CLIENTE Form State (Campos Obligatorios según Instrucción 1)
+  const [cliName, setCliName] = useState("");
+  const [cliMunicipality, setCliMunicipality] = useState("Medellín");
+  const [cliAddress, setCliAddress] = useState("");
+  const [cliZone, setCliZone] = useState("Valle de Aburrá Norte");
+  const [cliBusinessType, setCliBusinessType] = useState("Litografía & Imprenta");
+  const [cliNitCc, setCliNitCc] = useState("");
+  const [cliContactPerson, setCliContactPerson] = useState("");
+  const [cliPhone, setCliPhone] = useState("");
+  const [cliEmail, setCliEmail] = useState("");
+  const [cliBudget, setCliBudget] = useState(1500000);
+  const [cliPeriodicity, setCliPeriodicity] = useState("Mensual");
+  const [cliNotes, setCliNotes] = useState("");
+
+  const [clientSuccessMsg, setClientSuccessMsg] = useState<string | null>(null);
+  const [createdClientJsonModal, setCreatedClientJsonModal] = useState<any | null>(null);
+
+  // Filter clients for this seller ONLY (Restricción de Seguridad: ningún vendedor puede ver clientes de otros)
+  const myClients = (clients || []).filter((c) => {
+    const isMySellerId = c.vendedorId === authSession.sellerId || c.createdBySellerId === authSession.sellerId || c.beneficiarioComision === authSession.sellerId;
+    const isMyUsername = c.vendedorNombre === authSession.name || c.createdBySellerName === authSession.name;
+    return isMySellerId || isMyUsername;
+  });
+
+  const handleAddClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!cliName.trim() || !cliAddress.trim() || !cliPhone.trim()) {
+      alert("Por favor complete los campos obligatorios: Nombre, Ubicación (Dirección) y Teléfono.");
+      return;
+    }
+
+    const sellerId = authSession.sellerId || "sel-1";
+    const sellerName = authSession.name || "Vendedor";
+
+    // Formato de Salida JSON según Instrucción Operativa 1
+    const newClientPayload = {
+      id: `cli-${Date.now()}`,
+      clientName: cliName.trim(),
+      name: cliName.trim(),
+      ubicacion: {
+        municipality: cliMunicipality,
+        address: cliAddress.trim(),
+        zone: cliZone
+      },
+      businessType: cliBusinessType,
+      tipoDeNegocio: cliBusinessType,
+      caracteristicasEspecificas: {
+        nitCc: cliNitCc.trim() || "Sin NIT",
+        personaContacto: cliContactPerson.trim() || cliName.trim(),
+        telefono: cliPhone.trim(),
+        email: cliEmail.trim() || "N/A",
+        presupuestoEstimado: Number(cliBudget) || 0,
+        periodicidad: cliPeriodicity,
+        notasEspecificas: cliNotes.trim() || "Registro inicial de cliente por vendedor."
+      },
+      createdBySellerId: sellerId,
+      createdBySellerName: sellerName,
+      vendedorId: sellerId,
+      vendedorNombre: sellerName,
+      beneficiarioComision: sellerId,
+      beneficiarioNombre: sellerName,
+      estadoComision: "Pendiente" as const,
+      promociones: [],
+      descuentoPorcentaje: 0,
+      createdAt: new Date().toISOString()
+    };
+
+    try {
+      await fetch("/api/sales/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newClientPayload)
+      });
+    } catch (err) {
+      console.warn("No se pudo conectar al backend, guardando localmente:", err);
+    }
+
+    if (onAddClient) {
+      onAddClient(newClientPayload);
+    }
+
+    setCreatedClientJsonModal(newClientPayload);
+    setClientSuccessMsg(`¡Cliente "${cliName}" registrado con éxito! Ficha JSON almacenada.`);
+    setTimeout(() => setClientSuccessMsg(null), 5000);
+
+    // Reset Form
+    setCliName("");
+    setCliAddress("");
+    setCliNitCc("");
+    setCliContactPerson("");
+    setCliPhone("");
+    setCliEmail("");
+    setCliNotes("");
+  };
 
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
@@ -156,13 +263,69 @@ export default function VendedorDashboard({
         <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-mono rounded-full font-bold uppercase inline-block">
           Portal Exclusivo de Ventas & Facturación
         </span>
-        <h1 className="text-xl font-bold text-white font-display">Módulo de Pedidos, Recibos de Abono y Facturas</h1>
+        <h1 className="text-xl font-bold text-white font-display">Módulo de Pedidos, Clientes & Comisiones</h1>
         <p className="text-xs text-slate-300">
-          Interfaz ligera dedicada a asesores comerciales. Registra recibos de anticipo o facturas finales de venta, emite comprobantes oficiales en PDF e imprime soportes para tus clientes.
+          Interfaz dedicada a asesores comerciales. Ejecuta el comando <strong className="text-emerald-400 font-mono">AGREGAR_CLIENTE</strong>, emite comprobantes oficiales en PDF y gestiona tu cartera exclusiva de clientes.
         </p>
       </div>
 
-      {/* GESTOR DE PEDIDOS Y FACTURACIÓN */}
+      {/* SUB-NAVIGATION TABS DE VENDEDOR */}
+      <div className="flex flex-wrap items-center gap-2 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+        <button
+          type="button"
+          onClick={() => setVendorTab('pedidos')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            vendorTab === 'pedidos'
+              ? 'bg-emerald-500 text-slate-950 shadow-lg'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Receipt className="w-4 h-4" />
+          <span>📦 Registrar Pedido / Venta</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setVendorTab('agregar_cliente')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            vendorTab === 'agregar_cliente'
+              ? 'bg-emerald-500 text-slate-950 shadow-lg'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>➕ Agregar Cliente Nuevo</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setVendorTab('mi_cartera')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            vendorTab === 'mi_cartera'
+              ? 'bg-emerald-500 text-slate-950 shadow-lg'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          <span>👥 Directorio de Clientes ({myClients.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setVendorTab('rendimiento')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
+            vendorTab === 'rendimiento'
+              ? 'bg-emerald-500 text-slate-950 shadow-lg'
+              : 'text-slate-300 hover:text-white hover:bg-slate-800'
+          }`}
+        >
+          <BarChart3 className="w-4 h-4" />
+          <span>📊 Resumen de Rendimiento</span>
+        </button>
+      </div>
+
+      {/* SECCIÓN 1: PEDIDOS Y FACTURACIÓN */}
+      {vendorTab === 'pedidos' && (
       <div id="seccion-pedidos-ventas" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-indigo-500/30 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
@@ -248,30 +411,54 @@ export default function VendedorDashboard({
               </select>
             </div>
 
-            {clients.length > 0 && (
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-indigo-400 mb-1 font-bold">
-                  Seleccionar Cliente Existente
+            <div className="sm:col-span-2 bg-slate-900/80 p-3.5 rounded-xl border border-indigo-500/20 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+                <label className="text-xs font-mono uppercase text-indigo-300 font-bold flex items-center gap-1.5">
+                  <UserPlus className="w-3.5 h-3.5 text-emerald-400" /> Selección de Cliente para la Venta
                 </label>
-                <select
-                  onChange={(e) => {
-                    const sel = clients.find((c) => c.id === e.target.value);
-                    if (sel) {
-                      setOrdClientName(sel.clientName);
-                      setOrdClientPhone(sel.phone || "");
-                    }
-                  }}
-                  className="w-full bg-slate-900 border border-indigo-900/50 rounded-xl px-3.5 py-2 text-xs text-indigo-200 focus:outline-none focus:border-indigo-500 font-medium"
+                <button
+                  type="button"
+                  onClick={() => setShowOrderClientModal(true)}
+                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-mono text-xs font-bold rounded-lg flex items-center gap-1.5 shadow transition-all cursor-pointer w-fit"
                 >
-                  <option value="">-- Cargar de Directorio de Clientes --</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.clientName} ({c.projectName})
-                    </option>
-                  ))}
-                </select>
+                  <UserPlus className="w-3.5 h-3.5" />
+                  <span>+ Crear Nuevo Cliente (Ficha)</span>
+                </button>
               </div>
-            )}
+
+              {clients.length > 0 ? (
+                <div>
+                  <span className="text-[10px] font-mono text-slate-400 block mb-1">
+                    Cargar datos de un cliente previamente registrado:
+                  </span>
+                  <select
+                    onChange={(e) => {
+                      const sel = clients.find((c) => c.id === e.target.value);
+                      if (sel) {
+                        setOrdClientName(sel.clientName);
+                        setOrdClientPhone(sel.phone || "");
+                        if (sel.location) {
+                          const parts = sel.location.split(',');
+                          if (parts.length > 0) setOrdClientMunicipality(parts[0].trim());
+                        }
+                      }
+                    }}
+                    className="w-full bg-slate-950 border border-indigo-900/50 rounded-xl px-3.5 py-2 text-xs text-indigo-200 focus:outline-none focus:border-indigo-500 font-medium"
+                  >
+                    <option value="">-- Seleccionar de la Cartera ({clients.length} disponibles) --</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.clientName} ({c.projectName || c.location})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-400 font-mono italic">
+                  No hay clientes registrados aún. Haz clic en "+ Crear Nuevo Cliente" para agregarlo rápidamente.
+                </div>
+              )}
+            </div>
 
             <div>
               <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
@@ -283,7 +470,7 @@ export default function VendedorDashboard({
                 placeholder="Ej: Calzado San Juan S.A.S."
                 value={ordClientName}
                 onChange={(e) => setOrdClientName(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-medium"
               />
             </div>
 
@@ -564,6 +751,83 @@ export default function VendedorDashboard({
           </div>
         </div>
       </div>
+      )}
+
+      {/* SECCIÓN 2: FACULTAD DEL VENDEDOR — AGREGAR_CLIENTE */}
+      {vendorTab === 'agregar_cliente' && (
+        <CustomerRegistrationForm
+          sellerId={authSession.sellerId || authSession.sellerRecord?.id}
+          sellerName={authSession.name}
+          sellers={sellers}
+          isAdmin={false}
+          onClientAdded={(newClient) => {
+            if (onAddClient) onAddClient(newClient);
+            setCreatedClientJsonModal(newClient);
+          }}
+        />
+      )}
+
+      {/* SECCIÓN 3: MI CARTERA EXCLUSIVA CON BUSCADOR Y FILTRADO */}
+      {vendorTab === 'mi_cartera' && (
+        <div id="seccion-mi-cartera" className="space-y-6">
+          <CustomerList
+            clients={myClients}
+            sellers={sellers}
+            isAdmin={false}
+          />
+        </div>
+      )}
+
+      {/* SECCIÓN 4: RESUMEN DE RENDIMIENTO (RECHARTS & FICHA CONSOLIDADA) */}
+      {vendorTab === 'rendimiento' && (
+        <PerformanceSummary
+          authSession={authSession}
+          sellers={sellers}
+          orders={orders}
+          clients={clients}
+        />
+      )}
+
+      {/* MODAL CREAR NUEVO CLIENTE (INLINE DESDE REGISTRAR PEDIDO / VENTA) */}
+      {showOrderClientModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-emerald-400" />
+                <h3 className="text-base font-bold text-white font-mono uppercase">
+                  Crear Nuevo Cliente para Registrar Pedido
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowOrderClientModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-xl bg-slate-800 border border-slate-700 cursor-pointer transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <CustomerRegistrationForm
+              sellerId={authSession.sellerId || authSession.sellerRecord?.id}
+              sellerName={authSession.name}
+              sellers={sellers}
+              isAdmin={false}
+              onClientAdded={(newClient) => {
+                if (onAddClient) onAddClient(newClient);
+                setOrdClientName(newClient.clientName);
+                if (newClient.phone) setOrdClientPhone(newClient.phone);
+                if (newClient.location) {
+                  const parts = newClient.location.split(',');
+                  if (parts.length > 0) setOrdClientMunicipality(parts[0].trim());
+                }
+                setShowOrderClientModal(false);
+                setOrderSuccessMsg(`¡Cliente "${newClient.clientName}" creado y seleccionado automáticamente para el pedido!`);
+                setTimeout(() => setOrderSuccessMsg(null), 5000);
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / FACTURA FINAL */}
       {showReceiptModal && viewingReceiptOrder && (
