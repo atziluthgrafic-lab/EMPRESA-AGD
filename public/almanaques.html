@@ -782,7 +782,27 @@
       const product = catalogData.products.find(p => p.id === select.value);
       if (!product) return;
 
-      const qty = parseInt(customQty.value) || 100;
+      const isRespaldoTaco = product.categoryId == 2 || 
+        (product.name && product.name.toLowerCase().includes('respaldo')) || 
+        (product.name && product.name.toLowerCase().includes('taco'));
+      const minQty = isRespaldoTaco ? 50 : 100;
+
+      const qty = parseInt(customQty.value) || 0;
+
+      // Actualizar advertencia si es menor al mínimo
+      let qtyWarn = document.getElementById('modal-qty-warning');
+      if (!qtyWarn) {
+        qtyWarn = document.createElement('div');
+        qtyWarn.id = 'modal-qty-warning';
+        customQty.parentNode.parentNode.appendChild(qtyWarn);
+      }
+
+      if (qty < minQty) {
+        qtyWarn.className = "mt-2 p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-mono font-bold";
+        qtyWarn.innerHTML = `⚠️ Pedido bloqueado: El pedido mínimo para ${isRespaldoTaco ? 'Respaldo de Taco es 50' : 'Almanaque General es 100'} unidades.`;
+      } else {
+        qtyWarn.className = "hidden";
+      }
 
       // Cálculo de descuento por escala de volumen
       let discountRate = 0;
@@ -822,7 +842,16 @@
       const product = catalogData.products.find(p => p.id === select.value);
       if (!product) return;
 
-      const qty = customQty ? customQty.value : '100';
+      const isRespaldoTaco = product.categoryId == 2 || 
+        (product.name && product.name.toLowerCase().includes('respaldo')) || 
+        (product.name && product.name.toLowerCase().includes('taco'));
+      const minQty = isRespaldoTaco ? 50 : 100;
+
+      const qty = customQty ? parseInt(customQty.value) || 0 : 100;
+      if (qty < minQty) {
+        alert(`El pedido mínimo para ${isRespaldoTaco ? 'Almanaque Respaldo de Taco' : 'Almanaque General'} es de ${minQty} unidades.`);
+        return;
+      }
       const name = clientName && clientName.value ? clientName.value : 'Cliente Atziluth';
       const phone = clientPhone ? clientPhone.value : 'Sin especificar';
       const muni = clientMuni && clientMuni.value ? clientMuni.value : 'Medellín / Antioquia';

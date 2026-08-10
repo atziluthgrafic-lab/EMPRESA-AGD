@@ -59,6 +59,10 @@ export default function VendedorDashboard({
   const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showOrderClientModal, setShowOrderClientModal] = useState(false);
   const [viewingReceiptOrder, setViewingReceiptOrder] = useState<OrderReceiptRecord | null>(null);
+  const [showAddAbonoModal, setShowAddAbonoModal] = useState(false);
+  const [newAbonoAmount, setNewAbonoAmount] = useState(0);
+  const [newAbonoMethod, setNewAbonoMethod] = useState("Transferencia Bancolombia");
+  const [showRemisionJsonModal, setShowRemisionJsonModal] = useState(false);
 
   // Vendor Navigation & AGREGAR_CLIENTE State
   const [vendorTab, setVendorTab] = useState<'pedidos' | 'agregar_cliente' | 'mi_cartera' | 'rendimiento'>('pedidos');
@@ -180,7 +184,17 @@ export default function VendedorDashboard({
       supervisor: "Estivenson Navarro (Director Comercial)",
     };
 
-    const newOrder: OrderReceiptRecord = {
+    const initialAbonos = ordPaidAmount > 0 ? [
+      {
+        id: `abn_${Date.now()}`,
+        date: new Date().toISOString().split("T")[0],
+        amount: ordPaidAmount,
+        paymentMethod: ordPaymentMethod,
+        notes: "Abono inicial al crear pedido"
+      }
+    ] : [];
+
+    const newOrder: OrderReceiptRecord & { abonosHistory?: any[] } = {
       id: `ord_${Date.now()}`,
       orderNumber: orderNum,
       documentType: ordDocumentType,
@@ -208,6 +222,7 @@ export default function VendedorDashboard({
         ? `Recibo de abono inicial (${((ordPaidAmount/totalAmount)*100||0).toFixed(0)}%). Saldo contra entrega.` 
         : `Factura final de venta. Estado: ${balance === 0 ? 'PAGADO TOTAL' : 'SALDO PENDIENTE'}.`,
       createdAt: new Date().toISOString(),
+      abonosHistory: initialAbonos
     };
 
     onSaveOrder(newOrder);
@@ -753,17 +768,31 @@ export default function VendedorDashboard({
                         </td>
 
                         <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => {
-                              setViewingReceiptOrder(ord);
-                              setShowReceiptModal(true);
-                            }}
-                            className="px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-end gap-1 cursor-pointer ml-auto"
-                            title="Ver / Imprimir Recibo PDF"
-                          >
-                            <Printer className="w-3 h-3 text-indigo-400" />
-                            <span>Ver PDF</span>
-                          </button>
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => {
+                                setViewingReceiptOrder(ord);
+                                setShowReceiptModal(true);
+                              }}
+                              className="px-2 py-1 bg-amber-950/80 hover:bg-amber-900 border border-amber-700/80 text-amber-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Ejecutar GENERAR_REMISION y abrir visor PDF"
+                            >
+                              <FileText className="w-3 h-3 text-amber-400" />
+                              <span>GENERAR REMISIÓN</span>
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                setViewingReceiptOrder(ord);
+                                setShowReceiptModal(true);
+                              }}
+                              className="px-2 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                              title="Ver / Imprimir Recibo PDF"
+                            >
+                              <Printer className="w-3 h-3 text-indigo-400" />
+                              <span>Ver PDF</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -1017,6 +1046,96 @@ export default function VendedorDashboard({
                   </div>
                 </div>
 
+                {/* Historial Detallado de Abonos (Exigencia Módulo Remisiones) */}
+                <div className="border border-slate-200 rounded-xl overflow-hidden bg-slate-50 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono font-bold text-slate-700 uppercase">
+                      Historial Detallado de Abonos Ingresados
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const amountStr = prompt("Ingrese el monto del nuevo abono ($ COP):", "50000");
+                        if (!amountStr) return;
+                        const amt = parseFloat(amountStr) || 0;
+                        if (amt <= 0) return;
+
+                        const updatedAbonos = [
+                          ...((viewingReceiptOrder as any).abonosHistory || [
+                            {
+                              id: `abn_1`,
+                              date: viewingReceiptOrder.date,
+                              amount: viewingReceiptOrder.paidAmount,
+                              paymentMethod: viewingReceiptOrder.paymentMethod,
+                              notes: "Abono Inicial"
+                            }
+                          ]),
+                          {
+                            id: `abn_${Date.now()}`,
+                            date: new Date().toISOString().split('T')[0],
+                            amount: amt,
+                            paymentMethod: "Transferencia Bancolombia",
+                            notes: "Abono adicional registrado por vendedor"
+                          }
+                        ];
+
+                        const newPaid = totalAbonos + amt;
+                        const newBal = Math.max(0, costoTotal - newPaid);
+
+                        const updatedOrd: OrderReceiptRecord & { abonosHistory?: any[] } = {
+                          ...viewingReceiptOrder,
+                          paidAmount: newPaid,
+                          balance: newBal,
+                          status: newBal === 0 ? 'completado' : 'pendiente',
+                          abonosHistory: updatedAbonos
+                        };
+
+                        onSaveOrder(updatedOrd);
+                        setViewingReceiptOrder(updatedOrd);
+                        alert(`¡Abono de $${amt.toLocaleString('es-CO')} COP ingresado correctamente! Nuevo Saldo Pendiente: $${newBal.toLocaleString('es-CO')} COP.`);
+                      }}
+                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[10px] font-bold rounded-lg shadow transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      <PlusCircle className="w-3 h-3" />
+                      <span>+ Ingresar Nuevo Abono</span>
+                    </button>
+                  </div>
+
+                  <table className="w-full text-left text-xs bg-white border border-slate-200 rounded-lg overflow-hidden">
+                    <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                      <tr>
+                        <th className="p-2">Fecha</th>
+                        <th className="p-2">Concepto / Nota</th>
+                        <th className="p-2">Medio Pago</th>
+                        <th className="p-2 text-right">Monto Abono</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px]">
+                      {((viewingReceiptOrder as any).abonosHistory && (viewingReceiptOrder as any).abonosHistory.length > 0) ? (
+                        (viewingReceiptOrder as any).abonosHistory.map((abn: any, idx: number) => (
+                          <tr key={abn.id || idx}>
+                            <td className="p-2 text-slate-700">{abn.date}</td>
+                            <td className="p-2 text-slate-800">{abn.notes || `Abono #${idx + 1}`}</td>
+                            <td className="p-2 text-slate-600">{abn.paymentMethod || 'Transferencia'}</td>
+                            <td className="p-2 text-right font-bold text-emerald-700">
+                              +${abn.amount.toLocaleString('es-CO')} COP
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td className="p-2 text-slate-700">{viewingReceiptOrder.date}</td>
+                          <td className="p-2 text-slate-800">Abono Registrado en Pedido</td>
+                          <td className="p-2 text-slate-600">{viewingReceiptOrder.paymentMethod}</td>
+                          <td className="p-2 text-right font-bold text-emerald-700">
+                            +${totalAbonos.toLocaleString('es-CO')} COP
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
                 <div className="text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
                   <p><strong>Observaciones:</strong> {viewingReceiptOrder.notes || 'Ninguna'}</p>
                   <p><strong>Cuentas Autorizadas para Pago:</strong> Bancolombia Cta Ahorros #123-456789-01 | Nequi / Daviplata: +57 300 123 4567</p>
@@ -1029,21 +1148,82 @@ export default function VendedorDashboard({
                 </div>
               </div>
 
-              <div className="flex flex-wrap justify-end gap-3 pt-2">
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <button
-                  onClick={sendWhatsapp}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                  type="button"
+                  onClick={() => {
+                    const remisionJson = {
+                      comando: "GENERAR_REMISION",
+                      referenciaVendedor: {
+                        id: viewingReceiptOrder.sellerId,
+                        nombre: viewingReceiptOrder.sellerName,
+                        usuario: viewingReceiptOrder.sellerUsername,
+                        telefono: viewingReceiptOrder.sellerPhone
+                      },
+                      datosCliente: {
+                        nombre: viewingReceiptOrder.clientName,
+                        documentoNitCc: viewingReceiptOrder.clientDocument,
+                        telefono: viewingReceiptOrder.clientPhone,
+                        municipio: viewingReceiptOrder.clientMunicipality,
+                        direccion: viewingReceiptOrder.clientAddress
+                      },
+                      productosEntregados: [
+                        {
+                          linea: viewingReceiptOrder.productCategory,
+                          descripcion: viewingReceiptOrder.productDescription,
+                          cantidad: viewingReceiptOrder.quantity,
+                          precioUnitario: viewingReceiptOrder.unitPrice,
+                          subtotal: costoTotal
+                        }
+                      ],
+                      historialAbonos: ((viewingReceiptOrder as any).abonosHistory && (viewingReceiptOrder as any).abonosHistory.length > 0)
+                        ? (viewingReceiptOrder as any).abonosHistory
+                        : [
+                            {
+                              fecha: viewingReceiptOrder.date,
+                              monto: totalAbonos,
+                              metodoPago: viewingReceiptOrder.paymentMethod
+                            }
+                          ],
+                      calculosMonetarios: {
+                        costoTotal: costoTotal,
+                        totalAbonos: totalAbonos,
+                        saldoPendiente: saldoPendiente
+                      },
+                      documentoNumero: docNum,
+                      fechaEmision: viewingReceiptOrder.date
+                    };
+
+                    const blob = new Blob([JSON.stringify(remisionJson, null, 2)], { type: "application/json" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = `REMISION_${docNum}.json`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
                 >
-                  <span>Enviar por WhatsApp al Cliente</span>
+                  <FileText className="w-4 h-4" />
+                  <span>EXPORTAR JSON REMISIÓN</span>
                 </button>
 
-                <button
-                  onClick={() => window.print()}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" />
-                  <span>IMPRIMIR / DESCARGAR PDF</span>
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={sendWhatsapp}
+                    className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                  >
+                    <span>Enviar por WhatsApp</span>
+                  </button>
+
+                  <button
+                    onClick={() => window.print()}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" />
+                    <span>IMPRIMIR / DESCARGAR PDF</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

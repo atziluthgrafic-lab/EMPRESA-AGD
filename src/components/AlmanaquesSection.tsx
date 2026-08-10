@@ -15,7 +15,8 @@ import {
   X,
   ExternalLink,
   Lock,
-  ChevronRight
+  ChevronRight,
+  AlertTriangle
 } from "lucide-react";
 import { getAlmanaquesData, fetchAlmanaquesDataServer, AlmanaquesData, ProductReference, Category } from "../data/almanaquesData";
 
@@ -87,8 +88,20 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
     }).format(val);
   };
 
+  const isSelectedRespaldoTaco = selectedProduct
+    ? selectedProduct.categoryId === 2 ||
+      selectedProduct.name.toLowerCase().includes("respaldo") ||
+      selectedProduct.name.toLowerCase().includes("taco")
+    : false;
+
+  const minOrderQty = isSelectedRespaldoTaco ? 50 : 100;
+
   const openOrderForProduct = (product: ProductReference) => {
     setSelectedProduct(product);
+    const isTaco = product.categoryId === 2 ||
+      product.name.toLowerCase().includes("respaldo") ||
+      product.name.toLowerCase().includes("taco");
+    setOrderQty(isTaco ? 50 : 100);
     setIsOrderModalOpen(true);
   };
 
@@ -403,7 +416,15 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
 
               {/* Quantity */}
               <div>
-                <label className="block text-xs font-mono font-bold text-slate-700 uppercase mb-1.5">Cantidad (Unidades)</label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-mono font-bold text-slate-700 uppercase">Cantidad (Unidades)</label>
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${
+                    isSelectedRespaldoTaco ? "bg-amber-100 text-amber-800 border border-amber-300" : "bg-sky-100 text-sky-800 border border-sky-300"
+                  }`}>
+                    Mínimo: {minOrderQty} u. {isSelectedRespaldoTaco ? "(Excepción Taco)" : "(General)"}
+                  </span>
+                </div>
+
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
                   {[50, 100, 250, 500, 1000, 2500].map((q) => (
                     <button
@@ -420,17 +441,29 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
                     </button>
                   ))}
                 </div>
+
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-slate-500 font-mono">Cantidad personalizada:</span>
                   <input
                     type="number"
                     value={orderQty}
-                    min={10}
+                    min={minOrderQty}
                     step={10}
-                    onChange={(e) => setOrderQty(Number(e.target.value) || 10)}
-                    className="w-32 bg-slate-50 border border-slate-300 rounded-xl p-2 text-xs font-mono font-bold text-slate-800"
+                    onChange={(e) => setOrderQty(Number(e.target.value) || 0)}
+                    className={`w-32 bg-slate-50 border rounded-xl p-2 text-xs font-mono font-bold ${
+                      orderQty < minOrderQty ? "border-red-500 text-red-600 bg-red-50" : "border-slate-300 text-slate-800"
+                    }`}
                   />
                 </div>
+
+                {orderQty < minOrderQty && (
+                  <div className="mt-2.5 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-mono flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
+                    <span>
+                      <strong>Pedido Bloqueado:</strong> El pedido mínimo para {isSelectedRespaldoTaco ? "Almanaque Respaldo de Taco es 50" : "Almanaque General es 100"} unidades.
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Personalización */}
@@ -513,11 +546,18 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
 
             <div className="bg-slate-100 p-4 border-t border-slate-200">
               <button
+                disabled={orderQty < minOrderQty}
                 onClick={handleSendOrder}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold font-mono text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className={`w-full py-3 text-white font-bold font-mono text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 ${
+                  orderQty < minOrderQty
+                    ? "bg-slate-400 cursor-not-allowed opacity-60"
+                    : "bg-emerald-600 hover:bg-emerald-500 cursor-pointer"
+                }`}
               >
                 <MessageSquare className="w-4 h-4" />
-                <span>ENVIAR SOLICITUD A WHATSAPP</span>
+                <span>
+                  {orderQty < minOrderQty ? `CANTIDAD INSUFICIENTE (MÍNIMO ${minOrderQty} U.)` : "ENVIAR SOLICITUD A WHATSAPP"}
+                </span>
               </button>
             </div>
           </div>
