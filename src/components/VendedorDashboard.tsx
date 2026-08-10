@@ -851,151 +851,204 @@ export default function VendedorDashboard({
         </div>
       )}
 
-      {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / FACTURA FINAL */}
-      {showReceiptModal && viewingReceiptOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
-                  <Receipt className="w-6 h-6" />
+      {/* MODAL IMPRESIÓN Y DESCARGA DE RECIBO DE ABONO / REMISIÓN / FACTURA FINAL */}
+      {showReceiptModal && viewingReceiptOrder && (() => {
+        const rawDoc = (viewingReceiptOrder.clientDocument || viewingReceiptOrder.clientName || 'CLI').replace(/[^a-zA-Z0-9]/g, '');
+        const cleanDoc = rawDoc.length > 0 ? rawDoc : 'CLI';
+        let dateStr = '20260809';
+        if (viewingReceiptOrder.date) {
+          const parts = viewingReceiptOrder.date.split('/');
+          if (parts.length === 3) {
+            const d = parts[0].padStart(2, '0');
+            const m = parts[1].padStart(2, '0');
+            const y = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+            dateStr = `${y}${m}${d}`;
+          } else {
+            dateStr = viewingReceiptOrder.date.replace(/[^0-9]/g, '');
+          }
+        }
+        const seq = (viewingReceiptOrder.orderNumber || 'PED1').replace('PED-', '');
+        const isFactura = viewingReceiptOrder.balance === 0 || viewingReceiptOrder.documentType === 'factura';
+        const docNum = isFactura ? `FAC-${cleanDoc}-${dateStr}-${seq}` : `REM-${cleanDoc}-${dateStr}-${seq}`;
+
+        const costoTotal = viewingReceiptOrder.totalAmount || (viewingReceiptOrder.quantity * viewingReceiptOrder.unitPrice);
+        const totalAbonos = viewingReceiptOrder.paidAmount || 0;
+        const saldoPendiente = Math.max(0, costoTotal - totalAbonos);
+
+        const sendWhatsapp = () => {
+          const cleanPhone = (viewingReceiptOrder.clientPhone || '').replace(/[^0-9]/g, '');
+          const fullPhone = cleanPhone.length > 0 ? (cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone) : '';
+          let msg = '';
+          if (isFactura) {
+            msg = `Hola *${viewingReceiptOrder.clientName}*, te adjuntamos el soporte oficial de tu *Factura Final N° ${docNum}* de Atziluth Gráfic Digital S.A.S.\n\n` +
+              `📦 *Costo Total:* $${costoTotal.toLocaleString('es-CO')} COP\n` +
+              `💳 *Total Abonado:* $${totalAbonos.toLocaleString('es-CO')} COP\n` +
+              `✅ *Saldo Pendiente:* $0 COP (CANCELADO 100%)\n\n` +
+              `¡Muchas gracias por tu compra!`;
+          } else {
+            msg = `Hola *${viewingReceiptOrder.clientName}*, te enviamos tu *Remisión de Pedido N° ${docNum}* de Atziluth Gráfic Digital S.A.S.\n\n` +
+              `📦 *Costo Total:* $${costoTotal.toLocaleString('es-CO')} COP\n` +
+              `💳 *Total Abonos:* $${totalAbonos.toLocaleString('es-CO')} COP\n` +
+              `⏳ *Saldo Pendiente:* $${saldoPendiente.toLocaleString('es-CO')} COP\n\n` +
+              `Vendedor: ${viewingReceiptOrder.sellerName}`;
+          }
+          window.open(`https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                    <Receipt className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">
+                      {isFactura ? 'Factura Final de Venta' : 'Remisión Oficial de Pedido'} — {docNum}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Tipo Documento: <strong className={isFactura ? "text-emerald-400" : "text-amber-400"}>
+                        {isFactura ? 'Factura Final (Pago 100% Cancelado)' : 'Remisión (Soporte de Abonos y Saldo)'}
+                      </strong>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-base font-bold text-white">
-                    Vista Previa Comprobante Oficial — {viewingReceiptOrder.orderNumber}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Tipo: <strong className="text-indigo-400">{viewingReceiptOrder.documentType === 'abono' ? 'Recibo de Abono / Anticipo' : 'Factura Final de Venta'}</strong>
-                  </p>
+
+                <button
+                  onClick={() => setShowReceiptModal(false)}
+                  className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* VISTA PREVIA HOJA IMPRESA COMPROBANTE PDF */}
+              <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl font-sans space-y-6 border border-slate-200">
+                <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+                  <div>
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                      ATZILUTH GRÁFIC DIGITAL S.A.S.
+                    </h2>
+                    <p className="text-xs font-mono text-slate-600">NIT: 901.458.321-9 • Medellín, Colombia</p>
+                    <p className="text-xs font-mono text-slate-600">Línea de Atención & WhatsApp: +57 300 123 4567</p>
+                    <p className="text-xs font-mono text-slate-600">E-mail: ventas@atziluthgrafic.com</p>
+                  </div>
+
+                  <div className="text-right">
+                    <span
+                      className={`px-3 py-1 text-white font-mono text-xs font-bold rounded uppercase inline-block ${
+                        isFactura ? 'bg-emerald-700' : 'bg-amber-600'
+                      }`}
+                    >
+                      {isFactura ? 'FACTURA FINAL' : 'REMISIÓN DE PEDIDO'}
+                    </span>
+                    <p className="text-sm font-mono font-bold text-slate-900 mt-1">N° {docNum}</p>
+                    <p className="text-xs font-mono text-slate-600">Fecha: {viewingReceiptOrder.date}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL VENDEDOR:</span>
+                    <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.sellerName}</strong>
+                    <p className="font-mono text-slate-600">Usuario: @{viewingReceiptOrder.sellerUsername}</p>
+                    <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.sellerPhone}</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL CLIENTE:</span>
+                    <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.clientName}</strong>
+                    <p className="font-mono text-slate-600">NIT / CC: {viewingReceiptOrder.clientDocument || 'Sin Documento'}</p>
+                    <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.clientPhone}</p>
+                    <p className="text-slate-600">Ubicación: {viewingReceiptOrder.clientMunicipality} — {viewingReceiptOrder.clientAddress}</p>
+                  </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
+                      <tr>
+                        <th className="p-2.5">Cant.</th>
+                        <th className="p-2.5">Descripción del Trabajo / Línea</th>
+                        <th className="p-2.5 text-right">V. Unitario</th>
+                        <th className="p-2.5 text-right">Subtotal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200 font-sans">
+                      <tr>
+                        <td className="p-2.5 font-mono font-bold text-slate-900">{viewingReceiptOrder.quantity}</td>
+                        <td className="p-2.5">
+                          <strong className="text-slate-900 block">{viewingReceiptOrder.productCategory}</strong>
+                          <p className="text-slate-600 text-[11px]">{viewingReceiptOrder.productDescription}</p>
+                        </td>
+                        <td className="p-2.5 text-right font-mono text-slate-700">
+                          ${viewingReceiptOrder.unitPrice.toLocaleString("es-CO")} COP
+                        </td>
+                        <td className="p-2.5 text-right font-mono font-bold text-slate-900">
+                          ${costoTotal.toLocaleString("es-CO")} COP
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">COSTO TOTAL:</span>
+                    <strong className="text-base font-mono font-bold text-slate-900">
+                      ${costoTotal.toLocaleString("es-CO")} COP
+                    </strong>
+                  </div>
+
+                  <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
+                    <span className="text-[10px] font-mono uppercase text-emerald-800 block font-bold">TOTAL ABONOS:</span>
+                    <strong className="text-base font-mono font-bold text-emerald-700">
+                      ${totalAbonos.toLocaleString("es-CO")} COP
+                    </strong>
+                    <span className="text-[9px] font-mono text-emerald-800 block mt-0.5">{viewingReceiptOrder.paymentMethod}</span>
+                  </div>
+
+                  <div className={saldoPendiente === 0 ? "bg-emerald-100 p-2 rounded-lg border border-emerald-300" : "bg-amber-50 p-2 rounded-lg border border-amber-200"}>
+                    <span className="text-[10px] font-mono uppercase text-amber-800 block font-bold">SALDO PENDIENTE:</span>
+                    <strong className={saldoPendiente === 0 ? "text-base font-mono font-extrabold text-emerald-700" : "text-base font-mono font-bold text-amber-700"}>
+                      ${saldoPendiente.toLocaleString("es-CO")} COP
+                    </strong>
+                  </div>
+                </div>
+
+                <div className="text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
+                  <p><strong>Observaciones:</strong> {viewingReceiptOrder.notes || 'Ninguna'}</p>
+                  <p><strong>Cuentas Autorizadas para Pago:</strong> Bancolombia Cta Ahorros #123-456789-01 | Nequi / Daviplata: +57 300 123 4567</p>
+                  <p className="text-slate-400">Atziluth Gráfic Digital S.A.S. — Medellín, Antioquia. Comprobante válido para soporte contable e inspección de trabajo.</p>
+                </div>
+
+                <div className="pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
+                  <div className="text-center w-52 border-t border-slate-400 pt-1">Firma Asesor / Comercial</div>
+                  <div className="text-center w-52 border-t border-slate-400 pt-1">Recibido Conforme Cliente</div>
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowReceiptModal(false)}
-                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+              <div className="flex flex-wrap justify-end gap-3 pt-2">
+                <button
+                  onClick={sendWhatsapp}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                >
+                  <span>Enviar por WhatsApp al Cliente</span>
+                </button>
 
-            {/* VISTA PREVIA HOJA IMPRESA COMPROBANTE PDF */}
-            <div className="bg-white text-slate-900 p-6 md:p-8 rounded-2xl shadow-xl font-sans space-y-6 border border-slate-200">
-              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
-                <div>
-                  <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
-                    ATZILUTH GRÁFIC DIGITAL S.A.S.
-                  </h2>
-                  <p className="text-xs font-mono text-slate-600">NIT: 901.458.321-9 • Medellín, Colombia</p>
-                  <p className="text-xs font-mono text-slate-600">Línea de Atención & WhatsApp: +57 300 123 4567</p>
-                  <p className="text-xs font-mono text-slate-600">E-mail: ventas@atziluthgrafic.com</p>
-                </div>
-
-                <div className="text-right">
-                  <span
-                    className={`px-3 py-1 text-white font-mono text-xs font-bold rounded uppercase inline-block ${
-                      viewingReceiptOrder.documentType === 'abono' ? 'bg-amber-600' : 'bg-emerald-700'
-                    }`}
-                  >
-                    {viewingReceiptOrder.documentType === 'abono' ? 'RECIBO DE ABONO' : 'FACTURA FINAL'}
-                  </span>
-                  <p className="text-sm font-mono font-bold text-slate-900 mt-1">N° {viewingReceiptOrder.orderNumber}</p>
-                  <p className="text-xs font-mono text-slate-600">Fecha: {viewingReceiptOrder.date}</p>
-                </div>
+                <button
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>IMPRIMIR / DESCARGAR PDF</span>
+                </button>
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL VENDEDOR:</span>
-                  <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.sellerName}</strong>
-                  <p className="font-mono text-slate-600">Usuario: @{viewingReceiptOrder.sellerUsername}</p>
-                  <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.sellerPhone}</p>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">DATOS DEL CLIENTE:</span>
-                  <strong className="text-slate-900 block font-bold text-sm">{viewingReceiptOrder.clientName}</strong>
-                  <p className="font-mono text-slate-600">NIT / CC: {viewingReceiptOrder.clientDocument}</p>
-                  <p className="font-mono text-slate-600">Teléfono: {viewingReceiptOrder.clientPhone}</p>
-                  <p className="text-slate-600">Ubicación: {viewingReceiptOrder.clientMunicipality} — {viewingReceiptOrder.clientAddress}</p>
-                </div>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl overflow-hidden">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-100 border-b border-slate-200 text-[10px] font-mono text-slate-600 uppercase">
-                    <tr>
-                      <th className="p-2.5">Cant.</th>
-                      <th className="p-2.5">Descripción del Trabajo / Línea</th>
-                      <th className="p-2.5 text-right">V. Unitario</th>
-                      <th className="p-2.5 text-right">Subtotal</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 font-sans">
-                    <tr>
-                      <td className="p-2.5 font-mono font-bold text-slate-900">{viewingReceiptOrder.quantity}</td>
-                      <td className="p-2.5">
-                        <strong className="text-slate-900 block">{viewingReceiptOrder.productCategory}</strong>
-                        <p className="text-slate-600 text-[11px]">{viewingReceiptOrder.productDescription}</p>
-                      </td>
-                      <td className="p-2.5 text-right font-mono text-slate-700">
-                        ${viewingReceiptOrder.unitPrice.toLocaleString("es-CO")} COP
-                      </td>
-                      <td className="p-2.5 text-right font-mono font-bold text-slate-900">
-                        ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="grid grid-cols-3 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
-                <div>
-                  <span className="text-[10px] font-mono uppercase text-slate-500 block font-bold">VALOR TOTAL:</span>
-                  <strong className="text-base font-mono font-bold text-slate-900">
-                    ${viewingReceiptOrder.totalAmount.toLocaleString("es-CO")} COP
-                  </strong>
-                </div>
-
-                <div className="bg-emerald-50 p-2 rounded-lg border border-emerald-200">
-                  <span className="text-[10px] font-mono uppercase text-emerald-800 block font-bold">ABONO RECIBIDO:</span>
-                  <strong className="text-base font-mono font-bold text-emerald-700">
-                    ${viewingReceiptOrder.paidAmount.toLocaleString("es-CO")} COP
-                  </strong>
-                  <span className="text-[9px] font-mono text-emerald-800 block mt-0.5">{viewingReceiptOrder.paymentMethod}</span>
-                </div>
-
-                <div className="bg-amber-50 p-2 rounded-lg border border-amber-200">
-                  <span className="text-[10px] font-mono uppercase text-amber-800 block font-bold">SALDO PENDIENTE:</span>
-                  <strong className="text-base font-mono font-bold text-amber-700">
-                    ${viewingReceiptOrder.balance.toLocaleString("es-CO")} COP
-                  </strong>
-                </div>
-              </div>
-
-              <div className="text-[10px] font-mono text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1">
-                <p><strong>Observaciones:</strong> {viewingReceiptOrder.notes}</p>
-                <p><strong>Cuentas Autorizadas para Pago:</strong> Bancolombia Cta Ahorros #123-456789-01 | Nequi / Daviplata: +57 300 123 4567</p>
-                <p className="text-slate-400">Atziluth Gráfic Digital S.A.S. — Medellín, Antioquia. Comprobante válido para soporte contable e inspección de trabajo.</p>
-              </div>
-
-              <div className="pt-8 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
-                <div className="text-center w-52 border-t border-slate-400 pt-1">Firma Asesor / Comercial</div>
-                <div className="text-center w-52 border-t border-slate-400 pt-1">Recibido Conforme Cliente</div>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => window.print()}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl transition-all shadow flex items-center gap-2 cursor-pointer"
-              >
-                <Printer className="w-4 h-4" />
-                <span>IMPRIMIR COMPROBANTE / DESCARGAR PDF</span>
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

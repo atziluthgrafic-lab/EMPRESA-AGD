@@ -532,6 +532,9 @@
           <i data-lucide="printer" class="w-4 h-4 text-brand-orange"></i> Documento Oficial Generado
         </h3>
         <div class="flex items-center gap-2">
+          <button id="btn-share-whatsapp" onclick="shareCurrentDocWhatsapp()" class="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl shadow flex items-center gap-1.5 cursor-pointer">
+            <i data-lucide="message-square" class="w-4 h-4"></i> WhatsApp
+          </button>
           <button onclick="downloadDocumentPdf()" class="px-3.5 py-1.5 bg-brand-orange hover:bg-orange-600 text-white font-mono text-xs font-bold rounded-xl shadow flex items-center gap-1.5 cursor-pointer">
             <i data-lucide="download" class="w-4 h-4"></i> Descargar PDF
           </button>
@@ -1075,11 +1078,11 @@
             <button onclick="openAbonoModal('${o.id}')" class="px-2.5 py-1 bg-emerald-950 border border-emerald-800 text-emerald-300 rounded-lg text-[10px] font-mono hover:bg-emerald-900 cursor-pointer">
               + Abono
             </button>
-            <button onclick="generatePdfDocument('${o.id}', 'recibo')" class="px-2.5 py-1 bg-slate-800 border border-slate-700 text-slate-200 rounded-lg text-[10px] font-mono hover:bg-slate-700 cursor-pointer">
-              Recibo PDF
+            <button onclick="generatePdfDocument('${o.id}', 'remision')" class="px-2.5 py-1 bg-sky-950 border border-sky-800 text-sky-300 rounded-lg text-[10px] font-mono hover:bg-sky-900 cursor-pointer" title="Generar Remisión">
+              📋 Remisión
             </button>
-            <button onclick="generatePdfDocument('${o.id}', 'factura')" class="px-2.5 py-1 bg-brand-orange text-white rounded-lg text-[10px] font-mono hover:opacity-90 cursor-pointer">
-              Factura Final
+            <button onclick="generatePdfDocument('${o.id}', 'factura')" class="px-2.5 py-1 bg-brand-orange text-white rounded-lg text-[10px] font-mono hover:opacity-90 cursor-pointer" title="Generar Factura Final">
+              📄 Factura Final
             </button>
           </td>
         </tr>
@@ -1276,61 +1279,142 @@
       } catch(e) {}
     }
 
-    // PDF Receipt / Invoice Generation
-    function generatePdfDocument(orderId, type) {
-      const order = currentOrders.find(o => o.id === orderId);
-      if (!order) return;
+      let activeDocOrder = null;
+      let activeDocType = 'remision';
 
-      document.getElementById('pdf-modal-title').textContent = type === 'factura' ? 'Factura Final de Venta' : 'Comprobante de Abono';
-      document.getElementById('doc-type-badge').textContent = type === 'factura' ? 'FACTURA FINAL DE VENTA' : 'COMPROBANTE DE ABONO';
-      document.getElementById('doc-number-text').textContent = type === 'factura' ? `FAC-${order.orderNumber.replace('PED-', '')}` : `REC-${order.orderNumber.replace('PED-', '')}`;
-      document.getElementById('doc-date-text').textContent = `Fecha: ${order.date}`;
+      function getFormattedDocNumber(order, type) {
+        const rawNit = (order.clientNit || order.clientId || 'CLI').replace(/[^a-zA-Z0-9]/g, '');
+        const cleanNit = rawNit.length > 0 ? rawNit : 'CLI';
+        
+        let dateStr = '20260809';
+        if (order.date) {
+          const parts = order.date.split('/');
+          if (parts.length === 3) {
+            const d = parts[0].padStart(2, '0');
+            const m = parts[1].padStart(2, '0');
+            const y = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+            dateStr = `${y}${m}${d}`;
+          } else {
+            dateStr = order.date.replace(/[^0-9]/g, '');
+          }
+        }
+        
+        const seq = (order.orderNumber || 'PED1').replace('PED-', '');
+        if (type === 'factura') {
+          return `FAC-${cleanNit}-${dateStr}-${seq}`;
+        } else {
+          return `REM-${cleanNit}-${dateStr}-${seq}`;
+        }
+      }
 
-      document.getElementById('doc-client-name').textContent = order.clientName;
-      document.getElementById('doc-client-nit').textContent = `NIT / CC: ${order.clientNit}`;
-      document.getElementById('doc-client-phone').textContent = `Tel: ${order.clientPhone}`;
-      document.getElementById('doc-client-muni').textContent = `Municipio: ${order.clientMunicipality}`;
+      // PDF Remisión / Factura Generation
+      function generatePdfDocument(orderId, type) {
+        const order = currentOrders.find(o => o.id === orderId);
+        if (!order) return;
 
-      document.getElementById('doc-seller-name').textContent = order.sellerName;
-      document.getElementById('doc-seller-username').textContent = `Usuario: ${order.sellerUsername}`;
-      document.getElementById('doc-seller-zone').textContent = `Zona: ${order.sellerZone}`;
+        activeDocOrder = order;
+        activeDocType = type || (order.balance === 0 ? 'factura' : 'remision');
 
-      // Items
-      document.getElementById('doc-items-tbody').innerHTML = (order.items || []).map(item => `
-        <tr>
-          <td class="p-2 font-bold">${item.name} <span class="text-[10px] text-slate-500 font-mono">(${item.ref})</span></td>
-          <td class="p-2 text-center font-mono">${item.quantity}</td>
-          <td class="p-2 text-right font-mono">$${item.unitPrice.toLocaleString('es-CO')}</td>
-          <td class="p-2 text-right font-mono font-bold">$${item.totalPrice.toLocaleString('es-CO')}</td>
-        </tr>
-      `).join('');
+        const docNum = getFormattedDocNumber(order, activeDocType);
 
-      // Abonos list
-      document.getElementById('doc-abonos-list').innerHTML = (order.abonos || []).map(ab => `
-        <div class="flex justify-between text-slate-600">
-          <span>${ab.date} (${ab.paymentMethod}):</span>
-          <span class="font-bold text-slate-900">$${ab.amount.toLocaleString('es-CO')}</span>
-        </div>
-      `).join('');
+        // Lógica de Cálculo
+        const costoTotal = Number(order.totalAmount) || 0;
+        const totalAbonos = Array.isArray(order.abonos) && order.abonos.length > 0
+          ? order.abonos.reduce((sum, a) => sum + (Number(a.amount) || 0), 0)
+          : (Number(order.totalPaid) || 0);
+        const saldoPendiente = Math.max(0, costoTotal - totalAbonos);
 
-      document.getElementById('doc-subtotal-val').textContent = `$${order.totalAmount.toLocaleString('es-CO')} COP`;
-      document.getElementById('doc-total-paid-val').textContent = `$${order.totalPaid.toLocaleString('es-CO')} COP`;
-      document.getElementById('doc-balance-val').textContent = `$${order.balance.toLocaleString('es-CO')} COP`;
+        const isFactura = activeDocType === 'factura';
 
-      document.getElementById('modal-pdf-preview').classList.remove('hidden');
-    }
+        document.getElementById('pdf-modal-title').textContent = isFactura ? 'Factura Final de Venta Oficial' : 'Remisión Formal de Entrega y Pago';
+        document.getElementById('doc-type-badge').textContent = isFactura ? 'FACTURA FINAL DE VENTA' : 'REMISIÓN DE PEDIDO';
+        document.getElementById('doc-type-badge').className = isFactura 
+          ? 'px-2.5 py-1 bg-emerald-700 text-white font-bold text-xs rounded-lg block mb-2' 
+          : 'px-2.5 py-1 bg-sky-900 text-sky-100 font-bold text-xs rounded-lg block mb-2';
+        
+        document.getElementById('doc-number-text').textContent = `N° ${docNum}`;
+        document.getElementById('doc-date-text').textContent = `Fecha Pedido: ${order.date}`;
 
-    function downloadDocumentPdf() {
-      const element = document.getElementById('printable-receipt-container');
-      const opt = {
-        margin:       0.3,
-        filename:     'Comprobante_Atziluth.pdf',
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
+        document.getElementById('doc-client-name').textContent = order.clientName;
+        document.getElementById('doc-client-nit').textContent = `NIT / CC: ${order.clientNit || 'Sin NIT'}`;
+        document.getElementById('doc-client-phone').textContent = `Tel: ${order.clientPhone || 'N/A'}`;
+        document.getElementById('doc-client-muni').textContent = `Municipio: ${order.clientMunicipality || 'Medellín'}`;
+
+        document.getElementById('doc-seller-name').textContent = order.sellerName || 'Vendedor Atziluth';
+        document.getElementById('doc-seller-username').textContent = `Usuario: ${order.sellerUsername || 'vendedor'}`;
+        document.getElementById('doc-seller-zone').textContent = `Zona: ${order.sellerZone || 'General'}`;
+
+        // Items
+        document.getElementById('doc-items-tbody').innerHTML = (order.items || []).map(item => `
+          <tr>
+            <td class="p-2 font-bold">${item.name || 'Producto'} <span class="text-[10px] text-slate-500 font-mono">(${item.ref || 'REF'})</span></td>
+            <td class="p-2 text-center font-mono">${item.quantity || 1}</td>
+            <td class="p-2 text-right font-mono">$${(Number(item.unitPrice) || 0).toLocaleString('es-CO')}</td>
+            <td class="p-2 text-right font-mono font-bold">$${(Number(item.totalPrice) || 0).toLocaleString('es-CO')}</td>
+          </tr>
+        `).join('');
+
+        // Abonos list
+        const abonosArray = Array.isArray(order.abonos) ? order.abonos : [];
+        if (abonosArray.length === 0) {
+          document.getElementById('doc-abonos-list').innerHTML = `<p class="text-slate-400 italic">No registra abonos previos.</p>`;
+        } else {
+          document.getElementById('doc-abonos-list').innerHTML = abonosArray.map(ab => `
+            <div class="flex justify-between text-slate-600">
+              <span>${ab.date} (${ab.paymentMethod || 'Efectivo'}):</span>
+              <span class="font-bold text-slate-900">$${(Number(ab.amount) || 0).toLocaleString('es-CO')}</span>
+            </div>
+          `).join('');
+        }
+
+        document.getElementById('doc-subtotal-val').textContent = `$${costoTotal.toLocaleString('es-CO')} COP`;
+        document.getElementById('doc-total-paid-val').textContent = `$${totalAbonos.toLocaleString('es-CO')} COP`;
+        document.getElementById('doc-balance-val').textContent = `$${saldoPendiente.toLocaleString('es-CO')} COP`;
+        document.getElementById('doc-balance-val').className = saldoPendiente === 0 ? "text-emerald-600 font-extrabold" : "text-brand-orange font-extrabold";
+
+        document.getElementById('modal-pdf-preview').classList.remove('hidden');
+      }
+
+      function shareCurrentDocWhatsapp() {
+        if (!activeDocOrder) return;
+        const docNum = getFormattedDocNumber(activeDocOrder, activeDocType);
+        const costoTotal = (Number(activeDocOrder.totalAmount) || 0).toLocaleString('es-CO');
+        const totalAbonos = (Number(activeDocOrder.totalPaid) || 0).toLocaleString('es-CO');
+        const saldoPendiente = (Number(activeDocOrder.balance) || 0).toLocaleString('es-CO');
+        const cleanPhone = (activeDocOrder.clientPhone || '').replace(/[^0-9]/g, '');
+
+        let msg = '';
+        if (activeDocType === 'factura') {
+          msg = `Hola *${activeDocOrder.clientName}*, te adjuntamos el soporte oficial de tu *Factura Final N° ${docNum}* de Atziluth Gráfic Digital S.A.S.\n\n` +
+            `📦 *Costo Total:* $${costoTotal} COP\n` +
+            `💳 *Total Abonado:* $${totalAbonos} COP\n` +
+            `✅ *Saldo Pendiente:* $0 COP (CANCELADO 100%)\n\n` +
+            `¡Muchas gracias por confiar en Atziluth Gráfic Digital!`;
+        } else {
+          msg = `Hola *${activeDocOrder.clientName}*, te enviamos tu *Remisión de Pedido N° ${docNum}* de Atziluth Gráfic Digital S.A.S.\n\n` +
+            `📦 *Costo Total:* $${costoTotal} COP\n` +
+            `💳 *Total Abonos:* $${totalAbonos} COP\n` +
+            `⏳ *Saldo Pendiente:* $${saldoPendiente} COP\n\n` +
+            `Atendido por: ${activeDocOrder.sellerName}`;
+        }
+
+        const fullPhone = cleanPhone.length > 0 ? (cleanPhone.startsWith('57') ? cleanPhone : '57' + cleanPhone) : '';
+        const url = `https://api.whatsapp.com/send?phone=${fullPhone}&text=${encodeURIComponent(msg)}`;
+        window.open(url, '_blank');
+      }
+
+      function downloadDocumentPdf() {
+        const element = document.getElementById('printable-receipt-container');
+        const docNum = activeDocOrder ? getFormattedDocNumber(activeDocOrder, activeDocType) : 'Documento_Atziluth';
+        const opt = {
+          margin:       0.3,
+          filename:     `${docNum}_Atziluth.pdf`,
+          image:        { type: 'jpeg', quality: 0.98 },
+          html2canvas:  { scale: 2 },
+          jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+        html2pdf().set(opt).from(element).save();
+      }
 
     // CRUD Client & Seller Handlers
     async function saveClientForm(e) {
