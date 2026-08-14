@@ -43,7 +43,6 @@ import {
   Shirt,
   Tag,
   Palette,
-  Lock,
   Calendar
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
@@ -1371,16 +1370,6 @@ export default function App() {
             <p className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-1.5 sm:gap-3">
               <span>Monitoreando telecomunicaciones y conversiones desde Medellín en tiempo de red.</span>
             </p>
-            <button
-              onClick={() => {
-                setActiveTab("admin");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
-              className="mt-2 px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-emerald-400 rounded-lg border border-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer text-[10px] font-mono shadow-sm"
-            >
-              <Lock className="w-3 h-3 text-emerald-400" />
-              <span>Acceso Sistema / Panel de Control</span>
-            </button>
           </div>
         </div>
       </footer>
