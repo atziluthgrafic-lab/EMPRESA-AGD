@@ -579,6 +579,17 @@ export default function AdminDashboard() {
     const defaultToken = `token_${catPrefix.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const chosenAccess = (newProvSlug.trim() || defaultToken).replace(/\s+/g, '-').toLowerCase();
 
+    // Verificación de colisión en nuevo registro
+    const collidingOther = proveedores.find(p => (
+      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === chosenAccess) ||
+      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === chosenAccess) ||
+      (p.codigo && p.codigo.trim().toLowerCase() === chosenAccess)
+    ));
+    if (collidingOther) {
+      alert(`¡Colisión de Código detectada!\n\nEl código de acceso "${chosenAccess}" ya está asignado al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor ingrese un código o genere un token único.`);
+      return;
+    }
+
     const newRecord: ProveedorRecord = {
       id: `prv_${Date.now()}`,
       codigo: code,
@@ -666,6 +677,17 @@ export default function AdminDashboard() {
     const finalCats = editProvCategorias.length > 0 ? editProvCategorias : [editingProv.categoria || "Servicios"];
     const finalAccess = (editProvSlug.trim() || editingProv.slugAcceso || editingProv.tokenAcceso).replace(/\s+/g, '-').toLowerCase();
 
+    // Verificación de colisión con otros proveedores
+    const collidingOther = proveedores.find(p => p.id !== editingProv.id && (
+      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === finalAccess) ||
+      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === finalAccess) ||
+      (p.codigo && p.codigo.trim().toLowerCase() === finalAccess)
+    ));
+    if (collidingOther) {
+      alert(`¡Colisión de Código detectada!\n\nEl código de acceso "${finalAccess}" ya está asignado al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor elija un código o token diferente antes de guardar.`);
+      return;
+    }
+
     const previousCode = editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo;
     const isCodeChanged = finalAccess !== previousCode;
 
@@ -736,6 +758,17 @@ export default function AdminDashboard() {
     const cleanKey = customAccessKey.trim().replace(/\s+/g, '-').toLowerCase();
     if (!cleanKey) {
       alert("Por favor ingrese una dirección de ingreso o token válido.");
+      return;
+    }
+
+    // Verificación de colisión con otros proveedores
+    const collidingOther = proveedores.find(p => p.id !== customizingAccessProv.id && (
+      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === cleanKey) ||
+      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === cleanKey) ||
+      (p.codigo && p.codigo.trim().toLowerCase() === cleanKey)
+    ));
+    if (collidingOther) {
+      alert(`¡Colisión de Código detectada!\n\nEl código de acceso "${cleanKey}" ya está asignado al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor elija un código o token diferente.`);
       return;
     }
 
@@ -6769,53 +6802,104 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
-                    Ingresa o Edita el Código de Ingreso / Token:
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      required
-                      value={editProvSlug}
-                      onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                      placeholder={`Ej: ${editingProv.codigo} o token_seguro_...`}
-                      className="w-full bg-slate-950 border-2 border-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30 shadow-inner"
-                    />
-                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
-                              setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
-                              setTimeout(() => setSaveStatus(null), 3000);
-                            });
-                          }
-                        }}
-                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 flex items-center gap-1 cursor-pointer"
-                        title="Copiar código al portapapeles"
-                      >
-                        <Copy className="w-3 h-3 text-amber-400" />
-                        <span>Copiar</span>
-                      </button>
-                    </div>
-                  </div>
+                {/* INPUT CÓDIGO CON VALIDACIÓN EN TIEMPO REAL */}
+                {(() => {
+                  const currentInputCode = editProvSlug.trim().toLowerCase();
+                  const collidingProv = currentInputCode 
+                    ? proveedores.find(p => p.id !== editingProv.id && (
+                        (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentInputCode) ||
+                        (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentInputCode) ||
+                        (p.codigo && p.codigo.trim().toLowerCase() === currentInputCode)
+                      ))
+                    : null;
+                  const isOriginalCode = currentInputCode === (editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo)?.toLowerCase();
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10px] font-mono text-slate-400">
-                    <span className="truncate max-w-md">
-                      Enlace Directo: <span className="text-amber-400">{window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor</span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => window.open(`${window.location.origin}/?token=${editProvSlug || editingProv.tokenAcceso}#proveedor`, '_blank')}
-                      className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      <span>Probar Ingreso en Nueva Pestaña</span>
-                    </button>
-                  </div>
-                </div>
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
+                          Ingresa o Edita el Código de Ingreso / Token:
+                        </label>
+                        {collidingProv ? (
+                          <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-400" />
+                            ⚠️ En uso por otro taller
+                          </span>
+                        ) : currentInputCode ? (
+                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            {isOriginalCode ? "Código actual de este taller" : "✓ Código único disponible"}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          value={editProvSlug}
+                          onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                          placeholder={`Ej: ${editingProv.codigo} o token_seguro_...`}
+                          className={`w-full bg-slate-950 border-2 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                            collidingProv
+                              ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                              : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30'
+                          }`}
+                        />
+                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (navigator.clipboard && navigator.clipboard.writeText) {
+                                navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
+                                  setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
+                                  setTimeout(() => setSaveStatus(null), 3000);
+                                });
+                              }
+                            }}
+                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 flex items-center gap-1 cursor-pointer"
+                            title="Copiar código al portapapeles"
+                          >
+                            <Copy className="w-3 h-3 text-amber-400" />
+                            <span>Copiar</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* ALERTA EN TIEMPO REAL SI HAY COLISIÓN */}
+                      {collidingProv && (
+                        <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg animate-pulse">
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
+                              <span>¡Colisión de Código Detectada!</span>
+                            </p>
+                            <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
+                              El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentInputCode}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
+                            </p>
+                            <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
+                              ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10px] font-mono text-slate-400">
+                        <span className="truncate max-w-md">
+                          Enlace Directo: <span className="text-amber-400">{window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => window.open(`${window.location.origin}/?token=${editProvSlug || editingProv.tokenAcceso}#proveedor`, '_blank')}
+                          className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          <span>Probar Ingreso en Nueva Pestaña</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ========================================================================= */}
                 {/* HISTORIAL DE CAMBIOS DE CÓDIGO DE ACCESO (Últimas 3 Actualizaciones) */}
@@ -7493,20 +7577,69 @@ export default function AdminDashboard() {
               </div>
 
               <form onSubmit={handleSaveCustomizeAccess} className="space-y-4">
-                <div>
-                  <label className="block text-[11px] font-mono uppercase text-slate-300 mb-1.5 font-bold flex items-center justify-between">
-                    <span>Dirección de Ingreso / Token (Slug) *</span>
-                    <span className="text-[10px] text-amber-400">Editable en cualquier momento</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={customAccessKey}
-                    onChange={(e) => setCustomAccessKey(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                    placeholder="Ej: taller-estivenson-almanaques o token_seguro_..."
-                    className="w-full bg-slate-950 border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 shadow-inner"
-                  />
-                </div>
+                {(() => {
+                  const currentCustomCode = customAccessKey.trim().toLowerCase();
+                  const collidingCustomProv = currentCustomCode
+                    ? proveedores.find(p => p.id !== customizingAccessProv.id && (
+                        (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentCustomCode) ||
+                        (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentCustomCode) ||
+                        (p.codigo && p.codigo.trim().toLowerCase() === currentCustomCode)
+                      ))
+                    : null;
+                  const isOriginalCustomCode = currentCustomCode === (customizingAccessProv.slugAcceso || customizingAccessProv.tokenAcceso || customizingAccessProv.codigo)?.toLowerCase();
+
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold">
+                          Dirección de Ingreso / Token (Slug) *
+                        </label>
+                        {collidingCustomProv ? (
+                          <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3 text-rose-400" />
+                            ⚠️ En uso por "{collidingCustomProv.nombreComercial}"
+                          </span>
+                        ) : currentCustomCode ? (
+                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                            {isOriginalCustomCode ? "Código actual asignado" : "✓ Código único disponible"}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <input
+                        type="text"
+                        required
+                        value={customAccessKey}
+                        onChange={(e) => setCustomAccessKey(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                        placeholder="Ej: taller-estivenson-almanaques o token_seguro_..."
+                        className={`w-full bg-slate-950 border-2 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                          collidingCustomProv
+                            ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                            : 'border-amber-500/60 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30'
+                        }`}
+                      />
+
+                      {/* ALERTA EN TIEMPO REAL SI HAY COLISIÓN */}
+                      {collidingCustomProv && (
+                        <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg animate-pulse">
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                          <div className="space-y-0.5">
+                            <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
+                              <span>¡Colisión de Código de Acceso!</span>
+                            </p>
+                            <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
+                              El token <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentCustomCode}"</code> ya está registrado para el taller <strong className="text-white">"{collidingCustomProv.nombreComercial}"</strong> ({collidingCustomProv.codigo}).
+                            </p>
+                            <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
+                              ➔ Por favor escribe una clave única o genera un token seguro.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Botones de sugerencias rápidas */}
                 <div className="flex flex-wrap items-center gap-2 text-xs">

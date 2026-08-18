@@ -490,8 +490,6 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
   // 2. WELCOMING LOGIN PORTAL / PROVEEDOR ACCESS CODE ENTRY
   if (!currentProveedor) {
-    const registeredProveedores = getStoredProveedores();
-
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden">
         {/* Ambient Glows */}
@@ -534,7 +532,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
               <div className="relative">
                 <input
-                  type="text"
+                  type="password"
                   autoFocus
                   value={manualTokenInput}
                   onChange={(e) => {
@@ -542,20 +540,21 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                     setManualTokenError(false);
                     setAuthError(null);
                   }}
-                  placeholder="Escribe tu código (Ej: PRV-ALM-101 o tu token)..."
-                  className="w-full bg-slate-900 border border-amber-500/40 focus:border-amber-400 text-amber-300 placeholder:text-slate-600 text-sm font-mono font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+                  placeholder="Introduce tu código de acceso o token confidencial..."
+                  className="w-full bg-slate-900 border border-amber-500/40 focus:border-amber-400 text-amber-300 placeholder:text-slate-600 text-sm font-mono font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all tracking-wider"
                 />
               </div>
 
               {manualTokenError && (
                 <div className="p-2.5 bg-red-950/80 border border-red-500/80 rounded-xl text-red-200 text-xs font-mono flex items-center gap-2 animate-fadeIn">
                   <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>Código o token no válido. Verifica el código e inténtalo nuevamente.</span>
+                  <span>Código o token no válido. Verifica el código con la administración e inténtalo nuevamente.</span>
                 </div>
               )}
 
-              <p className="text-[10px] text-slate-400 font-mono">
-                💡 Puedes escribir el código del taller (ej: <span className="text-amber-400 font-bold">PRV-ALM-101</span>) o tu token personalizado.
+              <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1.5 pt-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span>Cada taller cuenta con una clave única y confidencial asignada exclusivamente por la administración central.</span>
               </p>
             </div>
 
@@ -567,32 +566,6 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
               <span>INGRESAR A MI OFICINA VIRTUAL</span>
             </button>
           </form>
-
-          {/* ACCESO RÁPIDO PARA DEMOSTRACIÓN / PRUEBAS */}
-          {registeredProveedores.length > 0 && (
-            <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2 text-left">
-              <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
-                🏢 Talleres Registrados en el Sistema (Clic para ingresar de prueba):
-              </span>
-              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar pt-1">
-                {registeredProveedores.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      const code = p.slugAcceso || p.tokenAcceso || p.codigo;
-                      setManualTokenInput(code);
-                      setManualTokenError(false);
-                    }}
-                    className="px-2.5 py-1 bg-slate-900 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <span className="text-amber-400 font-bold">{p.codigo}</span>
-                    <span className="text-slate-400 truncate max-w-[120px]">- {p.nombreComercial}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Links de Ayuda y Retorno */}
           <div className="pt-2 border-t border-slate-800/80 space-y-2">
