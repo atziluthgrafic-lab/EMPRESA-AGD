@@ -50,7 +50,9 @@ import {
   CheckCheck,
   Layers,
   Sliders,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  Zap
 } from "lucide-react";
 import { ClientRecord, ClientPayment } from "../types";
 import {
@@ -416,6 +418,7 @@ export default function AdminDashboard() {
   // Search & Filter
   const [provSearchTerm, setProvSearchTerm] = useState("");
   const [provCategoryFilter, setProvCategoryFilter] = useState("all");
+  const [provAccessFilter, setProvAccessFilter] = useState<"all" | "activos" | "pendientes">("all");
 
   // Full CRUD Categories Management Handlers
   const handleSaveCategories = (newList: string[]) => {
@@ -663,6 +666,24 @@ export default function AdminDashboard() {
     const finalCats = editProvCategorias.length > 0 ? editProvCategorias : [editingProv.categoria || "Servicios"];
     const finalAccess = (editProvSlug.trim() || editingProv.slugAcceso || editingProv.tokenAcceso).replace(/\s+/g, '-').toLowerCase();
 
+    const previousCode = editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo;
+    const isCodeChanged = finalAccess !== previousCode;
+
+    let currentHistory = editingProv.historialCodigosAcceso ? [...editingProv.historialCodigosAcceso] : [];
+    if (isCodeChanged) {
+      currentHistory = [
+        {
+          id: `hist_${Date.now()}`,
+          codigoAnterior: previousCode,
+          codigoNuevo: finalAccess,
+          fecha: new Date().toISOString(),
+          modificadoPor: "Administrador (atziluthgrafic@gmail.com)",
+          motivo: "Actualización de código desde Edición de Taller"
+        },
+        ...currentHistory
+      ].slice(0, 10);
+    }
+
     const updatedProv: ProveedorRecord = {
       ...editingProv,
       nombreComercial: editProvNombre.trim(),
@@ -675,6 +696,7 @@ export default function AdminDashboard() {
       municipio: editProvMunicipio.trim(),
       tokenAcceso: finalAccess,
       slugAcceso: finalAccess,
+      historialCodigosAcceso: currentHistory,
       activo: editProvActivo,
       datosBancarios: {
         ...editingProv.datosBancarios,
@@ -717,10 +739,29 @@ export default function AdminDashboard() {
       return;
     }
 
+    const previousCode = customizingAccessProv.slugAcceso || customizingAccessProv.tokenAcceso || customizingAccessProv.codigo;
+    const isCodeChanged = cleanKey !== previousCode;
+
+    let currentHistory = customizingAccessProv.historialCodigosAcceso ? [...customizingAccessProv.historialCodigosAcceso] : [];
+    if (isCodeChanged) {
+      currentHistory = [
+        {
+          id: `hist_${Date.now()}`,
+          codigoAnterior: previousCode,
+          codigoNuevo: cleanKey,
+          fecha: new Date().toISOString(),
+          modificadoPor: "Administrador (atziluthgrafic@gmail.com)",
+          motivo: "Personalización directa de token/slug"
+        },
+        ...currentHistory
+      ].slice(0, 10);
+    }
+
     const updatedProv: ProveedorRecord = {
       ...customizingAccessProv,
       slugAcceso: cleanKey,
       tokenAcceso: cleanKey,
+      historialCodigosAcceso: currentHistory,
       updatedAt: new Date().toISOString()
     };
 
@@ -3779,6 +3820,55 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* BANNER DESTACADO: PORTAL Y OFICINA VIRTUAL DE PROVEEDORES */}
+          <div className="bg-gradient-to-r from-amber-950/70 via-slate-950 to-amber-900/40 border-2 border-amber-500/60 rounded-2xl p-4 sm:p-5 shadow-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="p-3 bg-amber-500 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/30 shrink-0">
+                <Building2 className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm sm:text-base font-bold font-mono text-white tracking-tight">
+                    PORTAL OFICINA VIRTUAL DE TALLERES & PROVEEDORES
+                  </h3>
+                  <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full font-mono text-[10px] font-bold">
+                    Acceso Directo
+                  </span>
+                </div>
+                <p className="text-xs text-slate-300 font-sans">
+                  Los talleres aliados ingresan directamente mediante la extensión oficial: <code className="px-2 py-0.5 bg-slate-900 border border-amber-500/40 rounded text-amber-300 font-mono font-bold">/proveedores/index.html</code> o usando su código único.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a
+                href="/proveedores/index.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all shadow-lg shadow-amber-500/25 flex items-center gap-1.5 cursor-pointer border border-amber-300"
+              >
+                <Eye className="w-4 h-4" />
+                <span>ABRIR PORTAL TALLERES</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const fullUrl = `${window.location.origin}/proveedores/index.html`;
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(fullUrl);
+                    setSaveStatus("✓ Enlace /proveedores/index.html copiado");
+                  }
+                }}
+                className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <Copy className="w-4 h-4 text-amber-400" />
+                <span>Copiar Link /proveedores/index.html</span>
+              </button>
+            </div>
+          </div>
+
           {/* MÉTRICAS & KPIS EN TIEMPO REAL */}
           {(() => {
             const totalTalleres = proveedores.length;
@@ -4125,36 +4215,82 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Grid 4: Notas Internas y Dirección de Acceso a Oficina Virtual */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                    Notas Internas / Especialidad Técnica del Taller
-                  </label>
-                  <input
-                    type="text"
-                    value={newProvNotas}
-                    onChange={(e) => setNewProvNotas(e.target.value)}
-                    placeholder="Ej: Troquelado en cartón duplex 300g, ojilletes metálicos, tacos mensuales..."
-                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                  />
+              {/* SECCIÓN DESTACADA: CÓDIGO DE ACCESO A OFICINA VIRTUAL PARA EL NUEVO PROVEEDOR */}
+              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/50 space-y-3 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/40">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-mono uppercase text-amber-300 font-bold block">
+                        Código de Acceso / Token a Oficina Virtual de Proveedor
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-sans">
+                        Espacio para definir el código o token con el que este taller ingresará a su portal exclusivo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (newProvNombre.trim()) {
+                          const slug = `taller-${newProvNombre.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                          setNewProvSlug(slug);
+                        } else {
+                          setNewProvSlug(`taller-${Date.now().toString().slice(-4)}`);
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      title="Usar nombre del taller como código"
+                    >
+                      Usar Nombre Taller
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomToken = `token_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
+                        setNewProvSlug(randomToken);
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      title="Generar token criptográfico"
+                    >
+                      Generar Token Seguro
+                    </button>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-amber-300 mb-1 font-bold flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Key className="w-3 h-3 text-amber-400" /> Dirección / Token de Ingreso a Oficina Virtual
-                    </span>
-                    <span className="text-[9px] text-slate-400">(Opcional / Editable)</span>
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
+                    Código de Ingreso / Slug de Acceso (Opcional o Automático):
                   </label>
                   <input
                     type="text"
                     value={newProvSlug}
                     onChange={(e) => setNewProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                    placeholder="Ej: taller-almanaque-norte o deja vacío para autogenerar"
-                    className="w-full bg-slate-900 border border-amber-500/30 rounded-xl px-3 py-2 text-xs text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                    placeholder="Ej: taller-almanaque-norte o deja vacío para autogenerar automáticamente"
+                    className="w-full bg-slate-950 border-2 border-amber-500/60 rounded-xl px-3.5 py-2.5 text-xs text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-mono font-bold"
                   />
+                  <p className="text-[10px] text-slate-400 font-mono">
+                    💡 Si se deja vacío, el sistema le asignará automáticamente un código único oficial (ej: <span className="text-amber-400 font-bold">PRV-ALM-101</span>).
+                  </p>
                 </div>
+              </div>
+
+              {/* Grid 4: Notas Internas */}
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Notas Internas / Especialidad Técnica del Taller
+                </label>
+                <input
+                  type="text"
+                  value={newProvNotas}
+                  onChange={(e) => setNewProvNotas(e.target.value)}
+                  placeholder="Ej: Troquelado en cartón duplex 300g, ojilletes metálicos, tacos mensuales, tiempo de entrega 3 días hábiles."
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500 font-sans"
+                />
               </div>
 
               {/* Botón de Envío */}
@@ -4164,7 +4300,7 @@ export default function AdminDashboard() {
                   className="px-6 py-2.5 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all cursor-pointer border border-amber-400/30"
                 >
                   <Save className="w-4 h-4" />
-                  <span>GUARDAR PROVEEDOR & ACTIVAR OFICINA VIRTUAL</span>
+                  <span>GUARDAR PROVEEDOR & GENERAR LINK ÚNICO</span>
                 </button>
               </div>
             </form>
@@ -4222,7 +4358,177 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* TABLA DE PROVEEDORES REGISTRADOS */}
+          {/* TARJETA DE RESUMEN: CÓDIGOS DE ACCESO ACTIVOS VS PENDIENTES */}
+          {(() => {
+            const totalProv = proveedores.length;
+            const conCodigo = proveedores.filter(p => (p.slugAcceso && p.slugAcceso.trim() !== '') || (p.tokenAcceso && p.tokenAcceso.trim() !== ''));
+            const sinCodigo = proveedores.filter(p => (!p.slugAcceso || p.slugAcceso.trim() === '') && (!p.tokenAcceso || p.tokenAcceso.trim() === ''));
+            const totalActivos = conCodigo.length;
+            const totalPendientes = sinCodigo.length;
+            const pctConfigurados = totalProv > 0 ? Math.round((totalActivos / totalProv) * 100) : 100;
+
+            const handleAutoAssignMissingCodes = () => {
+              if (sinCodigo.length === 0) {
+                alert("Todos los talleres ya tienen su código de acceso configurado.");
+                return;
+              }
+              const updated = proveedores.map(p => {
+                if ((!p.slugAcceso || p.slugAcceso.trim() === '') && (!p.tokenAcceso || p.tokenAcceso.trim() === '')) {
+                  const generatedToken = `token_${p.codigo.toLowerCase().replace(/[^a-z0-9]/g, '')}_${Math.random().toString(36).substring(2, 6)}`;
+                  const cleanSlug = p.codigo.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+                  return { ...p, tokenAcceso: generatedToken, slugAcceso: cleanSlug };
+                }
+                return p;
+              });
+              setProveedores(updated);
+              saveStoredProveedores(updated);
+              setSaveStatus(`✓ Se asignaron códigos de acceso a ${sinCodigo.length} taller(es) pendientes`);
+            };
+
+            return (
+              <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border-2 border-amber-500/40 rounded-3xl p-5 sm:p-6 shadow-2xl space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="p-3.5 bg-gradient-to-br from-amber-500 to-yellow-600 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/30 shrink-0">
+                      <Key className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm sm:text-base font-bold font-mono text-white tracking-wide">
+                          RESUMEN DE CÓDIGOS DE ACCESO (OFICINA VIRTUAL)
+                        </h4>
+                        <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full font-mono text-[10px] font-bold">
+                          {pctConfigurados}% Configurados
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 font-sans mt-0.5">
+                        Supervisa qué talleres tienen credenciales activas versus los que están pendientes de configuración.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {totalPendientes > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleAutoAssignMissingCodes}
+                        className="px-3 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-bold transition-all shadow flex items-center gap-1.5 cursor-pointer"
+                        title="Generar tokens automáticos para los talleres sin código"
+                      >
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>Autocompletar ({totalPendientes})</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* TARJETAS DE MÉTRICAS ACTIVOS VS PENDIENTES */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {/* Tarjeta 1: Con Código Activo */}
+                  <div 
+                    onClick={() => setProvAccessFilter(provAccessFilter === 'activos' ? 'all' : 'activos')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                      provAccessFilter === 'activos'
+                        ? 'bg-emerald-950/80 border-emerald-400 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-900/40'
+                        : 'bg-slate-900/90 hover:bg-slate-850 border-emerald-500/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-emerald-400 mb-1.5">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        Códigos Activos / Configurados
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-bold border border-emerald-500/30">
+                        {totalActivos} de {totalProv}
+                      </span>
+                    </div>
+                    <div className="text-3xl font-black font-mono text-emerald-400">
+                      {totalActivos} <span className="text-xs text-slate-400 font-sans font-normal">talleres listos</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-sans mt-1.5 flex items-center justify-between">
+                      <span>Token / Slug asignado y operativo</span>
+                      <span className="text-[10px] font-mono text-emerald-300 underline font-bold">
+                        {provAccessFilter === 'activos' ? '✓ Filtro Activo' : 'Ver solo activos'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tarjeta 2: Pendientes de Configuración */}
+                  <div 
+                    onClick={() => setProvAccessFilter(provAccessFilter === 'pendientes' ? 'all' : 'pendientes')}
+                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
+                      provAccessFilter === 'pendientes'
+                        ? 'bg-amber-950/80 border-amber-400 ring-2 ring-amber-500/50 shadow-lg shadow-amber-900/40'
+                        : totalPendientes > 0
+                        ? 'bg-slate-900/90 hover:bg-slate-850 border-amber-500/40'
+                        : 'bg-slate-900/90 hover:bg-slate-850 border-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-amber-400 mb-1.5">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-amber-400" />
+                        Pendientes de Configuración
+                      </span>
+                      <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-bold border ${
+                        totalPendientes > 0
+                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/30 animate-pulse'
+                          : 'bg-slate-800 text-slate-400 border-slate-700'
+                      }`}>
+                        {totalPendientes} pendientes
+                      </span>
+                    </div>
+                    <div className={`text-3xl font-black font-mono ${totalPendientes > 0 ? 'text-amber-400' : 'text-slate-500'}`}>
+                      {totalPendientes} <span className="text-xs text-slate-400 font-sans font-normal">por configurar</span>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-sans mt-1.5 flex items-center justify-between">
+                      <span>{totalPendientes > 0 ? 'Requieren asignar código único' : '¡100% de talleres al día!'}</span>
+                      <span className="text-[10px] font-mono text-amber-300 underline font-bold">
+                        {provAccessFilter === 'pendientes' ? '✓ Filtro Activo' : 'Ver pendientes'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Tarjeta 3: Barra de Progreso & Cobertura */}
+                  <div className="p-4 rounded-2xl bg-slate-900/90 border border-slate-800 flex flex-col justify-between">
+                    <div className="flex items-center justify-between text-slate-300 mb-1.5">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-sky-400" />
+                        Nivel de Cobertura
+                      </span>
+                      <span className="text-xs font-mono font-bold text-sky-300">
+                        {pctConfigurados}% Total
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5 my-auto">
+                      <div className="w-full h-3 bg-slate-950 rounded-full overflow-hidden border border-slate-800 p-0.5">
+                        <div 
+                          className="h-full bg-gradient-to-r from-amber-500 via-emerald-500 to-teal-400 transition-all duration-500 rounded-full"
+                          style={{ width: `${pctConfigurados}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[10px] font-mono text-slate-400">
+                        <span className="text-emerald-400 font-bold">{totalActivos} Activos</span>
+                        <span className="text-amber-400 font-bold">{totalPendientes} Pendientes</span>
+                      </div>
+                    </div>
+
+                    {provAccessFilter !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => setProvAccessFilter('all')}
+                        className="text-[10px] font-mono text-amber-400 hover:text-amber-300 font-bold text-left mt-1"
+                      >
+                        ✕ Mostrar todos ({provAccessFilter === 'activos' ? 'Filtro: Activos' : 'Filtro: Pendientes'})
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* TABLA DE PROVEEDORES REGISTRADOS - SECCIÓN DEDICADA DE GESTIÓN */}
           {(() => {
             const filtered = proveedores.filter((p) => {
               const pCats = Array.isArray(p.categorias) && p.categorias.length > 0
@@ -4230,6 +4536,12 @@ export default function AdminDashboard() {
                 : (p.categoria ? [p.categoria] : ["Servicios"]);
               const matchesCat = provCategoryFilter === 'all' || pCats.includes(provCategoryFilter);
               if (!matchesCat) return false;
+
+              // Access filter: activos vs pendientes
+              const hasAccessCode = (p.slugAcceso && p.slugAcceso.trim() !== '') || (p.tokenAcceso && p.tokenAcceso.trim() !== '');
+              if (provAccessFilter === 'activos' && !hasAccessCode) return false;
+              if (provAccessFilter === 'pendientes' && hasAccessCode) return false;
+
               if (!provSearchTerm.trim()) return true;
               const term = provSearchTerm.toLowerCase();
               return (
@@ -4237,6 +4549,8 @@ export default function AdminDashboard() {
                 p.codigo.toLowerCase().includes(term) ||
                 p.contactoNombre.toLowerCase().includes(term) ||
                 p.telefonoWhatsapp.toLowerCase().includes(term) ||
+                (p.slugAcceso && p.slugAcceso.toLowerCase().includes(term)) ||
+                (p.tokenAcceso && p.tokenAcceso.toLowerCase().includes(term)) ||
                 pCats.some(c => c.toLowerCase().includes(term)) ||
                 (p.municipio && p.municipio.toLowerCase().includes(term)) ||
                 (p.datosBancarios?.banco && p.datosBancarios.banco.toLowerCase().includes(term)) ||
@@ -4245,33 +4559,48 @@ export default function AdminDashboard() {
             });
 
             return (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-amber-400" />
-                    Directorio de Proveedores & Talleres Registrados ({filtered.length})
-                  </h3>
+              <div className="space-y-4" id="seccion-gestion-proveedores">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-slate-950/90 border border-amber-500/30 rounded-2xl shadow-lg">
+                  <div className="space-y-1">
+                    <h3 className="text-sm sm:text-base font-bold font-mono uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-amber-400" />
+                      Gestión de Proveedores & Talleres Registrados ({filtered.length})
+                    </h3>
+                    <p className="text-xs text-slate-400 font-sans">
+                      Listado general: visualiza y copia códigos de acceso rápidamente, edita información y asigna órdenes de producción.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-full font-mono text-[11px] font-bold">
+                      {filtered.length} de {proveedores.length} Talleres Activos
+                    </span>
+                  </div>
                 </div>
 
-                <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/80 shadow-xl custom-scrollbar">
-                  <table className="w-full text-left border-collapse min-w-[950px]">
+                <div className="overflow-x-auto border-2 border-slate-800 rounded-2xl bg-slate-950 shadow-2xl custom-scrollbar">
+                  <table className="w-full text-left border-collapse min-w-[1050px]">
                     <thead>
-                      <tr className="border-b border-slate-800 bg-slate-900/90 text-[10px] font-mono text-slate-400 uppercase">
-                        <th className="py-3 px-4">Código & Taller</th>
-                        <th className="py-3 px-4">Líneas / Especialidades</th>
-                        <th className="py-3 px-4">Contacto & WhatsApp</th>
-                        <th className="py-3 px-4">Datos Bancarios</th>
-                        <th className="py-3 px-4">Órdenes</th>
-                        <th className="py-3 px-4">Balance ($)</th>
-                        <th className="py-3 px-4">Oficina Virtual</th>
-                        <th className="py-3 px-4 text-right">Acciones</th>
+                      <tr className="border-b-2 border-slate-800 bg-slate-900 text-[11px] font-mono text-slate-300 uppercase tracking-wider">
+                        <th className="py-3.5 px-4">Taller / ID</th>
+                        <th className="py-3.5 px-4 bg-amber-950/20 text-amber-300 border-x border-amber-500/20">
+                          <div className="flex items-center gap-1.5">
+                            <Key className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Código de Acceso (Oficina Virtual)</span>
+                          </div>
+                        </th>
+                        <th className="py-3.5 px-4">Líneas Asignadas</th>
+                        <th className="py-3.5 px-4">Contacto & WhatsApp</th>
+                        <th className="py-3.5 px-4">Datos Bancarios</th>
+                        <th className="py-3.5 px-4">Órdenes & Saldo</th>
+                        <th className="py-3.5 px-4 text-center">Acciones de Gestión</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60">
+                    <tbody className="divide-y divide-slate-800/80">
                       {filtered.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-500 text-xs font-mono">
-                            No se encontraron proveedores que coincidan con la búsqueda.
+                          <td colSpan={7} className="py-12 text-center text-slate-500 text-xs font-mono">
+                            No se encontraron proveedores que coincidan con los filtros de búsqueda.
                           </td>
                         </tr>
                       ) : (
@@ -4284,28 +4613,90 @@ export default function AdminDashboard() {
                           const pCats = Array.isArray(prov.categorias) && prov.categorias.length > 0
                             ? prov.categorias
                             : (prov.categoria ? [prov.categoria] : ["Servicios"]);
+                          const accessKey = prov.slugAcceso || prov.tokenAcceso || prov.codigo;
 
                           return (
-                            <tr key={prov.id} className="hover:bg-slate-900/40 text-xs transition-colors">
+                            <tr key={prov.id} className="hover:bg-slate-900/60 text-xs transition-colors">
                               {/* Código y Nombre */}
                               <td className="py-3 px-4">
-                                <div className="space-y-0.5">
+                                <div className="space-y-1">
                                   <div className="flex items-center gap-2">
-                                    <span className="px-2 py-0.5 bg-amber-500/10 text-amber-300 border border-amber-500/20 text-[10px] font-mono rounded font-bold">
+                                    <span className="px-2 py-0.5 bg-slate-900 text-slate-300 border border-slate-700 text-[10px] font-mono rounded font-bold">
                                       {prov.codigo}
                                     </span>
                                     <span className="font-bold text-white text-xs">{prov.nombreComercial}</span>
                                   </div>
                                   <div className="text-[11px] text-slate-400 flex items-center gap-1">
                                     <MapPin className="w-3 h-3 text-slate-500 flex-shrink-0" />
-                                    <span className="truncate max-w-[200px]">{prov.direccionTaller || prov.municipio || "Medellín"}</span>
+                                    <span className="truncate max-w-[180px]">{prov.direccionTaller || prov.municipio || "Medellín"}</span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* VISUALIZACIÓN RÁPIDA DE CÓDIGO DE ACCESO */}
+                              <td className="py-3 px-4 bg-amber-950/15 border-x border-amber-500/20">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <div 
+                                      className="px-2.5 py-1.5 bg-slate-950 border-2 border-amber-500/50 rounded-xl text-amber-300 font-mono text-xs font-black shadow-inner flex items-center gap-1.5 max-w-[200px]"
+                                      title={`Código de Acceso: ${accessKey}`}
+                                    >
+                                      <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                      <span className="truncate">{accessKey}</span>
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (navigator.clipboard) {
+                                          navigator.clipboard.writeText(accessKey);
+                                          setSaveStatus(`✓ Código copiado: ${accessKey}`);
+                                        }
+                                      }}
+                                      title="Copiar Código de Acceso al Portapapeles"
+                                      className="p-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                      <span>Copiar</span>
+                                    </button>
+                                  </div>
+
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenProvPortal(prov)}
+                                      title="Abrir y Ver Oficina Virtual"
+                                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Eye className="w-3 h-3 text-amber-400" />
+                                      <span>Ver Oficina</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCustomizeAccess(prov)}
+                                      title="Editar Código / Slug Directo"
+                                      className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 rounded-lg text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer"
+                                    >
+                                      <Key className="w-3 h-3 text-indigo-400" />
+                                      <span>Cambiar Código</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleShareProvWhatsApp(prov)}
+                                      title="Enviar acceso por WhatsApp"
+                                      className="p-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors cursor-pointer"
+                                    >
+                                      <Share2 className="w-3 h-3" />
+                                    </button>
                                   </div>
                                 </div>
                               </td>
 
                               {/* Líneas / Especialidades (múltiples) */}
                               <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1 max-w-[240px]">
+                                <div className="flex flex-wrap gap-1 max-w-[200px]">
                                   {pCats.map((cat) => (
                                     <span
                                       key={cat}
@@ -4344,139 +4735,79 @@ export default function AdminDashboard() {
                                   <div className="text-slate-400">
                                     #{prov.datosBancarios?.numeroCuenta || "Por registrar"}
                                   </div>
-                                  <div className="text-[10px] text-slate-500 truncate max-w-[160px]">
-                                    Titular: {prov.datosBancarios?.titular || prov.nombreComercial}
+                                  <div className="text-[10px] text-slate-500 truncate max-w-[150px]">
+                                    {prov.datosBancarios?.titular || prov.nombreComercial}
                                   </div>
                                 </div>
                               </td>
 
-                              {/* Órdenes */}
+                              {/* Órdenes & Balance */}
                               <td className="py-3 px-4">
                                 <div className="text-xs font-mono space-y-0.5">
-                                  <span className="text-sky-400 font-bold block">{pActive} en taller</span>
-                                  <span className="text-[10px] text-slate-500">{pOrders.length} total histórico</span>
-                                </div>
-                              </td>
-
-                              {/* Balance */}
-                              <td className="py-3 px-4">
-                                <div className="text-xs font-mono space-y-0.5">
-                                  <div className="text-slate-300">Costo: {formatCOP(pCost)}</div>
-                                  <div className="text-emerald-400 text-[11px]">Pagado: {formatCOP(pPaid)}</div>
+                                  <span className="text-sky-400 font-bold block">{pActive} en taller ({pOrders.length} tot.)</span>
+                                  <div className="text-slate-400 text-[11px]">Costo: {formatCOP(pCost)}</div>
                                   {pBalance > 0 ? (
                                     <div className="text-rose-400 font-bold text-[11px]">Saldo: {formatCOP(pBalance)}</div>
                                   ) : (
-                                    <div className="text-emerald-500 font-bold text-[10px]">Al día ✓</div>
+                                    <div className="text-emerald-400 font-bold text-[10px]">Al día ✓</div>
                                   )}
                                 </div>
                               </td>
 
-                              {/* Oficina Virtual Magic Link */}
-                              <td className="py-3 px-4">
-                                <div className="space-y-1.5">
-                                  <div className="flex items-center gap-1.5">
-                                    <span
-                                      className="text-[10px] font-mono text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-500/30 truncate max-w-[170px] inline-flex items-center gap-1"
-                                      title={prov.slugAcceso || prov.tokenAcceso}
-                                    >
-                                      <Key className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
-                                      <span className="truncate">{prov.slugAcceso || prov.tokenAcceso}</span>
-                                    </span>
-                                  </div>
+                              {/* ACCIONES DE GESTIÓN Y EDICIÓN RÁPIDA */}
+                              <td className="py-3 px-4 text-center">
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleOpenEditProv(prov)}
+                                    title="Editar Información Completa del Proveedor"
+                                    className="w-full py-1.5 px-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Editar Datos</span>
+                                  </button>
 
                                   <div className="flex items-center gap-1">
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenProvPortal(prov)}
-                                      title="Abrir y Ver Portal de este Proveedor"
-                                      className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
+                                      onClick={() => {
+                                        setOrderModalProv(prov);
+                                        setNewOrdCliente("");
+                                        setNewOrdDescripcion(`Producción de ${prov.categoria.toLowerCase()} personalizada`);
+                                        setNewOrdCantidad(100);
+                                        setNewOrdPrecioVenta(0);
+                                        setNewOrdCostoProv(0);
+                                      }}
+                                      title="Asignar Nueva Orden de Producción"
+                                      className="p-1.5 bg-sky-950 hover:bg-sky-900 text-sky-400 border border-sky-500/30 rounded-lg transition-colors cursor-pointer"
                                     >
-                                      <Eye className="w-3.5 h-3.5 text-amber-400" />
-                                      <span>Ver</span>
+                                      <Package className="w-3.5 h-3.5" />
                                     </button>
 
                                     <button
                                       type="button"
-                                      onClick={() => handleOpenCustomizeAccess(prov)}
-                                      title="Editar Dirección / Token de Ingreso"
-                                      className="p-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-semibold shadow-sm"
+                                      onClick={() => {
+                                        setPaymentModalProv(prov);
+                                        setPayMonto(pBalance > 0 ? pBalance : 0);
+                                        setPayReferencia("");
+                                        setPayComprobanteJpg("");
+                                        setPayComprobanteFileName("");
+                                      }}
+                                      title="Registrar Pago / Transferencia con .JPG"
+                                      className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors cursor-pointer"
                                     >
-                                      <Key className="w-3.5 h-3.5 text-indigo-400" />
-                                      <span>Dirección</span>
+                                      <Receipt className="w-3.5 h-3.5" />
                                     </button>
 
                                     <button
                                       type="button"
-                                      onClick={() => handleCopyProvMagicLink(prov)}
-                                      title="Copiar Enlace Tokenizado"
-                                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-mono transition-colors flex items-center justify-center cursor-pointer"
+                                      onClick={() => handleDeleteProveedor(prov.id)}
+                                      title="Eliminar Proveedor"
+                                      className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-400 border border-rose-500/30 rounded-lg transition-colors cursor-pointer"
                                     >
-                                      <Copy className="w-3.5 h-3.5 text-amber-400" />
-                                    </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => handleShareProvWhatsApp(prov)}
-                                      title="Compartir por WhatsApp"
-                                      className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer"
-                                    >
-                                      <Share2 className="w-3.5 h-3.5" />
+                                      <Trash2 className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
-                                </div>
-                              </td>
-
-                              {/* Acciones CRUD */}
-                              <td className="py-3 px-4 text-right">
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setOrderModalProv(prov);
-                                      setNewOrdCliente("");
-                                      setNewOrdDescripcion(`Producción de ${prov.categoria.toLowerCase()} personalizada`);
-                                      setNewOrdCantidad(100);
-                                      setNewOrdPrecioVenta(0);
-                                      setNewOrdCostoProv(0);
-                                    }}
-                                    title="Asignar Nueva Orden de Producción"
-                                    className="p-1.5 bg-sky-950 hover:bg-sky-900 text-sky-400 border border-sky-500/30 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    <Package className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setPaymentModalProv(prov);
-                                      setPayMonto(pBalance > 0 ? pBalance : 0);
-                                      setPayReferencia("");
-                                      setPayComprobanteJpg("");
-                                      setPayComprobanteFileName("");
-                                    }}
-                                    title="Registrar Pago / Transferencia con .JPG"
-                                    className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    <Receipt className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenEditProv(prov)}
-                                    title="Editar Proveedor"
-                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    <Edit3 className="w-3.5 h-3.5" />
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteProveedor(prov.id)}
-                                    title="Eliminar Proveedor"
-                                    className="p-1.5 bg-rose-950/60 hover:bg-rose-900 text-rose-400 border border-rose-500/30 rounded-lg transition-colors cursor-pointer"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -6289,7 +6620,7 @@ export default function AdminDashboard() {
                   <Edit3 className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white font-display">Editar Datos del Proveedor</h3>
+                  <h3 className="text-base font-bold text-white font-display">Editar Datos de Proveedor / Taller</h3>
                   <p className="text-xs text-slate-400">
                     Modifica datos de contacto, cuenta bancaria para transferencias y notas de <strong className="text-amber-400">{editingProv.nombreComercial}</strong>
                   </p>
@@ -6397,6 +6728,203 @@ export default function AdminDashboard() {
                 />
               </div>
 
+              {/* SECCIÓN DESTACADA: CÓDIGO DE ACCESO A OFICINA VIRTUAL DE PROVEEDOR */}
+              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/50 space-y-3 shadow-lg">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/40">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-mono uppercase text-amber-300 font-bold block">
+                        Código de Acceso a Oficina Virtual de Proveedor *
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-sans">
+                        Este es el código que el taller escribirá en la pantalla de inicio o mediante enlace directo
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setEditProvSlug(editingProv.codigo)}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      title="Asignar el código oficial del taller como clave de acceso"
+                    >
+                      Usar Código ({editingProv.codigo})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const catPrefix = (editingProv.categoria || "PRV").substring(0, 3).toLowerCase();
+                        const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
+                        setEditProvSlug(randomToken);
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      title="Generar un nuevo token criptográfico seguro"
+                    >
+                      Generar Token Seguro
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
+                    Ingresa o Edita el Código de Ingreso / Token:
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={editProvSlug}
+                      onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                      placeholder={`Ej: ${editingProv.codigo} o token_seguro_...`}
+                      className="w-full bg-slate-950 border-2 border-amber-500 rounded-xl px-3.5 py-2.5 text-sm text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30 shadow-inner"
+                    />
+                    <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.clipboard && navigator.clipboard.writeText) {
+                            navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
+                              setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
+                              setTimeout(() => setSaveStatus(null), 3000);
+                            });
+                          }
+                        }}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 flex items-center gap-1 cursor-pointer"
+                        title="Copiar código al portapapeles"
+                      >
+                        <Copy className="w-3 h-3 text-amber-400" />
+                        <span>Copiar</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10px] font-mono text-slate-400">
+                    <span className="truncate max-w-md">
+                      Enlace Directo: <span className="text-amber-400">{window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => window.open(`${window.location.origin}/?token=${editProvSlug || editingProv.tokenAcceso}#proveedor`, '_blank')}
+                      className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>Probar Ingreso en Nueva Pestaña</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* ========================================================================= */}
+                {/* HISTORIAL DE CAMBIOS DE CÓDIGO DE ACCESO (Últimas 3 Actualizaciones) */}
+                {/* ========================================================================= */}
+                {(() => {
+                  const historyList = (editingProv.historialCodigosAcceso && editingProv.historialCodigosAcceso.length > 0)
+                    ? editingProv.historialCodigosAcceso.slice(0, 3)
+                    : [
+                        {
+                          id: 'hist_initial',
+                          codigoNuevo: editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo,
+                          fecha: editingProv.createdAt || new Date().toISOString(),
+                          modificadoPor: 'Administrador (atziluthgrafic@gmail.com)',
+                          motivo: 'Registro inicial y generación de clave de taller'
+                        }
+                      ];
+
+                  const formatDate = (isoString: string) => {
+                    try {
+                      const d = new Date(isoString);
+                      if (isNaN(d.getTime())) return isoString;
+                      return d.toLocaleDateString("es-CO", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      });
+                    } catch {
+                      return isoString;
+                    }
+                  };
+
+                  return (
+                    <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2.5 shadow-inner">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 bg-amber-500/10 text-amber-400 rounded-md border border-amber-500/20">
+                            <Clock className="w-3.5 h-3.5" />
+                          </span>
+                          <span className="text-[10px] font-mono uppercase font-bold text-amber-300">
+                            Historial de Cambios de Código de Acceso
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-mono px-2 py-0.5 bg-slate-900 border border-slate-800 rounded-full text-slate-400">
+                          Últimas {Math.min(3, historyList.length)} Actualizaciones
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {historyList.map((hist, idx) => (
+                          <div
+                            key={hist.id || idx}
+                            className={`p-2.5 rounded-xl border text-xs font-mono transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+                              idx === 0
+                                ? 'bg-amber-950/20 border-amber-500/40 text-amber-200'
+                                : 'bg-slate-900/60 border-slate-800/80 text-slate-400'
+                            }`}
+                          >
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                                  idx === 0
+                                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                    : 'bg-slate-800 text-slate-400'
+                                }`}>
+                                  {idx === 0 ? '🟢 Actual' : `Versión -${idx}`}
+                                </span>
+                                
+                                {hist.codigoAnterior ? (
+                                  <span className="flex items-center gap-1.5 text-xs">
+                                    <span className="line-through text-slate-500 text-[11px]">{hist.codigoAnterior}</span>
+                                    <span className="text-amber-400">➔</span>
+                                    <span className="font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-700">
+                                      {hist.codigoNuevo}
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="font-bold text-white bg-slate-950 px-2 py-0.5 rounded border border-slate-700">
+                                    {hist.codigoNuevo}
+                                  </span>
+                                )}
+                              </div>
+
+                              {hist.motivo && (
+                                <p className="text-[10px] text-slate-400 font-sans">
+                                  {hist.motivo}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="text-left sm:text-right space-y-0.5 shrink-0">
+                              <div className="text-[10px] text-slate-300 font-bold flex items-center sm:justify-end gap-1">
+                                <Clock className="w-3 h-3 text-amber-400" />
+                                <span>{formatDate(hist.fecha)}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 flex items-center sm:justify-end gap-1">
+                                <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                                <span>{hist.modificadoPor || 'Administración Central'}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Cuenta Bancaria */}
               <div className="p-3.5 bg-slate-950/80 rounded-xl border border-slate-800 space-y-2.5">
                 <span className="text-[10px] font-mono uppercase text-amber-400 font-bold block">
@@ -6470,44 +6998,14 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Notas Internas</label>
-                  <textarea
-                    rows={2}
-                    value={editProvNotas}
-                    onChange={(e) => setNewProvNotas ? setEditProvNotas(e.target.value) : setEditProvNotas(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-amber-300 mb-1 font-bold flex items-center justify-between">
-                    <span className="flex items-center gap-1">
-                      <Key className="w-3 h-3 text-amber-400" /> Dirección / Token de Ingreso a Oficina Virtual
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const randomToken = `token_${editingProv.codigo.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-                        setEditProvSlug(randomToken);
-                      }}
-                      className="text-[9px] text-amber-400 hover:underline cursor-pointer"
-                    >
-                      Generar Token Aleatorio
-                    </button>
-                  </label>
-                  <input
-                    type="text"
-                    value={editProvSlug}
-                    onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                    placeholder="Ej: taller-almanaque-norte o token seguro"
-                    className="w-full bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 focus:outline-none focus:border-amber-500 font-mono"
-                  />
-                  <div className="text-[10px] font-mono text-slate-500 mt-1 truncate">
-                    URL: {window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor
-                  </div>
-                </div>
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Notas Internas</label>
+                <textarea
+                  rows={2}
+                  value={editProvNotas}
+                  onChange={(e) => setEditProvNotas(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                />
               </div>
 
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
@@ -7073,6 +7571,89 @@ export default function AdminDashboard() {
                     </button>
                   </div>
                 </div>
+
+                {/* Historial de Cambios de Código de Acceso */}
+                {(() => {
+                  const historyList = (customizingAccessProv.historialCodigosAcceso && customizingAccessProv.historialCodigosAcceso.length > 0)
+                    ? customizingAccessProv.historialCodigosAcceso.slice(0, 3)
+                    : [
+                        {
+                          id: 'hist_initial',
+                          codigoNuevo: customizingAccessProv.slugAcceso || customizingAccessProv.tokenAcceso || customizingAccessProv.codigo,
+                          fecha: customizingAccessProv.createdAt || new Date().toISOString(),
+                          modificadoPor: 'Administrador (atziluthgrafic@gmail.com)',
+                          motivo: 'Registro inicial y generación de clave de taller'
+                        }
+                      ];
+
+                  const formatDate = (isoString: string) => {
+                    try {
+                      const d = new Date(isoString);
+                      if (isNaN(d.getTime())) return isoString;
+                      return d.toLocaleDateString("es-CO", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit"
+                      });
+                    } catch {
+                      return isoString;
+                    }
+                  };
+
+                  return (
+                    <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 space-y-2 shadow-inner">
+                      <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 text-amber-400" />
+                          <span className="text-[10px] font-mono uppercase font-bold text-amber-300">
+                            Últimas 3 Actualizaciones de Acceso
+                          </span>
+                        </div>
+                        <span className="text-[9px] font-mono text-slate-500">
+                          {historyList.length} registro(s)
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {historyList.map((hist, idx) => (
+                          <div
+                            key={hist.id || idx}
+                            className={`p-2 rounded-lg border text-xs font-mono flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 ${
+                              idx === 0
+                                ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                                : 'bg-slate-900/60 border-slate-800 text-slate-400'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-[9px] font-bold text-slate-400">#{idx + 1}</span>
+                              {hist.codigoAnterior ? (
+                                <span className="flex items-center gap-1">
+                                  <span className="line-through text-slate-500 text-[10px]">{hist.codigoAnterior}</span>
+                                  <span className="text-amber-400">➔</span>
+                                  <span className="font-bold text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                    {hist.codigoNuevo}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="font-bold text-white bg-slate-950 px-1.5 py-0.5 rounded border border-slate-800">
+                                  {hist.codigoNuevo}
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 flex items-center sm:justify-end gap-2">
+                              <span className="text-slate-300">{formatDate(hist.fecha)}</span>
+                              <span>•</span>
+                              <span className="text-emerald-400 truncate max-w-[160px]">{hist.modificadoPor || 'Administración'}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Botones de acción */}
                 <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">

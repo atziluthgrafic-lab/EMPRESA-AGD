@@ -433,8 +433,10 @@ export default function App() {
 
   // Dedicated HashRouter / URL query isolated view checks
   const urlSearch = typeof window !== "undefined" ? window.location.search : "";
+  const pathname = typeof window !== "undefined" ? window.location.pathname.toLowerCase() : "";
   const hasProviderQuery = urlSearch.includes("token=") || urlSearch.includes("proveedor=") || urlSearch.includes("prv=");
-  const isProveedorRoute = currentHash.startsWith("#proveedor") || currentHash.startsWith("#oficina-proveedor") || hasProviderQuery;
+  const isProveedorPath = pathname.includes("/proveedores") || pathname.endsWith("proveedores/index.html");
+  const isProveedorRoute = currentHash.startsWith("#proveedor") || currentHash.startsWith("#oficina-proveedor") || hasProviderQuery || isProveedorPath;
   const isCustomerListRoute = currentHash === "#customer-list" || currentHash === "#clientes";
   const isCustomerRegistrationRoute = currentHash === "#customer-registration" || currentHash === "#nuevo-cliente";
 

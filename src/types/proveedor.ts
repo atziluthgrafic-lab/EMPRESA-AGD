@@ -28,6 +28,15 @@ export interface ProveedorBankDetails {
   emailNotificaciones?: string;
 }
 
+export interface HistorialCodigoAcceso {
+  id?: string;
+  codigoAnterior?: string;
+  codigoNuevo: string;
+  fecha: string;
+  modificadoPor?: string;
+  motivo?: string;
+}
+
 export interface ProveedorRecord {
   id: string;
   codigo: string; // Ej: PRV-ALM-001
@@ -44,6 +53,7 @@ export interface ProveedorRecord {
   direccionTaller?: string;
   municipio?: string;
   notasInternas?: string;
+  historialCodigosAcceso?: HistorialCodigoAcceso[]; // Historial de cambios de código de acceso
   createdAt: string;
   updatedAt?: string;
 }

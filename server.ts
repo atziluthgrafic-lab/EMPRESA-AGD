@@ -1940,7 +1940,11 @@ app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
 });
 // ==================== FIN MÓDULO PROVEEDORES ====================
 
-// Serve Admin HTML portals directly
+// Serve Admin and Provider HTML portals directly
+app.get(["/proveedores", "/proveedores/", "/proveedores/index.html", "/proveedores.html"], (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "proveedores", "index.html"));
+});
+
 app.get(["/admin/ventas", "/admin/ventas.html", "/admin/Ventas.html"], (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "admin", "ventas.html"));
 });

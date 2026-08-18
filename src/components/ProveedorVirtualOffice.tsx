@@ -28,7 +28,10 @@ import {
   Layers,
   ArrowUpRight,
   Check,
-  RefreshCw
+  RefreshCw,
+  Key,
+  Copy,
+  Edit3
 } from 'lucide-react';
 import {
   ProveedorRecord,
@@ -81,8 +84,9 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [finishObservaciones, setFinishObservaciones] = useState('');
   const [finishFinalCost, setFinishFinalCost] = useState<number>(0);
 
-  // 5. Editable Bank Details state
+  // 5. Editable Bank Details & Access Code state
   const [bankForm, setBankForm] = useState({
+    codigoAcceso: '',
     banco: '',
     tipoCuenta: 'Ahorros' as 'Ahorros' | 'Corriente' | 'Billetera Digital',
     numeroCuenta: '',
@@ -91,6 +95,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     telefonoTransferencia: '',
     emailNotificaciones: ''
   });
+  const [codigoAccesoError, setCodigoAccesoError] = useState<string | null>(null);
   const [bankSavedSuccess, setBankSavedSuccess] = useState(false);
 
   // 6. Quotation direct edit in card
@@ -160,6 +165,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
           setOrdenes(exclusiveOrders);
           setPagos(exclusivePayments);
           setBankForm({
+            codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
             banco: found.datosBancarios?.banco || 'Bancolombia',
             tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
             numeroCuenta: found.datosBancarios?.numeroCuenta || '',
@@ -215,6 +221,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
         setManualTokenError(false);
         setAuthError(null);
         setBankForm({
+          codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
           banco: found.datosBancarios?.banco || 'Bancolombia',
           tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
           numeroCuenta: found.datosBancarios?.numeroCuenta || '',
@@ -263,13 +270,28 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     }).format(val);
   };
 
-  // Save Bank Details
+  // Save Bank Details & Access Code
   const handleSaveBankDetails = (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentProveedor) return;
 
+    // Strict Validation: Código de Acceso is mandatory
+    const cleanAccessCode = bankForm.codigoAcceso.trim().toLowerCase().replace(/\s+/g, '-');
+    if (!cleanAccessCode) {
+      setCodigoAccesoError('⚠️ El "Código de Acceso" es OBLIGATORIO para guardar y proteger la oficina virtual de tu taller.');
+      setNotificationBanner({
+        msg: 'El campo "Código de Acceso" es obligatorio. Por favor asígnale una clave a tu taller.',
+        type: 'warning'
+      });
+      return;
+    }
+
+    setCodigoAccesoError(null);
+
     const updatedProvider: ProveedorRecord = {
       ...currentProveedor,
+      slugAcceso: cleanAccessCode,
+      tokenAcceso: bankForm.codigoAcceso.trim(),
       datosBancarios: {
         banco: bankForm.banco,
         tipoCuenta: bankForm.tipoCuenta,
@@ -290,6 +312,13 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     // Update local isolated state
     setCurrentProveedor(updatedProvider);
 
+    // Update URL query string with new token/slug
+    if (window.history.pushState) {
+      const accessParam = cleanAccessCode;
+      const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${accessParam}#proveedor`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+
     fetch('/api/proveedores', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -298,7 +327,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
     setBankSavedSuccess(true);
     setNotificationBanner({
-      msg: '¡Datos bancarios actualizados correctamente! El Administrador ya puede realizar pagos a esta cuenta.',
+      msg: '¡Datos y Código de Acceso guardados exitosamente! La información ha sido sincronizada con el panel administrativo.',
       type: 'success'
     });
 
@@ -459,82 +488,138 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     );
   }
 
-  // 2. ACCESS DENIED / INVALID OR NON-EXISTENT TOKEN STATE
+  // 2. WELCOMING LOGIN PORTAL / PROVEEDOR ACCESS CODE ENTRY
   if (!currentProveedor) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-        {/* Ambient Glow */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+    const registeredProveedores = getStoredProveedores();
 
-        <div className="max-w-md w-full bg-slate-900/95 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6 relative backdrop-blur-xl">
-          <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400 shadow-lg shadow-rose-500/10">
-            <AlertCircle className="w-8 h-8" />
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+        {/* Ambient Glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-[400px] h-[400px] bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-lg w-full bg-slate-900/95 border-2 border-amber-500/40 rounded-3xl p-6 sm:p-8 text-center shadow-2xl space-y-6 relative backdrop-blur-xl">
+          {/* Header Icon */}
+          <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-amber-500/30 to-orange-500/30 animate-pulse border border-amber-500/50" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/40 font-black">
+              <Key className="w-7 h-7" />
+            </div>
           </div>
 
           <div className="space-y-2">
-            <h2 className="text-xl font-bold font-mono text-white">Acceso Denegado o Token No Válido</h2>
-            <p className="text-xs text-slate-400 leading-relaxed">
-              {authError || "No se ha encontrado un taller activo autorizado con las credenciales de este enlace."}
+            <span className="px-3 py-1 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider inline-flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-amber-400" /> Portal de Producción & Talleres
+            </span>
+            <h2 className="text-xl sm:text-2xl font-bold font-mono text-white tracking-tight">
+              Ingreso a Oficina Virtual
+            </h2>
+            <p className="text-xs text-slate-400 font-sans">
+              Escribe o pega el <strong className="text-amber-400">Código de Acceso / Token</strong> proporcionado por Atziluth Gráfic Digital para acceder a tus pedidos de producción y liquidaciones.
             </p>
           </div>
 
-          {/* Form to enter valid token */}
-          <form onSubmit={handleManualTokenSubmit} className="space-y-3 text-left">
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-mono font-bold text-slate-400 uppercase">
-                Ingresar con Token de Acceso o Código de Taller:
+          {/* ========================================================================= */}
+          {/* ESPACIO PRINCIPAL PARA AGREGAR EL CÓDIGO DE ACCESO AL INGRESAR */}
+          {/* ========================================================================= */}
+          <form onSubmit={handleManualTokenSubmit} className="space-y-4 text-left">
+            <div className="p-4 bg-slate-950 rounded-2xl border-2 border-amber-500/60 shadow-inner space-y-2">
+              <label className="block text-xs font-mono font-extrabold text-amber-300 uppercase tracking-wide flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Key className="w-4 h-4 text-amber-400" />
+                  Código de Acceso o Token de Taller:
+                </span>
+                <span className="text-[10px] text-amber-400/80 font-normal">Obligatorio</span>
               </label>
-              <input
-                type="text"
-                value={manualTokenInput}
-                onChange={(e) => {
-                  setManualTokenInput(e.target.value);
-                  setManualTokenError(false);
-                }}
-                placeholder="Ej: PRV-ALM-101 o Token personal"
-                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 text-amber-400 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 focus:outline-none placeholder:text-slate-600 transition-colors"
-              />
-            </div>
 
-            {manualTokenError && (
-              <p className="text-[11px] font-mono text-rose-400 flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> Código o Token no encontrado. Verifica con el Administrador.
+              <div className="relative">
+                <input
+                  type="text"
+                  autoFocus
+                  value={manualTokenInput}
+                  onChange={(e) => {
+                    setManualTokenInput(e.target.value);
+                    setManualTokenError(false);
+                    setAuthError(null);
+                  }}
+                  placeholder="Escribe tu código (Ej: PRV-ALM-101 o tu token)..."
+                  className="w-full bg-slate-900 border border-amber-500/40 focus:border-amber-400 text-amber-300 placeholder:text-slate-600 text-sm font-mono font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+                />
+              </div>
+
+              {manualTokenError && (
+                <div className="p-2.5 bg-red-950/80 border border-red-500/80 rounded-xl text-red-200 text-xs font-mono flex items-center gap-2 animate-fadeIn">
+                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                  <span>Código o token no válido. Verifica el código e inténtalo nuevamente.</span>
+                </div>
+              )}
+
+              <p className="text-[10px] text-slate-400 font-mono">
+                💡 Puedes escribir el código del taller (ej: <span className="text-amber-400 font-bold">PRV-ALM-101</span>) o tu token personalizado.
               </p>
-            )}
+            </div>
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-mono font-bold transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all shadow-lg shadow-amber-500/25 cursor-pointer flex items-center justify-center gap-2 border border-amber-300"
             >
-              Validar e Ingresar
+              <Key className="w-4 h-4" />
+              <span>INGRESAR A MI OFICINA VIRTUAL</span>
             </button>
           </form>
 
-          <div className="pt-4 border-t border-slate-800/80 space-y-2.5">
+          {/* ACCESO RÁPIDO PARA DEMOSTRACIÓN / PRUEBAS */}
+          {registeredProveedores.length > 0 && (
+            <div className="p-3.5 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-2 text-left">
+              <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                🏢 Talleres Registrados en el Sistema (Clic para ingresar de prueba):
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto custom-scrollbar pt-1">
+                {registeredProveedores.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      const code = p.slugAcceso || p.tokenAcceso || p.codigo;
+                      setManualTokenInput(code);
+                      setManualTokenError(false);
+                    }}
+                    className="px-2.5 py-1 bg-slate-900 hover:bg-amber-500/20 text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="text-amber-400 font-bold">{p.codigo}</span>
+                    <span className="text-slate-400 truncate max-w-[120px]">- {p.nombreComercial}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Links de Ayuda y Retorno */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-2">
             <a
-              href="https://wa.me/573001234567?text=Hola%20Estivenson,%20solicito%20mi%20enlace%20o%20token%20de%20acceso%20a%20mi%20Oficina%20Virtual%20de%20Proveedor%20en%20Atziluth%20Gr%C3%A1fic."
+              href="https://wa.me/573001234567?text=Hola%20Estivenson,%20solicito%20mi%20c%C3%B3digo%20de%20acceso%20para%20la%20Oficina%20Virtual%20de%20Proveedor%20en%20Atziluth%20Gr%C3%A1fic."
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-2.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-mono transition-colors flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-2.5 bg-emerald-950/70 hover:bg-emerald-900/90 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-mono transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Solicitar mi Enlace por WhatsApp</span>
+              <span>Solicitar o Recuperar Código por WhatsApp</span>
             </a>
 
             {onNavigateHome ? (
               <button
                 type="button"
                 onClick={onNavigateHome}
-                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer"
+                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-mono transition-all cursor-pointer border border-slate-800"
               >
-                Volver al Inicio
+                ← Volver al Portal Principal
               </button>
             ) : (
               <a
                 href="/"
-                className="block w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono font-bold transition-all text-center"
+                className="block w-full py-2 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl text-xs font-mono transition-all text-center border border-slate-800"
               >
-                Volver al Inicio
+                ← Volver al Portal Principal
               </a>
             )}
           </div>
@@ -682,11 +767,59 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
             </div>
           </div>
 
+          {/* BARRA PERMANENTE: CÓDIGO DE ACCESO DEL TALLER (SIEMPRE VISIBLE) */}
+          <div className="mt-5 p-4 bg-gradient-to-r from-amber-950/60 via-slate-950 to-amber-950/40 border-2 border-amber-500/70 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500 text-slate-950 rounded-xl font-bold shadow-md shadow-amber-500/30">
+                <Key className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-mono uppercase text-amber-300 font-extrabold tracking-wider">
+                    🔑 CÓDIGO DE ACCESO OFICIAL DEL TALLER:
+                  </span>
+                  <span className="px-3 py-1 bg-amber-400 text-slate-950 font-mono font-black text-xs sm:text-sm rounded-lg shadow-md border border-amber-300">
+                    {currentProveedor.slugAcceso || currentProveedor.tokenAcceso || currentProveedor.codigo}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 font-mono pt-1">
+                  Usa este código para ingresar directamente a tu portal. Puedes modificarlo cuando desees en la pestaña de abajo.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-start md:self-auto shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const code = currentProveedor.slugAcceso || currentProveedor.tokenAcceso || currentProveedor.codigo;
+                  if (navigator.clipboard) {
+                    navigator.clipboard.writeText(code);
+                    setNotificationBanner({ msg: `Código ${code} copiado al portapapeles.`, type: 'info' });
+                  }
+                }}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow"
+              >
+                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Copiar Código</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('banco')}
+                className="px-4 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-black rounded-xl transition-all flex items-center gap-1.5 shadow-lg cursor-pointer border border-amber-300"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Editar Código & Banco</span>
+              </button>
+            </div>
+          </div>
+
           {/* Navigation Tabs */}
           <div className="flex flex-wrap items-center gap-2 mt-6 pt-5 border-t border-slate-800">
             <button
               onClick={() => setActiveTab('pedidos')}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'pedidos'
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300'
@@ -698,22 +831,23 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
             <button
               onClick={() => setActiveTab('banco')}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 border-2 cursor-pointer ${
                 activeTab === 'banco'
-                  ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
-                  : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 border-amber-300 shadow-xl shadow-amber-500/30 scale-105'
+                  : 'bg-slate-900 hover:bg-amber-500/20 text-amber-300 border-amber-500/50 hover:border-amber-400'
               }`}
             >
+              <Key className="w-4 h-4 text-amber-400" />
               <CreditCard className="w-4 h-4" />
-              <span>DATOS BANCARIOS PARA PAGOS</span>
+              <span>DATOS BANCARIOS & CÓDIGO DE ACCESO</span>
               {currentProveedor.datosBancarios?.numeroCuenta && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
               )}
             </button>
 
             <button
               onClick={() => setActiveTab('pagos')}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'pagos'
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300'
@@ -725,7 +859,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
             <button
               onClick={() => setActiveTab('resumen')}
-              className={`px-4 py-2 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+              className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer ${
                 activeTab === 'resumen'
                   ? 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/20'
                   : 'bg-slate-800/60 hover:bg-slate-800 text-slate-300'
@@ -988,161 +1122,267 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
           </section>
         )}
 
-        {/* TAB 2: DATOS BANCARIOS */}
+        {/* TAB 2: DATOS BANCARIOS & CÓDIGO DE ACCESO */}
         {activeTab === 'banco' && (
           <section className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl max-w-3xl mx-auto space-y-6">
             <div className="space-y-2 border-b border-slate-800 pb-5">
               <div className="flex items-center gap-2.5 text-amber-400">
                 <CreditCard className="w-6 h-6" />
                 <h2 className="text-lg font-bold font-mono text-white">
-                  Datos Bancarios para Transferencias & Liquidación
+                  Datos Bancarios & Código de Acceso a Oficina Virtual
                 </h2>
               </div>
               <p className="text-xs font-mono text-slate-400">
-                Mantén actualizada la cuenta donde Atziluth Gráfic Digital te transferirá los pagos correspondientes a las órdenes de producción finalizadas.
+                Mantén actualizada la cuenta donde Atziluth Gráfic Digital te transferirá los pagos y gestiona tu clave o código de acceso exclusivo.
               </p>
             </div>
 
             {bankSavedSuccess && (
-              <div className="p-4 bg-emerald-950/80 border border-emerald-600 text-emerald-200 rounded-2xl text-xs font-mono flex items-center gap-3">
+              <div className="p-4 bg-emerald-950/80 border border-emerald-600 text-emerald-200 rounded-2xl text-xs font-mono flex items-center gap-3 animate-fadeIn">
                 <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
-                <span>¡Información bancaria guardada y sincronizada con el panel administrativo!</span>
+                <span>¡Información y Código de Acceso guardados y sincronizados correctamente con el sistema!</span>
               </div>
             )}
 
-            <form onSubmit={handleSaveBankDetails} className="space-y-5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Entidad Bancaria */}
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Entidad Bancaria / Billetera
-                  </label>
-                  <select
-                    value={bankForm.banco}
-                    onChange={(e) => setBankForm({ ...bankForm, banco: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  >
-                    <option value="Bancolombia">Bancolombia</option>
-                    <option value="Nequi">Nequi</option>
-                    <option value="Daviplata">Daviplata</option>
-                    <option value="Davivienda">Davivienda</option>
-                    <option value="Banco de Bogotá">Banco de Bogotá</option>
-                    <option value="BBVA Colombia">BBVA Colombia</option>
-                    <option value="Banco Agrario">Banco Agrario</option>
-                    <option value="Banco Caja Social">Banco Caja Social</option>
-                    <option value="Scotiabank Colpatria">Scotiabank Colpatria</option>
-                    <option value="Otro">Otro Banco / Cooperativa</option>
-                  </select>
+            <form onSubmit={handleSaveBankDetails} className="space-y-6">
+              {/* ========================================================================= */}
+              {/* SECCIÓN OBLIGATORIA: CÓDIGO DE ACCESO A LA OFICINA VIRTUAL */}
+              {/* ========================================================================= */}
+              <div className={`p-4 sm:p-5 rounded-2xl border-2 transition-all space-y-3 shadow-lg ${
+                codigoAccesoError 
+                  ? 'bg-red-950/30 border-red-500/80' 
+                  : 'bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 border-amber-500/50'
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/40">
+                      <Key className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-mono uppercase text-amber-300 font-bold block">
+                        Código de Acceso a Oficina Virtual *
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-sans">
+                        Este código es OBLIGATORIO para ingresar a tu oficina virtual privada
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomToken = `token_${(currentProveedor.categoria || 'PRV').substring(0, 3).toLowerCase()}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
+                        setBankForm({ ...bankForm, codigoAcceso: randomToken });
+                        setCodigoAccesoError(null);
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      title="Generar nuevo token seguro"
+                    >
+                      Generar Token Seguro
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (bankForm.codigoAcceso && navigator.clipboard) {
+                          navigator.clipboard.writeText(bankForm.codigoAcceso);
+                          setNotificationBanner({
+                            msg: `Código copiado: ${bankForm.codigoAcceso}`,
+                            type: 'info'
+                          });
+                        }
+                      }}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-[10px] font-mono rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Copy className="w-3 h-3 text-amber-400" />
+                      <span>Copiar</span>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Tipo de Cuenta */}
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Tipo de Cuenta
+                <div className="space-y-2">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Tu Código o Token de Ingreso <span className="text-amber-400">*</span>
                   </label>
-                  <select
-                    value={bankForm.tipoCuenta}
-                    onChange={(e) =>
-                      setBankForm({
-                        ...bankForm,
-                        tipoCuenta: e.target.value as 'Ahorros' | 'Corriente' | 'Billetera Digital'
-                      })
-                    }
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  >
-                    <option value="Ahorros">Cuenta de Ahorros</option>
-                    <option value="Corriente">Cuenta Corriente</option>
-                    <option value="Billetera Digital">Billetera Digital (Celular)</option>
-                  </select>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={bankForm.codigoAcceso}
+                      onChange={(e) => {
+                        setBankForm({ ...bankForm, codigoAcceso: e.target.value.toLowerCase().replace(/\s+/g, '-') });
+                        if (e.target.value.trim()) {
+                          setCodigoAccesoError(null);
+                        }
+                      }}
+                      placeholder="Ej: PRV-TAL-101, mi-taller-medellin o token_seguro_..."
+                      className={`w-full bg-slate-950 border-2 rounded-xl p-3 text-xs font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                        codigoAccesoError 
+                          ? 'border-red-500 text-red-200 placeholder-red-400/50 focus:border-red-400 focus:ring-2 focus:ring-red-500/30' 
+                          : 'border-amber-500/70 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30'
+                      }`}
+                    />
+                  </div>
+
+                  {/* MENSAJE DE ERROR VISUAL SI ESTÁ VACÍO */}
+                  {codigoAccesoError && (
+                    <div className="p-3 bg-red-950/80 border border-red-500 text-red-200 rounded-xl text-xs font-mono flex items-center gap-2 animate-fadeIn">
+                      <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                      <span>{codigoAccesoError}</span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-slate-400 pt-1">
+                    <span className="truncate max-w-md">
+                      Enlace Directo: <span className="text-amber-400">{window.location.origin}/?token={bankForm.codigoAcceso || currentProveedor.tokenAcceso}#proveedor</span>
+                    </span>
+                    <span className="text-slate-500">
+                      💡 Guardar este formulario actualizará de inmediato tu clave de ingreso.
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Número de Cuenta */}
-              <div>
-                <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                  Número de Cuenta o Celular Nequi/Daviplata
-                </label>
-                <input
-                  type="text"
-                  value={bankForm.numeroCuenta}
-                  onChange={(e) => setBankForm({ ...bankForm, numeroCuenta: e.target.value })}
-                  placeholder="Ej: 458-921844-12 o 300 123 4567"
-                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500"
-                  required
-                />
-              </div>
+              {/* ========================================================================= */}
+              {/* DATOS BANCARIOS */}
+              {/* ========================================================================= */}
+              <div className="space-y-4 pt-2">
+                <span className="text-xs font-mono uppercase font-bold text-amber-400 block border-b border-slate-800 pb-2">
+                  Información Bancaria para Transferencias
+                </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Nombre del Titular */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Entidad Bancaria */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Entidad Bancaria / Billetera
+                    </label>
+                    <select
+                      value={bankForm.banco}
+                      onChange={(e) => setBankForm({ ...bankForm, banco: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="Bancolombia">Bancolombia</option>
+                      <option value="Nequi">Nequi</option>
+                      <option value="Daviplata">Daviplata</option>
+                      <option value="Davivienda">Davivienda</option>
+                      <option value="Banco de Bogotá">Banco de Bogotá</option>
+                      <option value="BBVA Colombia">BBVA Colombia</option>
+                      <option value="Banco Agrario">Banco Agrario</option>
+                      <option value="Banco Caja Social">Banco Caja Social</option>
+                      <option value="Scotiabank Colpatria">Scotiabank Colpatria</option>
+                      <option value="Otro">Otro Banco / Cooperativa</option>
+                    </select>
+                  </div>
+
+                  {/* Tipo de Cuenta */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Tipo de Cuenta
+                    </label>
+                    <select
+                      value={bankForm.tipoCuenta}
+                      onChange={(e) =>
+                        setBankForm({
+                          ...bankForm,
+                          tipoCuenta: e.target.value as 'Ahorros' | 'Corriente' | 'Billetera Digital'
+                        })
+                      }
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                      required
+                    >
+                      <option value="Ahorros">Cuenta de Ahorros</option>
+                      <option value="Corriente">Cuenta Corriente</option>
+                      <option value="Billetera Digital">Billetera Digital (Celular)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Número de Cuenta */}
                 <div>
                   <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Nombre o Razón Social del Titular
+                    Número de Cuenta o Celular Nequi/Daviplata
                   </label>
                   <input
                     type="text"
-                    value={bankForm.titular}
-                    onChange={(e) => setBankForm({ ...bankForm, titular: e.target.value })}
-                    placeholder="Ej: Talleres Gráficos del Valle S.A.S."
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                    value={bankForm.numeroCuenta}
+                    onChange={(e) => setBankForm({ ...bankForm, numeroCuenta: e.target.value })}
+                    placeholder="Ej: 458-921844-12 o 300 123 4567"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-amber-400 font-bold focus:outline-none focus:border-amber-500"
                     required
                   />
                 </div>
 
-                {/* Cédula o NIT */}
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Cédula (CC) o NIT del Titular
-                  </label>
-                  <input
-                    type="text"
-                    value={bankForm.documentoTitular}
-                    onChange={(e) => setBankForm({ ...bankForm, documentoTitular: e.target.value })}
-                    placeholder="Ej: 901.458.772-1 o CC 71.345.980"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                    required
-                  />
-                </div>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Nombre del Titular */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Nombre o Razón Social del Titular
+                    </label>
+                    <input
+                      type="text"
+                      value={bankForm.titular}
+                      onChange={(e) => setBankForm({ ...bankForm, titular: e.target.value })}
+                      placeholder="Ej: Talleres Gráficos del Valle S.A.S."
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Teléfono para Confirmación */}
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Teléfono / WhatsApp para Enviar Comprobante
-                  </label>
-                  <input
-                    type="text"
-                    value={bankForm.telefonoTransferencia}
-                    onChange={(e) => setBankForm({ ...bankForm, telefonoTransferencia: e.target.value })}
-                    placeholder="Ej: +57 312 456 7890"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                  />
+                  {/* Cédula o NIT */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Cédula (CC) o NIT del Titular
+                    </label>
+                    <input
+                      type="text"
+                      value={bankForm.documentoTitular}
+                      onChange={(e) => setBankForm({ ...bankForm, documentoTitular: e.target.value })}
+                      placeholder="Ej: 901.458.772-1 o CC 71.345.980"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                      required
+                    />
+                  </div>
                 </div>
 
-                {/* Email de Notificaciones */}
-                <div>
-                  <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
-                    Correo Electrónico Contable (Opcional)
-                  </label>
-                  <input
-                    type="email"
-                    value={bankForm.emailNotificaciones}
-                    onChange={(e) => setBankForm({ ...bankForm, emailNotificaciones: e.target.value })}
-                    placeholder="Ej: pagos@talleresgraficos.com"
-                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Teléfono para Confirmación */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Teléfono / WhatsApp para Enviar Comprobante
+                    </label>
+                    <input
+                      type="text"
+                      value={bankForm.telefonoTransferencia}
+                      onChange={(e) => setBankForm({ ...bankForm, telefonoTransferencia: e.target.value })}
+                      placeholder="Ej: +57 312 456 7890"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  {/* Email de Notificaciones */}
+                  <div>
+                    <label className="block text-xs font-mono font-bold text-slate-300 uppercase mb-1.5">
+                      Correo Electrónico Contable (Opcional)
+                    </label>
+                    <input
+                      type="email"
+                      value={bankForm.emailNotificaciones}
+                      onChange={(e) => setBankForm({ ...bankForm, emailNotificaciones: e.target.value })}
+                      placeholder="Ej: pagos@talleresgraficos.com"
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="pt-3">
                 <button
                   type="submit"
-                  className="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-400/30"
                 >
                   <Save className="w-4 h-4" />
-                  <span>GUARDAR Y ACTUALIZAR DATOS BANCARIOS</span>
+                  <span>GUARDAR DATOS & CÓDIGO DE ACCESO</span>
                 </button>
               </div>
             </form>
