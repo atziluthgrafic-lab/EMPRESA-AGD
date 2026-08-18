@@ -8,6 +8,7 @@ import AdminDashboard from "./components/AdminDashboard";
 import AlmanaquesSection from "./components/AlmanaquesSection";
 import CustomerList from "./components/CustomerList";
 import CustomerRegistrationForm from "./components/CustomerRegistrationForm";
+import ProveedorVirtualOffice from "./components/ProveedorVirtualOffice";
 import { obtenerClientes } from "./utils/customerService";
 import { SubregionId } from "./types";
 import {
@@ -430,9 +431,26 @@ export default function App() {
     }
   };
 
-  // Dedicated HashRouter isolated view check for sellers and administrative navigation
+  // Dedicated HashRouter / URL query isolated view checks
+  const urlSearch = typeof window !== "undefined" ? window.location.search : "";
+  const hasProviderQuery = urlSearch.includes("token=") || urlSearch.includes("proveedor=") || urlSearch.includes("prv=");
+  const isProveedorRoute = currentHash.startsWith("#proveedor") || currentHash.startsWith("#oficina-proveedor") || hasProviderQuery;
   const isCustomerListRoute = currentHash === "#customer-list" || currentHash === "#clientes";
   const isCustomerRegistrationRoute = currentHash === "#customer-registration" || currentHash === "#nuevo-cliente";
+
+  if (isProveedorRoute) {
+    return (
+      <ProveedorVirtualOffice
+        onNavigateHome={() => {
+          if (window.history.pushState) {
+            window.history.pushState({}, "", window.location.pathname);
+          }
+          window.location.hash = "";
+          setCurrentHash("");
+        }}
+      />
+    );
+  }
 
   if (isCustomerListRoute || isCustomerRegistrationRoute) {
     return (

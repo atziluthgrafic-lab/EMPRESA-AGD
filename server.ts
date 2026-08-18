@@ -1617,6 +1617,329 @@ const handleUploadFileRequest = (req: any, res: any) => {
 app.post("/api/admin/upload-file", allowUpload, handleUploadFileRequest);
 app.post("/api/upload-file", allowUpload, handleUploadFileRequest);
 
+// ==================== MÓDULO PROVEEDORES & OFICINA VIRTUAL API ====================
+const PROVEEDORES_FILE = path.join(process.cwd(), "proveedores_data.json");
+const PROV_ORDENES_FILE = path.join(process.cwd(), "proveedores_ordenes.json");
+const PROV_PAGOS_FILE = path.join(process.cwd(), "proveedores_pagos.json");
+
+function getDefaultProveedoresServer() {
+  return [
+    {
+      id: "prv_1",
+      codigo: "PRV-ALM-001",
+      nombreComercial: "Talleres Gráficos & Troquelados del Valle",
+      contactoNombre: "Carlos Mario Jaramillo",
+      telefonoWhatsapp: "+57 312 456 7890",
+      email: "produccion@troqueladosvalle.com",
+      categoria: "Almanaques",
+      tokenAcceso: "token_almanaques_valle_9921a",
+      activo: true,
+      direccionTaller: "Calle 44 # 52-18, Sector Alpujarra, Medellín",
+      municipio: "Medellín",
+      datosBancarios: {
+        banco: "Bancolombia",
+        tipoCuenta: "Ahorros",
+        numeroCuenta: "458-921844-12",
+        titular: "Talleres Gráficos del Valle S.A.S.",
+        documentoTitular: "NIT 901.458.772-1",
+        telefonoTransferencia: "+57 312 456 7890"
+      },
+      notasInternas: "Especialista en troquelado de respaldo cartón duplex 300g, ojilletes y tacos mensuales.",
+      createdAt: "2026-08-01"
+    },
+    {
+      id: "prv_2",
+      codigo: "PRV-TAL-002",
+      nombreComercial: "Litografía & Formas Continuas Antioquia",
+      contactoNombre: "Marta Lucía Restrepo",
+      telefonoWhatsapp: "+57 300 789 1234",
+      email: "pedidos@formascontinuasantioquia.com",
+      categoria: "Talonarios",
+      tokenAcceso: "token_talonarios_antioquia_7734b",
+      activo: true,
+      direccionTaller: "Carrera 50 # 38-20, Guayabal, Medellín",
+      municipio: "Medellín",
+      datosBancarios: {
+        banco: "Nequi / Daviplata",
+        tipoCuenta: "Billetera Digital",
+        numeroCuenta: "3007891234",
+        titular: "Marta Lucía Restrepo",
+        documentoTitular: "CC 43.892.110",
+        telefonoTransferencia: "+57 300 789 1234"
+      },
+      notasInternas: "Papel químico autocopiante 2 y 3 copias, numeración consecutiva roja y perforado.",
+      createdAt: "2026-08-05"
+    },
+    {
+      id: "prv_3",
+      codigo: "PRV-BOR-003",
+      nombreComercial: "Bordados & Estampados Textiles del Sur",
+      contactoNombre: "Jorge Iván Bedoya",
+      telefonoWhatsapp: "+57 315 654 3210",
+      email: "talleres@textilesdelsur.com",
+      categoria: "Bordados",
+      tokenAcceso: "token_bordados_sur_1145c",
+      activo: true,
+      direccionTaller: "Calle 6 Sur # 43A-50, Itagüí, Antioquia",
+      municipio: "Itagüí",
+      datosBancarios: {
+        banco: "Bancolombia",
+        tipoCuenta: "Ahorros",
+        numeroCuenta: "031-884920-55",
+        titular: "Jorge Iván Bedoya",
+        documentoTitular: "CC 71.345.980",
+        telefonoTransferencia: "+57 315 654 3210"
+      },
+      notasInternas: "Bordado computarizado alta densidad y gorras 6 paneles estructuradas.",
+      createdAt: "2026-08-10"
+    }
+  ];
+}
+
+function loadProveedoresServer() {
+  try {
+    if (fs.existsSync(PROVEEDORES_FILE)) {
+      return JSON.parse(fs.readFileSync(PROVEEDORES_FILE, "utf-8"));
+    }
+  } catch (e) {
+    console.error("Error reading proveedores_data.json:", e);
+  }
+  const initial = getDefaultProveedoresServer();
+  saveProveedoresServer(initial);
+  return initial;
+}
+
+function saveProveedoresServer(data: any[]) {
+  fs.writeFileSync(PROVEEDORES_FILE, JSON.stringify(data, null, 2), "utf-8");
+  const pub = path.join(process.cwd(), "public", "proveedores_data.json");
+  fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
+}
+
+function loadProvOrdenesServer() {
+  try {
+    if (fs.existsSync(PROV_ORDENES_FILE)) {
+      return JSON.parse(fs.readFileSync(PROV_ORDENES_FILE, "utf-8"));
+    }
+  } catch (e) {
+    console.error("Error reading proveedores_ordenes.json:", e);
+  }
+  return [];
+}
+
+function saveProvOrdenesServer(data: any[]) {
+  fs.writeFileSync(PROV_ORDENES_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+
+function loadProvPagosServer() {
+  try {
+    if (fs.existsSync(PROV_PAGOS_FILE)) {
+      return JSON.parse(fs.readFileSync(PROV_PAGOS_FILE, "utf-8"));
+    }
+  } catch (e) {
+    console.error("Error reading proveedores_pagos.json:", e);
+  }
+  return [];
+}
+
+function saveProvPagosServer(data: any[]) {
+  fs.writeFileSync(PROV_PAGOS_FILE, JSON.stringify(data, null, 2), "utf-8");
+}
+
+// 1. API: List and Create Proveedores
+app.get("/api/proveedores", (req, res) => {
+  const proveedores = loadProveedoresServer();
+  res.json({ success: true, proveedores });
+});
+
+app.post("/api/proveedores", (req, res) => {
+  try {
+    const { id, codigo, nombreComercial, contactoNombre, telefonoWhatsapp, email, categoria, direccionTaller, municipio, datosBancarios, notasInternas } = req.body;
+    if (!nombreComercial || !categoria) {
+      return res.status(400).json({ success: false, error: "Nombre comercial y categoría son obligatorios." });
+    }
+
+    const proveedores = loadProveedoresServer();
+    let updated: any;
+
+    if (id) {
+      const idx = proveedores.findIndex((p: any) => p.id === id);
+      if (idx !== -1) {
+        proveedores[idx] = {
+          ...proveedores[idx],
+          nombreComercial,
+          contactoNombre: contactoNombre || proveedores[idx].contactoNombre,
+          telefonoWhatsapp: telefonoWhatsapp || proveedores[idx].telefonoWhatsapp,
+          email: email || proveedores[idx].email,
+          categoria,
+          direccionTaller: direccionTaller || proveedores[idx].direccionTaller,
+          municipio: municipio || proveedores[idx].municipio,
+          datosBancarios: datosBancarios || proveedores[idx].datosBancarios,
+          notasInternas: notasInternas || proveedores[idx].notasInternas,
+          updatedAt: new Date().toISOString()
+        };
+        updated = proveedores[idx];
+      }
+    }
+
+    if (!updated) {
+      const randomSuffix = Math.random().toString(36).substring(2, 10);
+      const catCode = categoria.substring(0, 3).toUpperCase();
+      const codeStr = codigo || `PRV-${catCode}-${100 + proveedores.length + 1}`;
+      const token = `token_${catCode.toLowerCase()}_${Date.now()}_${randomSuffix}`;
+
+      updated = {
+        id: id || `prv_${Date.now()}`,
+        codigo: codeStr,
+        nombreComercial,
+        contactoNombre: contactoNombre || "Contacto Taller",
+        telefonoWhatsapp: telefonoWhatsapp || "+57 300 000 0000",
+        email: email || "",
+        categoria,
+        tokenAcceso: token,
+        activo: true,
+        direccionTaller: direccionTaller || "Medellín, Antioquia",
+        municipio: municipio || "Medellín",
+        datosBancarios: datosBancarios || {
+          banco: "Bancolombia",
+          tipoCuenta: "Ahorros",
+          numeroCuenta: "",
+          titular: nombreComercial,
+          documentoTitular: ""
+        },
+        notasInternas: notasInternas || "",
+        createdAt: new Date().toISOString()
+      };
+      proveedores.unshift(updated);
+    }
+
+    saveProveedoresServer(proveedores);
+    res.json({ success: true, proveedor: updated, proveedores });
+  } catch (err: any) {
+    console.error("Error al guardar proveedor:", err);
+    res.status(500).json({ success: false, error: "Error de servidor al guardar proveedor." });
+  }
+});
+
+// 2. API: Resolve Provider by Unique Token or ID
+app.get("/api/proveedores/:idOrToken", (req, res) => {
+  const { idOrToken } = req.params;
+  const proveedores = loadProveedoresServer();
+  const found = proveedores.find(
+    (p: any) => p.tokenAcceso === idOrToken || p.id === idOrToken || p.codigo.toLowerCase() === idOrToken.toLowerCase()
+  );
+
+  if (!found) {
+    return res.status(404).json({ success: false, error: "Oficina virtual de proveedor no encontrada o enlace inactivo." });
+  }
+
+  res.json({ success: true, proveedor: found });
+});
+
+// 3. API: Update Bank Details
+app.post("/api/proveedores/banco", (req, res) => {
+  try {
+    const { proveedorId, token, datosBancarios } = req.body;
+    if (!datosBancarios || !datosBancarios.numeroCuenta) {
+      return res.status(400).json({ success: false, error: "El número de cuenta es obligatorio." });
+    }
+
+    const proveedores = loadProveedoresServer();
+    const idx = proveedores.findIndex((p: any) => p.id === proveedorId || p.tokenAcceso === token);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Proveedor no encontrado." });
+    }
+
+    proveedores[idx].datosBancarios = datosBancarios;
+    proveedores[idx].updatedAt = new Date().toISOString();
+    saveProveedoresServer(proveedores);
+
+    res.json({ success: true, proveedor: proveedores[idx] });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Error al actualizar datos bancarios." });
+  }
+});
+
+// 4. API: Strict JPG Payment Voucher Upload
+app.post("/api/proveedores/upload-comprobante-jpg", allowUpload, (req, res) => {
+  try {
+    const { fileName, base64Data } = req.body;
+    if (!base64Data) {
+      return res.status(400).json({ success: false, error: "No se enviaron datos de imagen." });
+    }
+
+    // Strict validation: check for JPG header or filename extension
+    const isJpgExtension = /\.(jpg|jpeg)$/i.test(fileName || "");
+    const isJpgMime = base64Data.startsWith("data:image/jpeg") || base64Data.startsWith("data:image/jpg");
+
+    if (!isJpgExtension && !isJpgMime) {
+      return res.status(400).json({
+        success: false,
+        error: "Formato no permitido. Los comprobantes de transferencia a proveedores deben estar estrictamente en formato .JPG (.jpeg)."
+      });
+    }
+
+    let cleanBase64 = base64Data;
+    const commaIdx = cleanBase64.indexOf(",");
+    if (commaIdx !== -1) {
+      cleanBase64 = cleanBase64.substring(commaIdx + 1);
+    }
+    cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, "");
+
+    const buffer = Buffer.from(cleanBase64, "base64");
+    const uniqueName = `comprobante_${Date.now()}_${(fileName || "transferencia.jpg").replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const fileUrl = `/uploads/${uniqueName}`;
+
+    [UPLOADS_DIR, PUBLIC_UPLOADS_DIR, IMAGENES_DIR, PUBLIC_IMAGENES_DIR].forEach(dir => {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, uniqueName), buffer);
+    });
+
+    res.json({ success: true, url: fileUrl, fileName: uniqueName, format: "JPG" });
+  } catch (err: any) {
+    console.error("Error al subir comprobante JPG:", err);
+    res.status(500).json({ success: false, error: "Error al procesar el comprobante JPG." });
+  }
+});
+
+// 5. API: Register Payment & Automatic Receipt Generation
+app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
+  try {
+    const { proveedorId, ordenProduccionId, monto, metodoPago, referenciaBancaria, comprobanteJpgUrl, observaciones } = req.body;
+    const amountNum = Number(monto);
+    if (!proveedorId || !amountNum || amountNum <= 0 || !comprobanteJpgUrl) {
+      return res.status(400).json({ success: false, error: "Proveedor, monto válido y comprobante JPG son obligatorios." });
+    }
+
+    const pagos = loadProvPagosServer();
+    const currentYear = new Date().getFullYear();
+    const receiptNum = `REC-PRV-${currentYear}-${(1000 + pagos.length + 1).toString().padStart(4, "0")}`;
+
+    const newPayment = {
+      id: `pag_${Date.now()}`,
+      reciboConsecutivo: receiptNum,
+      proveedorId,
+      ordenProduccionId: ordenProduccionId || null,
+      monto: amountNum,
+      metodoPago: metodoPago || "Transferencia Bancolombia",
+      referenciaBancaria: referenciaBancaria || `TRF-${Math.floor(100000000 + Math.random() * 900000000)}`,
+      comprobanteJpgUrl,
+      fechaPago: new Date().toISOString().split("T")[0],
+      registradoPor: "Estivenson Navarro (Administrador General)",
+      observaciones: observaciones || "Comprobante de transferencia validado",
+      createdAt: new Date().toISOString()
+    };
+
+    pagos.unshift(newPayment);
+    saveProvPagosServer(pagos);
+
+    res.json({ success: true, pago: newPayment, pagos });
+  } catch (err: any) {
+    console.error("Error al registrar pago a proveedor:", err);
+    res.status(500).json({ success: false, error: "Error al registrar pago." });
+  }
+});
+// ==================== FIN MÓDULO PROVEEDORES ====================
+
 // Serve Admin HTML portals directly
 app.get(["/admin/ventas", "/admin/ventas.html", "/admin/Ventas.html"], (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "admin", "ventas.html"));
