@@ -55,12 +55,13 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   initialTokenOrId,
   onNavigateHome
 }) => {
-  // 1. Resolve Provider from URL params, hash, or prop
-  const [activeToken, setActiveToken] = useState<string>('');
-  const [proveedores, setProveedores] = useState<ProveedorRecord[]>([]);
+  // 1. Validation & Security states
+  const [isValidating, setIsValidating] = useState<boolean>(true);
+  const [validationStep, setValidationStep] = useState<string>('Verificando credenciales de acceso...');
+  const [authError, setAuthError] = useState<string | null>(null);
   const [currentProveedor, setCurrentProveedor] = useState<ProveedorRecord | null>(null);
   
-  // 2. Orders and Payments state
+  // 2. Orders and Payments state STRICTLY scoped to this single provider
   const [ordenes, setOrdenes] = useState<OrdenProduccion[]>([]);
   const [pagos, setPagos] = useState<PagoProveedor[]>([]);
   
@@ -100,118 +101,159 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [manualTokenInput, setManualTokenInput] = useState('');
   const [manualTokenError, setManualTokenError] = useState(false);
 
-  // Initial Data Load & URL parsing
+  // Initial Data Load, Token Security Verification & Exclusive Data Extraction
   useEffect(() => {
-    // Load from local storage
-    const loadedProveedores = getStoredProveedores();
-    const loadedOrdenes = getStoredOrdenes();
-    const loadedPagos = getStoredPagos();
-
-    setProveedores(loadedProveedores);
-    setOrdenes(loadedOrdenes);
-    setPagos(loadedPagos);
+    setIsValidating(true);
+    setValidationStep('Extrayendo credencial de seguridad del enlace...');
 
     // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
-    let token = initialTokenOrId || '';
+    let token = (initialTokenOrId || '').trim();
     if (!token && typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      token = urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '';
+      token = (urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '').trim();
       
       if (!token && window.location.hash.includes('?')) {
         const hashQuery = window.location.hash.split('?')[1];
         const hashParams = new URLSearchParams(hashQuery);
-        token = hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '';
+        token = (hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '').trim();
       } else if (!token && window.location.hash.includes('/')) {
         const parts = window.location.hash.split('/');
         if (parts.length > 1 && parts[1]) {
-          token = parts[1];
+          token = parts[1].trim();
         }
       }
     }
 
-    // Default fallback to first provider ONLY if no token was passed in URL and we have providers
-    if (!token && loadedProveedores.length > 0) {
-      token = loadedProveedores[0].tokenAcceso;
-    }
+    const timer1 = setTimeout(() => {
+      setValidationStep('Validando autorización y consultando registros exclusivos...');
 
-    setActiveToken(token);
+      const timer2 = setTimeout(() => {
+        if (!token) {
+          // No token provided in URL or parameters
+          setCurrentProveedor(null);
+          setOrdenes([]);
+          setPagos([]);
+          setAuthError('No se detectó ningún token o identificador en el enlace de acceso.');
+          setIsValidating(false);
+          return;
+        }
 
-    // Find matching provider strictly
-    const found = loadedProveedores.find(
-      (p) => p.tokenAcceso === token || p.id === token || p.codigo.toLowerCase() === token.toLowerCase()
-    );
+        // Query storage strictly for this single provider
+        const loadedProveedores = getStoredProveedores();
+        const found = loadedProveedores.find(
+          (p) =>
+            p.tokenAcceso === token ||
+            (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === token.toLowerCase()) ||
+            p.id === token ||
+            p.codigo.toLowerCase() === token.toLowerCase()
+        );
 
-    if (found) {
-      setCurrentProveedor(found);
-      setBankForm({
-        banco: found.datosBancarios?.banco || 'Bancolombia',
-        tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
-        numeroCuenta: found.datosBancarios?.numeroCuenta || '',
-        titular: found.datosBancarios?.titular || found.contactoNombre,
-        documentoTitular: found.datosBancarios?.documentoTitular || '',
-        telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
-        emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
-      });
-    } else {
-      setCurrentProveedor(null);
-    }
+        if (found) {
+          // Extract EXCLUSIVELY this provider's data (no other entities exist in state)
+          const allOrders = getStoredOrdenes();
+          const allPayments = getStoredPagos();
+
+          const exclusiveOrders = allOrders.filter((o) => o.proveedorId === found.id);
+          const exclusivePayments = allPayments.filter((p) => p.proveedorId === found.id);
+
+          setCurrentProveedor(found);
+          setOrdenes(exclusiveOrders);
+          setPagos(exclusivePayments);
+          setBankForm({
+            banco: found.datosBancarios?.banco || 'Bancolombia',
+            tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
+            numeroCuenta: found.datosBancarios?.numeroCuenta || '',
+            titular: found.datosBancarios?.titular || found.contactoNombre,
+            documentoTitular: found.datosBancarios?.documentoTitular || '',
+            telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
+            emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
+          });
+          setAuthError(null);
+          setIsValidating(false);
+        } else {
+          // Token is invalid / does not match any provider
+          setCurrentProveedor(null);
+          setOrdenes([]);
+          setPagos([]);
+          setAuthError('El token de acceso, dirección o código de taller no es válido, ha caducado o no está autorizado.');
+          setIsValidating(false);
+        }
+      }, 350);
+
+      return () => clearTimeout(timer2);
+    }, 250);
+
+    return () => clearTimeout(timer1);
   }, [initialTokenOrId]);
 
-  // Handle manual token submission
+  // Handle manual token submission with security check
   const handleManualTokenSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const clean = manualTokenInput.trim();
     if (!clean) return;
 
-    const loadedProveedores = getStoredProveedores();
-    const found = loadedProveedores.find(
-      (p) => p.tokenAcceso === clean || p.id === clean || p.codigo.toLowerCase() === clean.toLowerCase()
-    );
+    setIsValidating(true);
+    setValidationStep('Verificando credencial de acceso ingresada...');
 
-    if (found) {
-      setCurrentProveedor(found);
-      setActiveToken(found.tokenAcceso);
-      setManualTokenError(false);
-      setBankForm({
-        banco: found.datosBancarios?.banco || 'Bancolombia',
-        tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
-        numeroCuenta: found.datosBancarios?.numeroCuenta || '',
-        titular: found.datosBancarios?.titular || found.contactoNombre,
-        documentoTitular: found.datosBancarios?.documentoTitular || '',
-        telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
-        emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
-      });
-      // Update URL query string
-      if (window.history.pushState) {
-        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${found.tokenAcceso}#proveedor`;
-        window.history.pushState({ path: newUrl }, '', newUrl);
+    setTimeout(() => {
+      const loadedProveedores = getStoredProveedores();
+      const found = loadedProveedores.find(
+        (p) =>
+          p.tokenAcceso === clean ||
+          (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === clean.toLowerCase()) ||
+          p.id === clean ||
+          p.codigo.toLowerCase() === clean.toLowerCase()
+      );
+
+      if (found) {
+        const allOrders = getStoredOrdenes();
+        const allPayments = getStoredPagos();
+
+        setCurrentProveedor(found);
+        setOrdenes(allOrders.filter((o) => o.proveedorId === found.id));
+        setPagos(allPayments.filter((p) => p.proveedorId === found.id));
+        setManualTokenError(false);
+        setAuthError(null);
+        setBankForm({
+          banco: found.datosBancarios?.banco || 'Bancolombia',
+          tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
+          numeroCuenta: found.datosBancarios?.numeroCuenta || '',
+          titular: found.datosBancarios?.titular || found.contactoNombre,
+          documentoTitular: found.datosBancarios?.documentoTitular || '',
+          telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
+          emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
+        });
+
+        // Update URL query string
+        if (window.history.pushState) {
+          const accessParam = found.slugAcceso || found.tokenAcceso;
+          const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${accessParam}#proveedor`;
+          window.history.pushState({ path: newUrl }, '', newUrl);
+        }
+        setIsValidating(false);
+      } else {
+        setManualTokenError(true);
+        setAuthError('El token, dirección o código ingresado no existe en los registros autorizados.');
+        setIsValidating(false);
       }
-    } else {
-      setManualTokenError(true);
-    }
+    }, 350);
   };
 
-  // Sync current provider orders
-  const providerOrders = currentProveedor
-    ? ordenes.filter((o) => o.proveedorId === currentProveedor.id)
-    : [];
+  // Filtered orders (guaranteed to belong only to this provider)
+  const providerOrders = ordenes;
+  const providerPayments = pagos;
 
-  const providerPayments = currentProveedor
-    ? pagos.filter((p) => p.proveedorId === currentProveedor.id)
-    : [];
-
-  // Filtered orders
-  const filteredOrders = providerOrders.filter((o) => {
+  const filteredOrders = ordenes.filter((o) => {
     if (filterEstado === 'todos') return true;
     return o.estado === filterEstado;
   });
 
-  // Calculate financial summary for this provider
-  const totalCotizado = providerOrders.reduce((sum, o) => sum + (o.costoProveedor || 0), 0);
-  const totalPagado = providerPayments.reduce((sum, p) => sum + p.monto, 0);
+  // Calculate financial summary exclusively for this provider
+  const totalCotizado = ordenes.reduce((sum, o) => sum + (o.costoProveedor || 0), 0);
+  const totalPagado = pagos.reduce((sum, p) => sum + p.monto, 0);
   const saldoPendiente = Math.max(0, totalCotizado - totalPagado);
-  const ordenesTerminadas = providerOrders.filter((o) => o.estado === 'Terminado' || o.estado === 'Entregado').length;
-  const ordenesEnProceso = providerOrders.filter((o) => o.estado === 'En_Produccion' || o.estado === 'Pendiente_Cotizar').length;
+  const ordenesTerminadas = ordenes.filter((o) => o.estado === 'Terminado' || o.estado === 'Entregado').length;
+  const ordenesEnProceso = ordenes.filter((o) => o.estado === 'En_Produccion' || o.estado === 'Pendiente_Cotizar').length;
 
   const formatCOP = (val: number) => {
     return new Intl.NumberFormat('es-CO', {
@@ -240,10 +282,19 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       updatedAt: new Date().toISOString()
     };
 
-    const updatedList = proveedores.map((p) => (p.id === currentProveedor.id ? updatedProvider : p));
-    setProveedores(updatedList);
-    setCurrentProveedor(updatedProvider);
+    // Update global persistent store
+    const allProviders = getStoredProveedores();
+    const updatedList = allProviders.map((p) => (p.id === currentProveedor.id ? updatedProvider : p));
     saveStoredProveedores(updatedList);
+
+    // Update local isolated state
+    setCurrentProveedor(updatedProvider);
+
+    fetch('/api/proveedores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProvider)
+    }).catch(() => {});
 
     setBankSavedSuccess(true);
     setNotificationBanner({
@@ -261,7 +312,9 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     const cost = parseFloat(tempCostValue.replace(/[^0-9]/g, '')) || 0;
     if (cost <= 0) return;
 
-    const updatedOrders = ordenes.map((o) => {
+    // Update global store
+    const allOrders = getStoredOrdenes();
+    const updatedAll = allOrders.map((o) => {
       if (o.id === ordenId) {
         return {
           ...o,
@@ -271,9 +324,12 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       }
       return o;
     });
+    saveStoredOrdenes(updatedAll);
 
-    setOrdenes(updatedOrders);
-    saveStoredOrdenes(updatedOrders);
+    // Update local isolated orders
+    if (currentProveedor) {
+      setOrdenes(updatedAll.filter((o) => o.proveedorId === currentProveedor.id));
+    }
     setEditingCostId(null);
     setTempCostValue('');
 
@@ -298,7 +354,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const handleConfirmFinish = () => {
     if (!selectedOrden || !currentProveedor) return;
 
-    const updatedOrders = ordenes.map((o) => {
+    const allOrders = getStoredOrdenes();
+    const updatedAll = allOrders.map((o) => {
       if (o.id === selectedOrden.id) {
         return {
           ...o,
@@ -316,8 +373,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       return o;
     });
 
-    setOrdenes(updatedOrders);
-    saveStoredOrdenes(updatedOrders);
+    saveStoredOrdenes(updatedAll);
+    setOrdenes(updatedAll.filter((o) => o.proveedorId === currentProveedor.id));
     setIsFinishModalOpen(false);
 
     // Show persistent notification
@@ -350,25 +407,82 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     }, 400);
   };
 
-  // If no provider selected or found
-  if (!currentProveedor) {
+  // 1. LOADING SPINNER STATE
+  if (isValidating) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
-        <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
-          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
-            <ShieldCheck className="w-8 h-8" />
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Background ambient glows */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 left-1/2 -translate-x-1/2 translate-y-1/2 w-80 h-80 bg-orange-600/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-md w-full bg-slate-900/90 border border-slate-800/90 rounded-3xl p-8 text-center shadow-2xl relative backdrop-blur-xl space-y-6">
+          {/* Animated Glowing Icon */}
+          <div className="relative mx-auto w-20 h-20 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-orange-500/20 animate-pulse border border-amber-500/30" />
+            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-slate-950 shadow-lg shadow-amber-500/30">
+              <Building2 className="w-7 h-7" />
+            </div>
           </div>
-          <div className="space-y-2">
-            <h2 className="text-xl font-bold font-mono text-white">Oficina Virtual de Proveedor</h2>
-            <p className="text-xs text-slate-400">
-              Acceso privado y exclusivo para talleres aliados de Atziluth Gráfic Digital.
+
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-bold font-mono text-white tracking-wide">
+              ATZILUTH <span className="text-amber-400">OFICINA VIRTUAL</span>
+            </h2>
+            <p className="text-xs text-slate-400 font-mono">
+              Portal Seguro y Exclusivo para Talleres Aliados
             </p>
           </div>
 
-          <form onSubmit={handleManualTokenSubmit} className="space-y-3">
-            <div className="text-left space-y-1.5">
+          {/* Spinner and Status Indicator */}
+          <div className="space-y-3.5 p-4 bg-slate-950/80 border border-slate-800 rounded-2xl">
+            <div className="flex items-center justify-center gap-3">
+              <RefreshCw className="w-5 h-5 text-amber-400 animate-spin flex-shrink-0" />
+              <span className="text-xs font-mono text-amber-300 font-bold">
+                {validationStep}
+              </span>
+            </div>
+            
+            {/* Progress bar pulse */}
+            <div className="w-full bg-slate-800/80 h-1.5 rounded-full overflow-hidden">
+              <div className="bg-gradient-to-r from-amber-500 via-orange-400 to-amber-500 h-full rounded-full animate-pulse w-full" />
+            </div>
+
+            <div className="flex items-center justify-between text-[10px] font-mono text-slate-500">
+              <span className="flex items-center gap-1">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Cifrado de datos
+              </span>
+              <span>Validando Token Privado</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 2. ACCESS DENIED / INVALID OR NON-EXISTENT TOKEN STATE
+  if (!currentProveedor) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        {/* Ambient Glow */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-md w-full bg-slate-900/95 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6 relative backdrop-blur-xl">
+          <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center mx-auto text-rose-400 shadow-lg shadow-rose-500/10">
+            <AlertCircle className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-xl font-bold font-mono text-white">Acceso Denegado o Token No Válido</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {authError || "No se ha encontrado un taller activo autorizado con las credenciales de este enlace."}
+            </p>
+          </div>
+
+          {/* Form to enter valid token */}
+          <form onSubmit={handleManualTokenSubmit} className="space-y-3 text-left">
+            <div className="space-y-1.5">
               <label className="text-[11px] font-mono font-bold text-slate-400 uppercase">
-                Ingresa tu Token de Acceso o Código de Taller:
+                Ingresar con Token de Acceso o Código de Taller:
               </label>
               <input
                 type="text"
@@ -378,13 +492,13 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                   setManualTokenError(false);
                 }}
                 placeholder="Ej: PRV-ALM-101 o Token personal"
-                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 text-amber-400 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 focus:outline-none placeholder:text-slate-600"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 text-amber-400 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 focus:outline-none placeholder:text-slate-600 transition-colors"
               />
             </div>
 
             {manualTokenError && (
-              <p className="text-[11px] font-mono text-rose-400 text-left flex items-center gap-1">
-                <AlertCircle className="w-3.5 h-3.5" /> Código o Token no encontrado. Verifica con el Administrador.
+              <p className="text-[11px] font-mono text-rose-400 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> Código o Token no encontrado. Verifica con el Administrador.
               </p>
             )}
 
@@ -392,28 +506,36 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
               type="submit"
               className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-mono font-bold transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
             >
-              Ingresar a mi Oficina Virtual
+              Validar e Ingresar
             </button>
           </form>
 
-          <div className="pt-3 border-t border-slate-800/80 space-y-2">
+          <div className="pt-4 border-t border-slate-800/80 space-y-2.5">
             <a
               href="https://wa.me/573001234567?text=Hola%20Estivenson,%20solicito%20mi%20enlace%20o%20token%20de%20acceso%20a%20mi%20Oficina%20Virtual%20de%20Proveedor%20en%20Atziluth%20Gr%C3%A1fic."
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full py-2 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-mono transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs font-mono transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               <Phone className="w-3.5 h-3.5 text-emerald-400" />
               <span>Solicitar mi Enlace por WhatsApp</span>
             </a>
 
-            {onNavigateHome && (
+            {onNavigateHome ? (
               <button
+                type="button"
                 onClick={onNavigateHome}
-                className="w-full py-2 text-slate-500 hover:text-slate-400 text-xs font-mono transition-colors cursor-pointer"
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer"
               >
                 Volver al Inicio
               </button>
+            ) : (
+              <a
+                href="/"
+                className="block w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono font-bold transition-all text-center"
+              >
+                Volver al Inicio
+              </a>
             )}
           </div>
         </div>

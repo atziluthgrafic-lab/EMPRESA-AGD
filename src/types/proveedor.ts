@@ -38,6 +38,7 @@ export interface ProveedorRecord {
   categoria?: string; // Compatibilidad legacy (primera categoría)
   categorias: string[]; // Varias categorías o líneas de producción asignadas al taller
   tokenAcceso: string; // Token único o ID para oficina virtual
+  slugAcceso?: string; // Slug o dirección personalizada configurable por el admin (ej: taller-almohadas-medellin)
   activo: boolean;
   datosBancarios: ProveedorBankDetails;
   direccionTaller?: string;

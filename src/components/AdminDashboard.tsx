@@ -368,6 +368,7 @@ export default function AdminDashboard() {
   const [newProvTitular, setNewProvTitular] = useState("");
   const [newProvDocumento, setNewProvDocumento] = useState("");
   const [newProvNotas, setNewProvNotas] = useState("");
+  const [newProvSlug, setNewProvSlug] = useState("");
 
   // Edit Modal State
   const [editingProv, setEditingProv] = useState<ProveedorRecord | null>(null);
@@ -385,6 +386,11 @@ export default function AdminDashboard() {
   const [editProvDocumento, setEditProvDocumento] = useState("");
   const [editProvNotas, setEditProvNotas] = useState("");
   const [editProvActivo, setEditProvActivo] = useState(true);
+  const [editProvSlug, setEditProvSlug] = useState("");
+
+  // Modal Personalizar Dirección / Token de Acceso
+  const [customizingAccessProv, setCustomizingAccessProv] = useState<ProveedorRecord | null>(null);
+  const [customAccessKey, setCustomAccessKey] = useState("");
 
   // New Order Modal State
   const [orderModalProv, setOrderModalProv] = useState<ProveedorRecord | null>(null);
@@ -567,7 +573,8 @@ export default function AdminDashboard() {
     const catPrefix = primaryCat.substring(0, 3).toUpperCase();
     const count = proveedores.length + 1;
     const code = `PRV-${catPrefix}-${(100 + count).toString()}`;
-    const token = `token_${catPrefix.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const defaultToken = `token_${catPrefix.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const chosenAccess = (newProvSlug.trim() || defaultToken).replace(/\s+/g, '-').toLowerCase();
 
     const newRecord: ProveedorRecord = {
       id: `prv_${Date.now()}`,
@@ -578,7 +585,8 @@ export default function AdminDashboard() {
       email: newProvEmail.trim() || undefined,
       categoria: primaryCat,
       categorias: finalCategories,
-      tokenAcceso: token,
+      tokenAcceso: chosenAccess,
+      slugAcceso: chosenAccess,
       activo: true,
       direccionTaller: newProvDireccion.trim() || "Medellín, Antioquia",
       municipio: newProvMunicipio.trim() || "Medellín",
@@ -616,8 +624,9 @@ export default function AdminDashboard() {
     setNewProvTitular("");
     setNewProvDocumento("");
     setNewProvNotas("");
+    setNewProvSlug("");
 
-    setSaveStatus(`✓ Proveedor ${code} creado exitosamente con ${finalCategories.length} categorías.`);
+    setSaveStatus(`✓ Proveedor ${code} creado exitosamente con ${finalCategories.length} categorías y acceso configurado.`);
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
@@ -640,6 +649,7 @@ export default function AdminDashboard() {
     setEditProvDocumento(prov.datosBancarios?.documentoTitular || "");
     setEditProvNotas(prov.notasInternas || "");
     setEditProvActivo(prov.activo);
+    setEditProvSlug(prov.slugAcceso || prov.tokenAcceso || "");
   };
 
   const handleUpdateProveedor = (e: React.FormEvent) => {
@@ -651,6 +661,8 @@ export default function AdminDashboard() {
     }
 
     const finalCats = editProvCategorias.length > 0 ? editProvCategorias : [editingProv.categoria || "Servicios"];
+    const finalAccess = (editProvSlug.trim() || editingProv.slugAcceso || editingProv.tokenAcceso).replace(/\s+/g, '-').toLowerCase();
+
     const updatedProv: ProveedorRecord = {
       ...editingProv,
       nombreComercial: editProvNombre.trim(),
@@ -661,6 +673,8 @@ export default function AdminDashboard() {
       email: editProvEmail.trim() || undefined,
       direccionTaller: editProvDireccion.trim(),
       municipio: editProvMunicipio.trim(),
+      tokenAcceso: finalAccess,
+      slugAcceso: finalAccess,
       activo: editProvActivo,
       datosBancarios: {
         ...editingProv.datosBancarios,
@@ -686,6 +700,42 @@ export default function AdminDashboard() {
 
     setEditingProv(null);
     setSaveStatus(`✓ Proveedor ${updatedProv.codigo} actualizado con ${finalCats.length} categorías.`);
+    setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  const handleOpenCustomizeAccess = (prov: ProveedorRecord) => {
+    setCustomizingAccessProv(prov);
+    setCustomAccessKey(prov.slugAcceso || prov.tokenAcceso || `taller-${prov.nombreComercial.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
+  };
+
+  const handleSaveCustomizeAccess = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customizingAccessProv) return;
+    const cleanKey = customAccessKey.trim().replace(/\s+/g, '-').toLowerCase();
+    if (!cleanKey) {
+      alert("Por favor ingrese una dirección de ingreso o token válido.");
+      return;
+    }
+
+    const updatedProv: ProveedorRecord = {
+      ...customizingAccessProv,
+      slugAcceso: cleanKey,
+      tokenAcceso: cleanKey,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updated = proveedores.map(p => p.id === customizingAccessProv.id ? updatedProv : p);
+    setProveedores(updated);
+    saveStoredProveedores(updated);
+
+    fetch('/api/proveedores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProv)
+    }).catch(() => {});
+
+    setCustomizingAccessProv(null);
+    setSaveStatus(`✓ Dirección de ingreso para "${updatedProv.nombreComercial}" actualizada exitosamente.`);
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
@@ -799,15 +849,17 @@ export default function AdminDashboard() {
   };
 
   const handleOpenProvPortal = (prov: ProveedorRecord) => {
-    const url = `${window.location.origin}/?token=${prov.tokenAcceso}#proveedor`;
+    const accessKey = prov.slugAcceso || prov.tokenAcceso;
+    const url = `${window.location.origin}/?token=${accessKey}#proveedor`;
     window.open(url, '_blank');
   };
 
-  const handleCopyProvMagicLink = (token: string, code: string) => {
-    const url = `${window.location.origin}/?token=${token}#proveedor`;
+  const handleCopyProvMagicLink = (prov: ProveedorRecord) => {
+    const accessKey = prov.slugAcceso || prov.tokenAcceso;
+    const url = `${window.location.origin}/?token=${accessKey}#proveedor`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
-        setSaveStatus(`✓ Enlace privado copiado para ${code}`);
+        setSaveStatus(`✓ Enlace privado copiado (${accessKey})`);
         setTimeout(() => setSaveStatus(null), 3000);
       });
     } else {
@@ -816,10 +868,11 @@ export default function AdminDashboard() {
   };
 
   const handleShareProvWhatsApp = (prov: ProveedorRecord) => {
-    const url = `${window.location.origin}/?token=${prov.tokenAcceso}#proveedor`;
+    const accessKey = prov.slugAcceso || prov.tokenAcceso;
+    const url = `${window.location.origin}/?token=${accessKey}#proveedor`;
     const cleanPhone = (prov.telefonoWhatsapp || "").replace(/[^0-9]/g, "");
     const msg = encodeURIComponent(
-      `Hola ${prov.contactoNombre} (${prov.nombreComercial}), te comparto tu enlace de acceso a tu Oficina Virtual privada en Atziluth Gráfic Digital:\n\n🔗 ${url}\n\nAquí podrás revisar trabajos asignados, cotizar, descargar artes y confirmar entregas sin exponer datos de otros talleres.`
+      `Hola ${prov.contactoNombre} (${prov.nombreComercial}), te comparto tu enlace y clave de acceso privado a tu Oficina Virtual en Atziluth Gráfic Digital:\n\n🔗 ${url}\n\n🔑 Clave/Token de Acceso: ${accessKey}\n\nAquí podrás revisar tus trabajos asignados, cotizar y confirmar entregas con total confidencialidad.`
     );
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
   };
@@ -4072,18 +4125,36 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* Grid 4: Notas Internas */}
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                  Notas Internas / Especialidad Técnica del Taller
-                </label>
-                <input
-                  type="text"
-                  value={newProvNotas}
-                  onChange={(e) => setNewProvNotas(e.target.value)}
-                  placeholder="Ej: Troquelado en cartón duplex 300g, ojilletes metálicos, tacos mensuales, tiempo de entrega 3 días hábiles."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
-                />
+              {/* Grid 4: Notas Internas y Dirección de Acceso a Oficina Virtual */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Notas Internas / Especialidad Técnica del Taller
+                  </label>
+                  <input
+                    type="text"
+                    value={newProvNotas}
+                    onChange={(e) => setNewProvNotas(e.target.value)}
+                    placeholder="Ej: Troquelado en cartón duplex 300g, ojilletes metálicos, tacos mensuales..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-amber-300 mb-1 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Key className="w-3 h-3 text-amber-400" /> Dirección / Token de Ingreso a Oficina Virtual
+                    </span>
+                    <span className="text-[9px] text-slate-400">(Opcional / Editable)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={newProvSlug}
+                    onChange={(e) => setNewProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                    placeholder="Ej: taller-almanaque-norte o deja vacío para autogenerar"
+                    className="w-full bg-slate-900 border border-amber-500/30 rounded-xl px-3 py-2 text-xs text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                </div>
               </div>
 
               {/* Botón de Envío */}
@@ -4302,35 +4373,56 @@ export default function AdminDashboard() {
 
                               {/* Oficina Virtual Magic Link */}
                               <td className="py-3 px-4">
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenProvPortal(prov)}
-                                    title="Abrir y Ver Portal de este Proveedor"
-                                    className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
-                                  >
-                                    <Eye className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Ver Portal</span>
-                                  </button>
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      className="text-[10px] font-mono text-amber-300 font-bold bg-amber-950/60 px-2 py-0.5 rounded-lg border border-amber-500/30 truncate max-w-[170px] inline-flex items-center gap-1"
+                                      title={prov.slugAcceso || prov.tokenAcceso}
+                                    >
+                                      <Key className="w-2.5 h-2.5 text-amber-400 flex-shrink-0" />
+                                      <span className="truncate">{prov.slugAcceso || prov.tokenAcceso}</span>
+                                    </span>
+                                  </div>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleCopyProvMagicLink(prov.tokenAcceso, prov.codigo)}
-                                    title="Copiar Enlace Tokenizado"
-                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer"
-                                  >
-                                    <Copy className="w-3.5 h-3.5 text-amber-400" />
-                                    <span>Copiar Link</span>
-                                  </button>
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenProvPortal(prov)}
+                                      title="Abrir y Ver Portal de este Proveedor"
+                                      className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
+                                    >
+                                      <Eye className="w-3.5 h-3.5 text-amber-400" />
+                                      <span>Ver</span>
+                                    </button>
 
-                                  <button
-                                    type="button"
-                                    onClick={() => handleShareProvWhatsApp(prov)}
-                                    title="Compartir por WhatsApp"
-                                    className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer"
-                                  >
-                                    <Share2 className="w-3.5 h-3.5" />
-                                  </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleOpenCustomizeAccess(prov)}
+                                      title="Editar Dirección / Token de Ingreso"
+                                      className="p-1.5 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-semibold shadow-sm"
+                                    >
+                                      <Key className="w-3.5 h-3.5 text-indigo-400" />
+                                      <span>Dirección</span>
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopyProvMagicLink(prov)}
+                                      title="Copiar Enlace Tokenizado"
+                                      className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-mono transition-colors flex items-center justify-center cursor-pointer"
+                                    >
+                                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => handleShareProvWhatsApp(prov)}
+                                      title="Compartir por WhatsApp"
+                                      className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors flex items-center justify-center cursor-pointer"
+                                    >
+                                      <Share2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 </div>
                               </td>
 
@@ -6378,14 +6470,44 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Notas Internas</label>
-                <textarea
-                  rows={2}
-                  value={editProvNotas}
-                  onChange={(e) => setEditProvNotas(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">Notas Internas</label>
+                  <textarea
+                    rows={2}
+                    value={editProvNotas}
+                    onChange={(e) => setNewProvNotas ? setEditProvNotas(e.target.value) : setEditProvNotas(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-amber-300 mb-1 font-bold flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <Key className="w-3 h-3 text-amber-400" /> Dirección / Token de Ingreso a Oficina Virtual
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const randomToken = `token_${editingProv.codigo.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                        setEditProvSlug(randomToken);
+                      }}
+                      className="text-[9px] text-amber-400 hover:underline cursor-pointer"
+                    >
+                      Generar Token Aleatorio
+                    </button>
+                  </label>
+                  <input
+                    type="text"
+                    value={editProvSlug}
+                    onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                    placeholder="Ej: taller-almanaque-norte o token seguro"
+                    className="w-full bg-slate-950 border border-amber-500/40 rounded-xl px-3 py-2 text-xs text-amber-300 focus:outline-none focus:border-amber-500 font-mono"
+                  />
+                  <div className="text-[10px] font-mono text-slate-500 mt-1 truncate">
+                    URL: {window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor
+                  </div>
+                </div>
               </div>
 
               <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
@@ -6822,6 +6944,154 @@ export default function AdminDashboard() {
                   <span>Imprimir Recibo</span>
                 </button>
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ========================================================================= */}
+      {/* MODAL: PERSONALIZAR DIRECCIÓN DE INGRESO A OFICINA VIRTUAL DEL PROVEEDOR */}
+      {/* ========================================================================= */}
+      {customizingAccessProv && (() => {
+        const fullAccessUrl = `${window.location.origin}/?token=${customAccessKey.trim() || customizingAccessProv.tokenAcceso}#proveedor`;
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-xl w-full p-6 space-y-5 shadow-2xl relative">
+              {/* Header */}
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <Key className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white font-mono uppercase">
+                      Dirección de Acceso a Oficina Virtual
+                    </h3>
+                    <p className="text-xs text-slate-400 font-mono">
+                      {customizingAccessProv.nombreComercial} ({customizingAccessProv.codigo})
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setCustomizingAccessProv(null)}
+                  className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Strict Isolation Notice */}
+              <div className="p-3.5 bg-amber-950/40 border border-amber-500/30 rounded-2xl space-y-1 text-xs">
+                <div className="flex items-center gap-1.5 text-amber-300 font-bold font-mono">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>Aislamiento y Confidencialidad Estricta</span>
+                </div>
+                <p className="text-slate-300 text-[11px] leading-relaxed">
+                  Al ingresar por esta dirección personalizada o token, este taller <strong>ÚNICAMENTE</strong> tendrá acceso a ver sus propias órdenes, costos y estados de entrega asignados. Ningún proveedor puede ver compras, pedidos o información de competidores.
+                </p>
+              </div>
+
+              <form onSubmit={handleSaveCustomizeAccess} className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 mb-1.5 font-bold flex items-center justify-between">
+                    <span>Dirección de Ingreso / Token (Slug) *</span>
+                    <span className="text-[10px] text-amber-400">Editable en cualquier momento</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={customAccessKey}
+                    onChange={(e) => setCustomAccessKey(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                    placeholder="Ej: taller-estivenson-almanaques o token_seguro_..."
+                    className="w-full bg-slate-950 border border-amber-500/50 rounded-xl px-3.5 py-2.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 shadow-inner"
+                  />
+                </div>
+
+                {/* Botones de sugerencias rápidas */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="text-[10px] font-mono text-slate-400">Generadores rápidos:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const cleanName = `taller-${customizingAccessProv.nombreComercial.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                      setCustomAccessKey(cleanName);
+                    }}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-mono rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    Usar Nombre de Taller
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const catPrefix = (customizingAccessProv.categoria || "PRV").substring(0, 3).toLowerCase();
+                      const randomToken = `token_${catPrefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+                      setCustomAccessKey(randomToken);
+                    }}
+                    className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-mono rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    Generar Token Criptográfico
+                  </button>
+                </div>
+
+                {/* Vista Previa de la URL Final */}
+                <div className="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                    Enlace Completo de Ingreso para el Proveedor:
+                  </span>
+                  <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] font-mono text-amber-300/90 break-all select-all">
+                    {fullAccessUrl}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                          navigator.clipboard.writeText(fullAccessUrl).then(() => {
+                            setSaveStatus(`✓ Enlace copiado: ${customAccessKey}`);
+                            setTimeout(() => setSaveStatus(null), 3000);
+                          });
+                        } else {
+                          prompt("Copia este enlace de acceso:", fullAccessUrl);
+                        }
+                      }}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-mono text-xs rounded-lg flex items-center gap-1.5 cursor-pointer border border-slate-700"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Copiar Enlace</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => window.open(fullAccessUrl, '_blank')}
+                      className="px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 font-mono text-xs rounded-lg flex items-center gap-1.5 cursor-pointer border border-amber-500/30"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Probar Ingreso Directo</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Botones de acción */}
+                <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setCustomizingAccessProv(null)}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all cursor-pointer border border-amber-400/30"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>Guardar Dirección de Ingreso</span>
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         );
