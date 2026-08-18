@@ -265,9 +265,10 @@ export const PROVEEDORES_CATEGORIAS: ProveedorCategoria[] = [
 
 export type AdminTab =
   | 'panel_general'
-  | 'vendedores'
+  | 'talleres'
   | 'proveedores'
   | 'balance'
+  | 'vendedores'
   | 'clientes'
   | 'facturacion'
   | 'branding';
@@ -278,7 +279,7 @@ export default function AdminDashboard() {
       const hash = window.location.hash || '';
       if (hash.includes('tab=')) {
         const tab = hash.split('tab=')[1]?.split('&')[0] as AdminTab;
-        if (['panel_general', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
+        if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
           return tab;
         }
       }
@@ -311,7 +312,7 @@ export default function AdminDashboard() {
         const hash = window.location.hash || '';
         if (hash.includes('tab=')) {
           const tab = hash.split('tab=')[1]?.split('&')[0] as AdminTab;
-          if (['panel_general', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
+          if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
             setActiveAdminTab(tab);
           }
         }
@@ -393,6 +394,12 @@ export default function AdminDashboard() {
   // Modal Personalizar Dirección / Token de Acceso
   const [customizingAccessProv, setCustomizingAccessProv] = useState<ProveedorRecord | null>(null);
   const [customAccessKey, setCustomAccessKey] = useState("");
+
+  // Editor y Generador Rápido de Token en Panel Administrativo
+  const [selectedTokenProvId, setSelectedTokenProvId] = useState<string>("");
+  const [quickTokenInput, setQuickTokenInput] = useState<string>("");
+  const [inlineEditTableProvId, setInlineEditTableProvId] = useState<string | null>(null);
+  const [inlineEditTableToken, setInlineEditTableToken] = useState<string>("");
 
   // New Order Modal State
   const [orderModalProv, setOrderModalProv] = useState<ProveedorRecord | null>(null);
@@ -571,13 +578,17 @@ export default function AdminDashboard() {
       return;
     }
 
+    const chosenAccess = newProvSlug.trim().replace(/\s+/g, '-').toLowerCase();
+    if (!chosenAccess) {
+      alert("El campo 'Código de Acceso / Token' es OBLIGATORIO para crear el proveedor. Escribe una clave o pulsa '⚡ Generar Token Seguro'.");
+      return;
+    }
+
     const finalCategories = newProvCategorias.length > 0 ? newProvCategorias : ["Servicios"];
     const primaryCat = finalCategories[0];
     const catPrefix = primaryCat.substring(0, 3).toUpperCase();
     const count = proveedores.length + 1;
     const code = `PRV-${catPrefix}-${(100 + count).toString()}`;
-    const defaultToken = `token_${catPrefix.toLowerCase()}_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const chosenAccess = (newProvSlug.trim() || defaultToken).replace(/\s+/g, '-').toLowerCase();
 
     // Verificación de colisión en nuevo registro
     const collidingOther = proveedores.find(p => (
@@ -663,7 +674,7 @@ export default function AdminDashboard() {
     setEditProvDocumento(prov.datosBancarios?.documentoTitular || "");
     setEditProvNotas(prov.notasInternas || "");
     setEditProvActivo(prov.activo);
-    setEditProvSlug(prov.slugAcceso || prov.tokenAcceso || "");
+    setEditProvSlug(prov.slugAcceso || prov.tokenAcceso || prov.codigo.toLowerCase());
   };
 
   const handleUpdateProveedor = (e: React.FormEvent) => {
@@ -811,6 +822,104 @@ export default function AdminDashboard() {
     setCustomizingAccessProv(null);
     setSaveStatus(`✓ Dirección de ingreso para "${updatedProv.nombreComercial}" actualizada exitosamente.`);
     setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  // Inicializar taller seleccionado en el Generador de Tokens
+  useEffect(() => {
+    if (proveedores.length > 0) {
+      if (!selectedTokenProvId || !proveedores.some(p => p.id === selectedTokenProvId)) {
+        const first = proveedores[0];
+        setSelectedTokenProvId(first.id);
+        setQuickTokenInput(first.slugAcceso || first.tokenAcceso || first.codigo);
+      }
+    }
+  }, [proveedores, selectedTokenProvId]);
+
+  const handleQuickSaveToken = (provId: string, newToken: string) => {
+    const prov = proveedores.find(p => p.id === provId);
+    if (!prov) return;
+    const cleanToken = newToken.trim().replace(/\s+/g, '-').toLowerCase();
+    if (!cleanToken) {
+      alert("Por favor ingrese un código o token válido.");
+      return;
+    }
+
+    // Verificación de colisión con otros talleres
+    const collidingOther = proveedores.find(p => p.id !== prov.id && (
+      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === cleanToken) ||
+      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === cleanToken) ||
+      (p.codigo && p.codigo.trim().toLowerCase() === cleanToken)
+    ));
+    if (collidingOther) {
+      alert(`¡Colisión de Código detectada!\n\nEl código de acceso "${cleanToken}" ya está asignado al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor elija un código o token diferente.`);
+      return;
+    }
+
+    const previousCode = prov.slugAcceso || prov.tokenAcceso || prov.codigo;
+    const isCodeChanged = cleanToken !== previousCode;
+
+    let currentHistory = prov.historialCodigosAcceso ? [...prov.historialCodigosAcceso] : [];
+    if (isCodeChanged) {
+      currentHistory = [
+        {
+          id: `hist_${Date.now()}`,
+          codigoAnterior: previousCode,
+          codigoNuevo: cleanToken,
+          fecha: new Date().toISOString(),
+          modificadoPor: "Administrador (atziluthgrafic@gmail.com)",
+          motivo: "Actualización desde Editor Rápido de Tokens"
+        },
+        ...currentHistory
+      ].slice(0, 10);
+    }
+
+    const updatedProv: ProveedorRecord = {
+      ...prov,
+      tokenAcceso: cleanToken,
+      slugAcceso: cleanToken,
+      historialCodigosAcceso: currentHistory,
+      updatedAt: new Date().toISOString()
+    };
+
+    const updated = proveedores.map(p => p.id === prov.id ? updatedProv : p);
+    setProveedores(updated);
+    saveStoredProveedores(updated);
+
+    fetch('/api/proveedores', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedProv)
+    }).catch(() => {});
+
+    setSaveStatus(`✓ Código de acceso asignado y guardado para ${prov.nombreComercial}: ${cleanToken}`);
+    setTimeout(() => setSaveStatus(null), 4000);
+  };
+
+  const handleStartInlineEditToken = (prov: ProveedorRecord) => {
+    setInlineEditTableProvId(prov.id);
+    setInlineEditTableToken(prov.slugAcceso || prov.tokenAcceso || prov.codigo);
+  };
+
+  const handleSaveInlineTableToken = (prov: ProveedorRecord) => {
+    const clean = inlineEditTableToken.trim().replace(/\s+/g, '-').toLowerCase();
+    if (!clean) {
+      alert("El código de acceso no puede estar vacío.");
+      return;
+    }
+
+    // Verificación de colisión con otros proveedores
+    const colliding = proveedores.find(p => p.id !== prov.id && (
+      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === clean) ||
+      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === clean) ||
+      (p.codigo && p.codigo.trim().toLowerCase() === clean)
+    ));
+    if (colliding) {
+      alert(`¡Colisión detectada!\n\nEl código "${clean}" ya pertenece a "${colliding.nombreComercial}" (${colliding.codigo}).\n\nPor favor elija un código único.`);
+      return;
+    }
+
+    handleQuickSaveToken(prov.id, clean);
+    setInlineEditTableProvId(null);
   };
 
   const handleDeleteProveedor = (id: string) => {
@@ -3759,7 +3868,7 @@ export default function AdminDashboard() {
       {/* ========================================================================= */}
       {/* SECCIÓN: GESTIÓN DE PROVEEDORES, COSTOS, UTILIDADES Y OFICINAS VIRTUALES */}
       {/* ========================================================================= */}
-      {(activeAdminTab === 'panel_general' || activeAdminTab === 'proveedores') && (
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'proveedores' || activeAdminTab === 'talleres') && (
         <div id="seccion-proveedores" className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-amber-500/30 rounded-3xl p-6 md:p-8 space-y-8 shadow-2xl relative overflow-hidden">
           {/* Header de la Sección */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -3825,6 +3934,19 @@ export default function AdminDashboard() {
               >
                 <Building2 className="w-3.5 h-3.5" />
                 <span>🏭 Gestión de Proveedores ({proveedores.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleNavigateTab('talleres', 'generador-tokens-proveedores')}
+                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeAdminTab === 'talleres'
+                    ? 'bg-amber-400 text-slate-950 shadow-md font-black ring-1 ring-amber-300'
+                    : 'bg-slate-900 text-amber-300 hover:text-white hover:bg-slate-800 border border-amber-500/30'
+                }`}
+              >
+                <Key className="w-3.5 h-3.5 text-amber-400" />
+                <span>🔑 Gestión de Talleres & Códigos</span>
               </button>
 
               <button
@@ -3970,6 +4092,258 @@ export default function AdminDashboard() {
               </div>
             );
           })()}
+
+          {/* ========================================================================= */}
+          {/* PANEL PRINCIPAL: EDITOR & GENERADOR DE CÓDIGOS Y TOKENS PARA PROVEEDORES */}
+          {/* ========================================================================= */}
+          {proveedores.length > 0 && (
+            <div id="generador-tokens-proveedores" className="bg-gradient-to-br from-slate-900 via-slate-950 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 space-y-5 shadow-2xl relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shadow-inner shrink-0">
+                    <Key className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base font-black font-mono uppercase tracking-wide text-white">
+                        Editor & Generador de Tokens / Códigos de Acceso
+                      </h3>
+                      <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold rounded-md border border-amber-500/40">
+                        ⚡ Panel Administrativo
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 font-sans mt-0.5">
+                      Genera tokens criptográficos seguros, edita claves personalizadas y comparte el enlace de ingreso con los talleres aliados
+                    </p>
+                  </div>
+                </div>
+
+                {/* Selector de Taller */}
+                <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-2xl border border-slate-800 self-start lg:self-auto">
+                  <span className="text-[11px] font-mono uppercase text-slate-400 font-bold pl-1">
+                    Seleccionar Taller:
+                  </span>
+                  <select
+                    value={selectedTokenProvId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setSelectedTokenProvId(id);
+                      const target = proveedores.find(p => p.id === id);
+                      if (target) {
+                        setQuickTokenInput(target.slugAcceso || target.tokenAcceso || target.codigo);
+                      }
+                    }}
+                    className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400 cursor-pointer min-w-[240px]"
+                  >
+                    {proveedores.map(p => {
+                      const hasCode = (p.slugAcceso && p.slugAcceso.trim() !== '') || (p.tokenAcceso && p.tokenAcceso.trim() !== '');
+                      return (
+                        <option key={p.id} value={p.id}>
+                          {hasCode ? '🟢' : '⚠️'} {p.codigo} — {p.nombreComercial} {hasCode ? '(Acceso Activo)' : '(Sin Código)'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              </div>
+
+              {/* Formulario y Herramientas del Proveedor Seleccionado */}
+              {(() => {
+                const currentProv = proveedores.find(p => p.id === selectedTokenProvId) || proveedores[0];
+                if (!currentProv) return null;
+
+                const currentInputCode = quickTokenInput.trim().toLowerCase();
+                const collidingOther = currentInputCode
+                  ? proveedores.find(p => p.id !== currentProv.id && (
+                      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentInputCode) ||
+                      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentInputCode) ||
+                      (p.codigo && p.codigo.trim().toLowerCase() === currentInputCode)
+                    ))
+                  : null;
+                const isOriginalCode = currentInputCode === (currentProv.slugAcceso || currentProv.tokenAcceso || currentProv.codigo)?.toLowerCase();
+                const fullAccessUrl = `${window.location.origin}/?token=${currentInputCode || currentProv.tokenAcceso}#proveedor`;
+
+                return (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    {/* Columna Izquierda: Input de Edición y Generadores */}
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <label className="block text-xs font-mono uppercase text-slate-300 font-bold">
+                            Código / Token de Ingreso para <span className="text-amber-300 font-bold">"{currentProv.nombreComercial}"</span>:
+                          </label>
+                          {collidingOther ? (
+                            <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-400" />
+                              ⚠️ Código en uso por "{collidingOther.nombreComercial}"
+                            </span>
+                          ) : currentInputCode ? (
+                            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              {isOriginalCode ? "Código actual del taller" : "✓ Código único disponible para asignar"}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={quickTokenInput}
+                            onChange={(e) => setQuickTokenInput(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                            placeholder={`Ej: ${currentProv.codigo} o token_seguro_...`}
+                            className={`w-full bg-slate-950 border-2 rounded-2xl px-4 py-3 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                              collidingOther
+                                ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                                : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40'
+                            }`}
+                          />
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (navigator.clipboard) {
+                                  navigator.clipboard.writeText(quickTokenInput || currentProv.tokenAcceso);
+                                  setSaveStatus(`✓ Código copiado: ${quickTokenInput || currentProv.tokenAcceso}`);
+                                  setTimeout(() => setSaveStatus(null), 3000);
+                                }
+                              }}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
+                              title="Copiar código"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Copiar</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {collidingOther && (
+                          <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-bold font-mono text-rose-300">¡Colisión de Código Detectada!</p>
+                              <p className="text-[11px] text-rose-200/90">
+                                Este código ya está asignado a <strong>"{collidingOther.nombreComercial}"</strong> ({collidingOther.codigo}). Elige otro valor o presiona Generar Token.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Generadores Rápidos de Código */}
+                      <div className="space-y-1.5 pt-1">
+                        <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                          ⚡ Generadores Rápidos con 1 Clic:
+                        </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const catPrefix = (currentProv.categoria || "PRV").substring(0, 3).toLowerCase();
+                              const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
+                              setQuickTokenInput(randomToken);
+                            }}
+                            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                          >
+                            <Key className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Generar Token Seguro</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setQuickTokenInput(currentProv.codigo.toLowerCase())}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Usar Código Oficial ({currentProv.codigo})</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const cleanName = `taller-${currentProv.nombreComercial.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                              setQuickTokenInput(cleanName);
+                            }}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Usar Nombre Taller</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Columna Derecha: Vista previa de Enlace y Acciones de Envío / Guardado */}
+                    <div className="lg:col-span-5 bg-slate-950/90 p-4 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between shadow-inner">
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                            Enlace Directo de Oficina Virtual:
+                          </span>
+                          <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-amber-400" />
+                            Aislamiento Total
+                          </span>
+                        </div>
+                        <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] font-mono text-amber-300 break-all select-all font-bold">
+                          {fullAccessUrl}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (navigator.clipboard) {
+                                navigator.clipboard.writeText(fullAccessUrl);
+                                setSaveStatus(`✓ Enlace copiado al portapapeles`);
+                                setTimeout(() => setSaveStatus(null), 3000);
+                              }
+                            }}
+                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Copiar Link</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleShareProvWhatsApp(currentProv)}
+                            className="px-3 py-2 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>WhatsApp</span>
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => window.open(fullAccessUrl, '_blank')}
+                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 cursor-pointer flex-1"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Probar Ingreso</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={!!collidingOther || !quickTokenInput.trim()}
+                            onClick={() => handleQuickSaveToken(currentProv.id, quickTokenInput)}
+                            className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-slate-950 font-mono text-xs font-black rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 cursor-pointer flex-1 transition-all"
+                          >
+                            <Save className="w-4 h-4" />
+                            <span>Guardar Token</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
 
           {/* FORMULARIO: REGISTRAR NUEVO PROVEEDOR */}
           <div id="formulario-nuevo-proveedor" className="bg-slate-950/90 border border-amber-500/20 rounded-2xl p-6 space-y-5 shadow-xl">
@@ -4248,69 +4622,161 @@ export default function AdminDashboard() {
                 </div>
               </div>
 
-              {/* SECCIÓN DESTACADA: CÓDIGO DE ACCESO A OFICINA VIRTUAL PARA EL NUEVO PROVEEDOR */}
-              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/50 space-y-3 shadow-lg">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/40">
-                      <Key className="w-4 h-4" />
+              {/* ========================================================================= */}
+              {/* SECCIÓN DESTACADA: ESPACIO DE TOKEN & ACCESO A OFICINA VIRTUAL AL REGISTRAR */}
+              {/* ========================================================================= */}
+              {(() => {
+                const currentNewSlug = newProvSlug.trim().toLowerCase();
+                const collidingProv = currentNewSlug 
+                  ? proveedores.find(p => (
+                      (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentNewSlug) ||
+                      (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentNewSlug) ||
+                      (p.codigo && p.codigo.trim().toLowerCase() === currentNewSlug)
+                    ))
+                  : null;
+
+                return (
+                  <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/60 space-y-4 shadow-xl">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/40 shadow-inner">
+                          <Key className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono uppercase text-amber-300 font-black block">
+                              🔑 Código de Acceso / Token del Taller * (OBLIGATORIO)
+                            </span>
+                            <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[9px] font-mono font-bold">
+                              Exclusivo Admin
+                            </span>
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-sans">
+                            Clave confidencial con la que el taller ingresará a su Oficina Virtual. Visible únicamente en este panel administrativo.
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cleanName = `taller-${newProvNombre.trim() ? newProvNombre.toLowerCase().replace(/[^a-z0-9]/g, '-') : 'nuevo'}`;
+                            setNewProvSlug(cleanName);
+                          }}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                          title="Usar nombre comercial como slug"
+                        >
+                          <span>Usar Nombre</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const primaryCat = newProvCategorias[0] || "PRV";
+                            const catPrefix = primaryCat.substring(0, 3).toLowerCase();
+                            const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
+                            setNewProvSlug(randomToken);
+                          }}
+                          className="px-2.5 py-1 bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/50 text-[10px] font-mono font-black rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
+                          title="Generar un nuevo token criptográfico seguro"
+                        >
+                          <Zap className="w-3 h-3 text-amber-400" />
+                          <span>⚡ Generar Token Seguro</span>
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <span className="text-xs font-mono uppercase text-amber-300 font-bold block">
-                        Código de Acceso / Token a Oficina Virtual de Proveedor
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-sans">
-                        Espacio para definir el código o token con el que este taller ingresará a su portal exclusivo
-                      </span>
+
+                    {/* INPUT CÓDIGO CON VALIDACIÓN EN TIEMPO REAL */}
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <label className="block text-[11px] font-mono uppercase text-slate-200 font-bold">
+                            Token o Clave de Acceso Asignada al Taller *:
+                          </label>
+                          {collidingProv ? (
+                            <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-400" />
+                              ⚠️ En uso por "{collidingProv.nombreComercial}"
+                            </span>
+                          ) : currentNewSlug ? (
+                            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              ✓ Código único listo para guardar
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-mono font-bold text-amber-400">
+                              * Campo obligatorio (escribe o genera un token)
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            value={newProvSlug}
+                            onChange={(e) => setNewProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                            placeholder="Ej: taller-almanaques o token_alm_12345..."
+                            className={`w-full bg-slate-950 border-2 rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                              collidingProv
+                                ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                                : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40'
+                            }`}
+                          />
+                          {newProvSlug && (
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (navigator.clipboard && navigator.clipboard.writeText) {
+                                    navigator.clipboard.writeText(newProvSlug).then(() => {
+                                      setSaveStatus(`✓ Código copiado: ${newProvSlug}`);
+                                      setTimeout(() => setSaveStatus(null), 3000);
+                                    });
+                                  }
+                                }}
+                                className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
+                                title="Copiar token al portapapeles"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Copiar</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* ALERTA EN TIEMPO REAL SI HAY COLISIÓN */}
+                        {collidingProv && (
+                          <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg animate-pulse">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
+                                <span>¡Colisión de Código Detectada!</span>
+                              </p>
+                              <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
+                                El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentNewSlug}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
+                              </p>
+                              <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
+                                ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1">
+                          <span>💡 Cada taller cuenta con su clave confidencial y privada asignada por la administración.</span>
+                          {newProvSlug.trim() && !collidingProv && (
+                            <span className="text-amber-400">
+                              Clave configurada: <strong className="font-mono text-white">{newProvSlug.trim()}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (newProvNombre.trim()) {
-                          const slug = `taller-${newProvNombre.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-                          setNewProvSlug(slug);
-                        } else {
-                          setNewProvSlug(`taller-${Date.now().toString().slice(-4)}`);
-                        }
-                      }}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
-                      title="Usar nombre del taller como código"
-                    >
-                      Usar Nombre Taller
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const randomToken = `token_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
-                        setNewProvSlug(randomToken);
-                      }}
-                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
-                      title="Generar token criptográfico"
-                    >
-                      Generar Token Seguro
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
-                    Código de Ingreso / Slug de Acceso (Opcional o Automático):
-                  </label>
-                  <input
-                    type="text"
-                    value={newProvSlug}
-                    onChange={(e) => setNewProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                    placeholder="Ej: taller-almanaque-norte o deja vacío para autogenerar automáticamente"
-                    className="w-full bg-slate-950 border-2 border-amber-500/60 rounded-xl px-3.5 py-2.5 text-xs text-amber-300 placeholder-slate-600 focus:outline-none focus:border-amber-400 focus:ring-1 focus:ring-amber-400 font-mono font-bold"
-                  />
-                  <p className="text-[10px] text-slate-400 font-mono">
-                    💡 Si se deja vacío, el sistema le asignará automáticamente un código único oficial (ej: <span className="text-amber-400 font-bold">PRV-ALM-101</span>).
-                  </p>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Grid 4: Notas Internas */}
               <div>
@@ -4616,10 +5082,10 @@ export default function AdminDashboard() {
                     <thead>
                       <tr className="border-b-2 border-slate-800 bg-slate-900 text-[11px] font-mono text-slate-300 uppercase tracking-wider">
                         <th className="py-3.5 px-4">Taller / ID</th>
-                        <th className="py-3.5 px-4 bg-amber-950/20 text-amber-300 border-x border-amber-500/20">
-                          <div className="flex items-center gap-1.5">
-                            <Key className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Código de Acceso (Oficina Virtual)</span>
+                        <th className="py-3.5 px-4 bg-amber-950/40 text-amber-300 border-x-2 border-amber-500/40 shadow-inner">
+                          <div className="flex items-center gap-1.5 font-black">
+                            <Key className="w-4 h-4 text-amber-400 shrink-0" />
+                            <span>Código de Acceso (Gestión Administrativa)</span>
                           </div>
                         </th>
                         <th className="py-3.5 px-4">Líneas Asignadas</th>
@@ -4666,65 +5132,168 @@ export default function AdminDashboard() {
                                 </div>
                               </td>
 
-                              {/* VISUALIZACIÓN RÁPIDA DE CÓDIGO DE ACCESO */}
+                              {/* VISUALIZACIÓN Y EDICIÓN RÁPIDA DE CÓDIGO DE ACCESO / TOKEN */}
                               <td className="py-3 px-4 bg-amber-950/15 border-x border-amber-500/20">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between gap-1">
-                                    <div 
-                                      className="px-2.5 py-1.5 bg-slate-950 border-2 border-amber-500/50 rounded-xl text-amber-300 font-mono text-xs font-black shadow-inner flex items-center gap-1.5 max-w-[200px]"
-                                      title={`Código de Acceso: ${accessKey}`}
-                                    >
-                                      <Key className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                      <span className="truncate">{accessKey}</span>
+                                {inlineEditTableProvId === prov.id ? (
+                                  /* MODO EDICIÓN DIRECTA EN TABLA */
+                                  <div className="p-2 bg-slate-950 rounded-xl border-2 border-amber-500/80 shadow-2xl space-y-2 min-w-[240px]">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <span className="text-[10px] font-mono text-amber-300 font-bold uppercase flex items-center gap-1">
+                                        <Key className="w-3 h-3 text-amber-400" />
+                                        Editar Token de Acceso:
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setInlineEditTableProvId(null)}
+                                        className="text-slate-500 hover:text-slate-300 text-xs font-mono p-0.5"
+                                        title="Cancelar"
+                                      >
+                                        ✕
+                                      </button>
                                     </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        if (navigator.clipboard) {
-                                          navigator.clipboard.writeText(accessKey);
-                                          setSaveStatus(`✓ Código copiado: ${accessKey}`);
-                                        }
-                                      }}
-                                      title="Copiar Código de Acceso al Portapapeles"
-                                      className="p-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
-                                    >
-                                      <Copy className="w-3.5 h-3.5 text-amber-400" />
-                                      <span>Copiar</span>
-                                    </button>
+                                    <div className="relative">
+                                      <input
+                                        type="text"
+                                        autoFocus
+                                        value={inlineEditTableToken}
+                                        onChange={(e) => setInlineEditTableToken(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleSaveInlineTableToken(prov);
+                                          } else if (e.key === 'Escape') {
+                                            setInlineEditTableProvId(null);
+                                          }
+                                        }}
+                                        placeholder="Código / Token"
+                                        className="w-full bg-slate-900 border border-amber-500 rounded-lg px-2.5 py-1 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                      />
+                                    </div>
+
+                                    {/* Generador rápido de botones inline */}
+                                    <div className="flex items-center gap-1 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const catPrefix = (prov.categoria || "PRV").substring(0, 3).toLowerCase();
+                                          const rand = `token_${catPrefix}_${Date.now().toString().slice(-5)}_${Math.random().toString(36).substring(2, 5)}`;
+                                          setInlineEditTableToken(rand);
+                                        }}
+                                        className="px-2 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[9px] font-mono rounded font-bold transition-colors cursor-pointer flex items-center gap-0.5"
+                                        title="Generar token criptográfico único"
+                                      >
+                                        <Zap className="w-2.5 h-2.5 text-amber-400" />
+                                        <span>Generar</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => setInlineEditTableToken(prov.codigo.toLowerCase())}
+                                        className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[9px] font-mono rounded border border-slate-700 transition-colors cursor-pointer"
+                                        title="Usar código oficial"
+                                      >
+                                        <span>{prov.codigo}</span>
+                                      </button>
+
+                                      <div className="ml-auto flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleSaveInlineTableToken(prov)}
+                                          className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-[10px] font-bold rounded flex items-center gap-1 shadow cursor-pointer transition-colors"
+                                          title="Guardar código de acceso"
+                                        >
+                                          <Check className="w-3 h-3" />
+                                          <span>Guardar</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setInlineEditTableProvId(null)}
+                                          className="px-1.5 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 text-[10px] font-mono rounded transition-colors cursor-pointer"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    </div>
                                   </div>
+                                ) : (
+                                  /* MODO VISUALIZACIÓN CON BOTONES DE ACCIÓN RÁPIDA */
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between gap-1">
+                                      <div 
+                                        onClick={() => handleStartInlineEditToken(prov)}
+                                        className="px-2.5 py-1.5 bg-slate-950 border-2 border-amber-500/50 hover:border-amber-400 rounded-xl text-amber-300 font-mono text-xs font-black shadow-inner flex items-center gap-1.5 max-w-[190px] cursor-pointer group transition-all"
+                                        title="Clic para editar este código directamente en la tabla"
+                                      >
+                                        <Key className="w-3.5 h-3.5 text-amber-400 shrink-0 group-hover:scale-110 transition-transform" />
+                                        <span className="truncate">{accessKey}</span>
+                                        <Edit3 className="w-3 h-3 text-slate-500 group-hover:text-amber-400 shrink-0 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      </div>
 
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenProvPortal(prov)}
-                                      title="Abrir y Ver Oficina Virtual"
-                                      className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer"
-                                    >
-                                      <Eye className="w-3 h-3 text-amber-400" />
-                                      <span>Ver Oficina</span>
-                                    </button>
+                                      <div className="flex items-center gap-1 shrink-0">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (navigator.clipboard) {
+                                              navigator.clipboard.writeText(accessKey);
+                                              setSaveStatus(`✓ Código copiado: ${accessKey}`);
+                                              setTimeout(() => setSaveStatus(null), 3000);
+                                            }
+                                          }}
+                                          title="Copiar Código de Acceso al Portapapeles"
+                                          className="p-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
+                                        >
+                                          <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                          <span>Copiar</span>
+                                        </button>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenCustomizeAccess(prov)}
-                                      title="Editar Código / Slug Directo"
-                                      className="px-2 py-1 bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 rounded-lg text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer"
-                                    >
-                                      <Key className="w-3 h-3 text-indigo-400" />
-                                      <span>Cambiar Código</span>
-                                    </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartInlineEditToken(prov)}
+                                          title="Editar Código de Acceso en esta fila"
+                                          className="p-1.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold"
+                                        >
+                                          <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                        </button>
+                                      </div>
+                                    </div>
 
-                                    <button
-                                      type="button"
-                                      onClick={() => handleShareProvWhatsApp(prov)}
-                                      title="Enviar acceso por WhatsApp"
-                                      className="p-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors cursor-pointer"
-                                    >
-                                      <Share2 className="w-3 h-3" />
-                                    </button>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedTokenProvId(prov.id);
+                                          setQuickTokenInput(prov.slugAcceso || prov.tokenAcceso || prov.codigo);
+                                          handleOpenCustomizeAccess(prov);
+                                        }}
+                                        title="Abrir Generador de Token Completo"
+                                        className="px-2 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer shadow-sm"
+                                      >
+                                        <Zap className="w-3 h-3 text-amber-400" />
+                                        <span>Generador</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenProvPortal(prov)}
+                                        title="Abrir y Ver Oficina Virtual"
+                                        className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-[10px] font-mono transition-colors flex items-center gap-1 cursor-pointer"
+                                      >
+                                        <Eye className="w-3 h-3 text-amber-400" />
+                                        <span>Ver Oficina</span>
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleShareProvWhatsApp(prov)}
+                                        title="Enviar clave y enlace por WhatsApp"
+                                        className="p-1 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs transition-colors cursor-pointer"
+                                      >
+                                        <Share2 className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                   </div>
-                                </div>
+                                )}
                               </td>
 
                               {/* Líneas / Especialidades (múltiples) */}
@@ -6669,135 +7238,183 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateProveedor} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <form onSubmit={handleUpdateProveedor} className="space-y-5">
+              {/* Form Grid 2-Column (Matching Screenshot Layout) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Nombre Comercial *</label>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Nombre Comercial / Empresa *
+                  </label>
                   <input
                     type="text"
                     required
                     value={editProvNombre}
                     onChange={(e) => setEditProvNombre(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                    placeholder="Ej: Talleres Gráficos & Troquelados del Valle"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-sans shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Persona de Contacto *</label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold">
+                      Categoría / Línea *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCatManagerOpen(true)}
+                      className="text-[10px] font-mono text-amber-400 hover:text-amber-300 hover:underline cursor-pointer"
+                    >
+                      ⚙️ Gestionar Catálogo
+                    </button>
+                  </div>
+                  <CategoryMultiSelect
+                    categories={categoriesList}
+                    selectedCategories={editProvCategorias}
+                    onChange={setEditProvCategorias}
+                    onAddNewCategory={handleAddNewCategoryFromMultiSelect}
+                    onManageCategories={() => setIsCatManagerOpen(true)}
+                    placeholder="Selecciona líneas de producción..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Persona de Contacto
+                  </label>
                   <input
                     type="text"
                     required
                     value={editProvContacto}
                     onChange={(e) => setEditProvContacto(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                    placeholder="Ej: Carlos Mario Jaramillo"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-sans shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Teléfono / WhatsApp *</label>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Teléfono / WhatsApp *
+                  </label>
                   <input
                     type="text"
                     required
                     value={editProvTelefono}
                     onChange={(e) => setEditProvTelefono(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    placeholder="Ej: +57 312 456 7890"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Correo Electrónico</label>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Correo Electrónico
+                  </label>
                   <input
                     type="email"
                     value={editProvEmail}
                     onChange={(e) => setEditProvEmail(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                    placeholder="produccion@troqueladosvalle.com"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-sans shadow-inner"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Municipio</label>
-                  <input
-                    type="text"
-                    value={editProvMunicipio}
-                    onChange={(e) => setEditProvMunicipio(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1">Dirección del Taller</label>
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Dirección del Taller
+                  </label>
                   <input
                     type="text"
                     value={editProvDireccion}
                     onChange={(e) => setEditProvDireccion(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-sans"
+                    placeholder="Calle 44 # 52-18, Sector Alpujarra, Medellín"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-sans shadow-inner"
                   />
                 </div>
-              </div>
 
-              {/* SECCIÓN: SELECTOR MULTI-OPCIÓN EN MODAL DE EDICIÓN */}
-              <div className="p-3.5 bg-slate-950 rounded-2xl border border-amber-500/30 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono uppercase text-amber-300 font-bold flex items-center gap-1.5">
-                    <Layers className="w-3.5 h-3.5 text-amber-400" />
-                    Líneas / Especialidades Asignadas
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setIsCatManagerOpen(true)}
-                    className="text-[10px] font-mono text-amber-400 hover:text-amber-300 hover:underline cursor-pointer flex items-center gap-1"
+                <div className="sm:col-span-2">
+                  <label className="block text-[11px] font-mono uppercase text-slate-300 font-bold mb-1.5">
+                    Municipio (Antioquia)
+                  </label>
+                  <select
+                    value={editProvMunicipio}
+                    onChange={(e) => setEditProvMunicipio(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-sans shadow-inner"
                   >
-                    <span>⚙️ Gestionar Catálogo</span>
-                  </button>
+                    <option value="Medellín">Medellín</option>
+                    <option value="Itagüí">Itagüí</option>
+                    <option value="Envigado">Envigado</option>
+                    <option value="Bello">Bello</option>
+                    <option value="Sabaneta">Sabaneta</option>
+                    <option value="La Estrella">La Estrella</option>
+                    <option value="Caldas">Caldas</option>
+                    <option value="Copacabana">Copacabana</option>
+                    <option value="Rionegro">Rionegro</option>
+                    <option value="Marinilla">Marinilla</option>
+                    <option value="Otro">Otro Municipio</option>
+                  </select>
                 </div>
-
-                <CategoryMultiSelect
-                  categories={categoriesList}
-                  selectedCategories={editProvCategorias}
-                  onChange={setEditProvCategorias}
-                  onAddNewCategory={handleAddNewCategoryFromMultiSelect}
-                  onManageCategories={() => setIsCatManagerOpen(true)}
-                  placeholder="Selecciona o busca líneas de producción..."
-                />
               </div>
 
-              {/* SECCIÓN DESTACADA: CÓDIGO DE ACCESO A OFICINA VIRTUAL DE PROVEEDOR */}
-              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/50 space-y-3 shadow-lg">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-amber-500/20 text-amber-400 rounded-lg border border-amber-500/40">
-                      <Key className="w-4 h-4" />
+              {/* ========================================================================= */}
+              {/* SECCIÓN DESTACADA: ESPACIO DE TOKEN & ACCESO A OFICINA VIRTUAL DEL PROVEEDOR */}
+              {/* ========================================================================= */}
+              <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/60 space-y-4 shadow-xl">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/40 shadow-inner">
+                      <Key className="w-5 h-5" />
                     </div>
                     <div>
-                      <span className="text-xs font-mono uppercase text-amber-300 font-bold block">
-                        Código de Acceso a Oficina Virtual de Proveedor *
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-mono uppercase text-amber-300 font-black block">
+                          Crear / Editar Código de Acceso & Token para el Proveedor *
+                        </span>
+                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[9px] font-mono font-bold">
+                          Acceso Exclusivo
+                        </span>
+                      </div>
                       <span className="text-[11px] text-slate-400 font-sans">
-                        Este es el código que el taller escribirá en la pantalla de inicio o mediante enlace directo
+                        Este es el token con el que el taller ingresa a su Oficina Virtual para ver sus órdenes asignadas
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                  <div className="flex flex-wrap items-center gap-1.5 self-start sm:self-auto">
                     <button
                       type="button"
-                      onClick={() => setEditProvSlug(editingProv.codigo)}
-                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      onClick={() => setEditProvSlug(editingProv.codigo.toLowerCase())}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 text-[10px] font-mono font-bold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                       title="Asignar el código oficial del taller como clave de acceso"
                     >
-                      Usar Código ({editingProv.codigo})
+                      <Building2 className="w-3 h-3 text-slate-400" />
+                      <span>Usar Código ({editingProv.codigo})</span>
                     </button>
+
                     <button
                       type="button"
                       onClick={() => {
-                        const catPrefix = (editingProv.categoria || "PRV").substring(0, 3).toLowerCase();
+                        const cleanName = `taller-${editProvNombre.trim() ? editProvNombre.toLowerCase().replace(/[^a-z0-9]/g, '-') : editingProv.codigo.toLowerCase()}`;
+                        setEditProvSlug(cleanName);
+                      }}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold rounded-lg border border-slate-700 transition-colors cursor-pointer"
+                      title="Usar nombre comercial como slug"
+                    >
+                      <span>Usar Nombre</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const catPrefix = (editProvCategorias[0] || editingProv.categoria || "PRV").substring(0, 3).toLowerCase();
                         const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
                         setEditProvSlug(randomToken);
                       }}
-                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-[10px] font-mono rounded-lg transition-colors cursor-pointer"
+                      className="px-2.5 py-1 bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/50 text-[10px] font-mono font-black rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
                       title="Generar un nuevo token criptográfico seguro"
                     >
-                      Generar Token Seguro
+                      <Key className="w-3 h-3 text-amber-400" />
+                      <span>Generar Token Seguro</span>
                     </button>
                   </div>
                 </div>
@@ -6813,89 +7430,133 @@ export default function AdminDashboard() {
                       ))
                     : null;
                   const isOriginalCode = currentInputCode === (editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo)?.toLowerCase();
+                  const directUrl = `${window.location.origin}/?token=${currentInputCode || editingProv.tokenAcceso}#proveedor`;
 
                   return (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <label className="block text-[10px] font-mono uppercase text-slate-300 font-bold">
-                          Ingresa o Edita el Código de Ingreso / Token:
-                        </label>
-                        {collidingProv ? (
-                          <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3 text-rose-400" />
-                            ⚠️ En uso por otro taller
-                          </span>
-                        ) : currentInputCode ? (
-                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
-                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                            {isOriginalCode ? "Código actual de este taller" : "✓ Código único disponible"}
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="relative">
-                        <input
-                          type="text"
-                          required
-                          value={editProvSlug}
-                          onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                          placeholder={`Ej: ${editingProv.codigo} o token_seguro_...`}
-                          className={`w-full bg-slate-950 border-2 rounded-xl px-3.5 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
-                            collidingProv
-                              ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
-                              : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/30'
-                          }`}
-                        />
-                        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (navigator.clipboard && navigator.clipboard.writeText) {
-                                navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
-                                  setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
-                                  setTimeout(() => setSaveStatus(null), 3000);
-                                });
-                              }
-                            }}
-                            className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg text-[10px] font-mono border border-slate-700 flex items-center gap-1 cursor-pointer"
-                            title="Copiar código al portapapeles"
-                          >
-                            <Copy className="w-3 h-3 text-amber-400" />
-                            <span>Copiar</span>
-                          </button>
+                    <div className="space-y-3">
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <label className="block text-[11px] font-mono uppercase text-slate-200 font-bold">
+                            Token o Clave de Acceso Asignada al Taller:
+                          </label>
+                          {collidingProv ? (
+                            <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-rose-400" />
+                              ⚠️ En uso por "{collidingProv.nombreComercial}"
+                            </span>
+                          ) : currentInputCode ? (
+                            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                              {isOriginalCode ? "Código actual de este taller" : "✓ Código único listo para guardar"}
+                            </span>
+                          ) : null}
                         </div>
-                      </div>
 
-                      {/* ALERTA EN TIEMPO REAL SI HAY COLISIÓN */}
-                      {collidingProv && (
-                        <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg animate-pulse">
-                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                          <div className="space-y-0.5">
-                            <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
-                              <span>¡Colisión de Código Detectada!</span>
-                            </p>
-                            <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
-                              El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentInputCode}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
-                            </p>
-                            <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
-                              ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
-                            </p>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required
+                            value={editProvSlug}
+                            onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                            placeholder={`Ej: ${editingProv.codigo.toLowerCase()} o token_seguro_...`}
+                            className={`w-full bg-slate-950 border-2 rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
+                              collidingProv
+                                ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                                : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40'
+                            }`}
+                          />
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
+                                    setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
+                                    setTimeout(() => setSaveStatus(null), 3000);
+                                  });
+                                }
+                              }}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
+                              title="Copiar token al portapapeles"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Copiar</span>
+                            </button>
                           </div>
                         </div>
-                      )}
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[10px] font-mono text-slate-400">
-                        <span className="truncate max-w-md">
-                          Enlace Directo: <span className="text-amber-400">{window.location.origin}/?token={editProvSlug || editingProv.tokenAcceso}#proveedor</span>
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => window.open(`${window.location.origin}/?token=${editProvSlug || editingProv.tokenAcceso}#proveedor`, '_blank')}
-                          className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer font-bold"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          <span>Probar Ingreso en Nueva Pestaña</span>
-                        </button>
+                        {/* ALERTA EN TIEMPO REAL SI HAY COLISIÓN */}
+                        {collidingProv && (
+                          <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg animate-pulse">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                            <div className="space-y-0.5">
+                              <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
+                                <span>¡Colisión de Código Detectada!</span>
+                              </p>
+                              <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
+                                El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentInputCode}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
+                              </p>
+                              <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
+                                ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* CAJA DE ENLACE DIRECTO & COMPARTIR */}
+                      <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+                        <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                          <span className="font-bold uppercase text-amber-400 flex items-center gap-1">
+                            <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                            Enlace Directo de Acceso a la Oficina Virtual:
+                          </span>
+                          <span className="text-slate-400 font-sans">
+                            Acceso seguro y exclusivo para {editProvNombre || editingProv.nombreComercial}
+                          </span>
+                        </div>
+
+                        <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-[11px] font-mono text-amber-300 font-bold break-all select-all">
+                          {directUrl}
+                        </div>
+
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (navigator.clipboard && navigator.clipboard.writeText) {
+                                  navigator.clipboard.writeText(directUrl).then(() => {
+                                    setSaveStatus(`✓ Enlace copiado al portapapeles`);
+                                    setTimeout(() => setSaveStatus(null), 3000);
+                                  });
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold"
+                            >
+                              <Copy className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Copiar Link</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleShareProvWhatsApp(editingProv)}
+                              className="px-2.5 py-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-lg text-xs font-mono font-bold flex items-center gap-1 cursor-pointer"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                              <span>Enviar por WhatsApp</span>
+                            </button>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => window.open(directUrl, '_blank')}
+                            className="text-amber-400 hover:text-amber-300 text-xs font-mono font-bold hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Probar Ingreso en Nueva Pestaña</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

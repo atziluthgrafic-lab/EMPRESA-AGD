@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Download,
   Eye,
+  EyeOff,
   Send,
   Save,
   ChevronRight,
@@ -31,7 +32,8 @@ import {
   RefreshCw,
   Key,
   Copy,
-  Edit3
+  Edit3,
+  Sliders
 } from 'lucide-react';
 import {
   ProveedorRecord,
@@ -105,9 +107,16 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   // State for manual token entry if link is missing or expired
   const [manualTokenInput, setManualTokenInput] = useState('');
   const [manualTokenError, setManualTokenError] = useState(false);
+  const [showManualPassword, setShowManualPassword] = useState(false);
+  const [showAdminHelper, setShowAdminHelper] = useState(false);
+  const [allRegisteredProveedores, setAllRegisteredProveedores] = useState<ProveedorRecord[]>([]);
 
   // Initial Data Load, Token Security Verification & Exclusive Data Extraction
   useEffect(() => {
+    // Load registered providers for helper if needed
+    const allProvs = getStoredProveedores();
+    setAllRegisteredProveedores(allProvs);
+
     setIsValidating(true);
     setValidationStep('Extrayendo credencial de seguridad del enlace...');
 
@@ -143,14 +152,15 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
           return;
         }
 
-        // Query storage strictly for this single provider
+        // Query storage strictly for this single provider (tolerant matching)
         const loadedProveedores = getStoredProveedores();
+        const searchNormalized = token.trim().toLowerCase();
         const found = loadedProveedores.find(
           (p) =>
-            p.tokenAcceso === token ||
-            (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === token.toLowerCase()) ||
-            p.id === token ||
-            p.codigo.toLowerCase() === token.toLowerCase()
+            (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === searchNormalized) ||
+            (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === searchNormalized) ||
+            (p.id && p.id.trim().toLowerCase() === searchNormalized) ||
+            (p.codigo && p.codigo.trim().toLowerCase() === searchNormalized)
         );
 
         if (found) {
@@ -193,9 +203,9 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   }, [initialTokenOrId]);
 
   // Handle manual token submission with security check
-  const handleManualTokenSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = manualTokenInput.trim();
+  const handleManualTokenSubmit = (e?: React.FormEvent, directCode?: string) => {
+    if (e) e.preventDefault();
+    const clean = (directCode || manualTokenInput).trim().toLowerCase();
     if (!clean) return;
 
     setIsValidating(true);
@@ -205,10 +215,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       const loadedProveedores = getStoredProveedores();
       const found = loadedProveedores.find(
         (p) =>
-          p.tokenAcceso === clean ||
-          (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === clean.toLowerCase()) ||
-          p.id === clean ||
-          p.codigo.toLowerCase() === clean.toLowerCase()
+          (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === clean) ||
+          (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === clean) ||
+          (p.id && p.id.trim().toLowerCase() === clean) ||
+          (p.codigo && p.codigo.trim().toLowerCase() === clean)
       );
 
       if (found) {
@@ -233,7 +243,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
         // Update URL query string
         if (window.history.pushState) {
-          const accessParam = found.slugAcceso || found.tokenAcceso;
+          const accessParam = found.slugAcceso || found.tokenAcceso || found.codigo;
           const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${accessParam}#proveedor`;
           window.history.pushState({ path: newUrl }, '', newUrl);
         }
@@ -520,7 +530,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
           {/* ========================================================================= */}
           {/* ESPACIO PRINCIPAL PARA AGREGAR EL CÓDIGO DE ACCESO AL INGRESAR */}
           {/* ========================================================================= */}
-          <form onSubmit={handleManualTokenSubmit} className="space-y-4 text-left">
+          <form onSubmit={(e) => handleManualTokenSubmit(e)} className="space-y-4 text-left">
             <div className="p-4 bg-slate-950 rounded-2xl border-2 border-amber-500/60 shadow-inner space-y-2">
               <label className="block text-xs font-mono font-extrabold text-amber-300 uppercase tracking-wide flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
@@ -530,9 +540,9 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                 <span className="text-[10px] text-amber-400/80 font-normal">Obligatorio</span>
               </label>
 
-              <div className="relative">
+              <div className="relative flex items-center">
                 <input
-                  type="password"
+                  type={showManualPassword ? "text" : "password"}
                   autoFocus
                   value={manualTokenInput}
                   onChange={(e) => {
@@ -541,14 +551,27 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                     setAuthError(null);
                   }}
                   placeholder="Introduce tu código de acceso o token confidencial..."
-                  className="w-full bg-slate-900 border border-amber-500/40 focus:border-amber-400 text-amber-300 placeholder:text-slate-600 text-sm font-mono font-bold rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all tracking-wider"
+                  className="w-full bg-slate-900 border border-amber-500/40 focus:border-amber-400 text-amber-300 placeholder:text-slate-600 text-sm font-mono font-bold rounded-xl pl-4 pr-11 py-3 focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all tracking-wider"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowManualPassword(!showManualPassword)}
+                  className="absolute right-3 p-1.5 text-slate-400 hover:text-amber-300 transition-colors cursor-pointer"
+                  title={showManualPassword ? "Ocultar código" : "Mostrar código"}
+                >
+                  {showManualPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
 
               {manualTokenError && (
-                <div className="p-2.5 bg-red-950/80 border border-red-500/80 rounded-xl text-red-200 text-xs font-mono flex items-center gap-2 animate-fadeIn">
-                  <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-                  <span>Código o token no válido. Verifica el código con la administración e inténtalo nuevamente.</span>
+                <div className="p-3 bg-red-950/90 border border-red-500/80 rounded-xl text-red-200 text-xs font-mono space-y-1 animate-fadeIn">
+                  <div className="flex items-center gap-2 font-bold text-red-300">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+                    <span>Código o token no válido</span>
+                  </div>
+                  <p className="text-[11px] text-red-300/90 pl-6">
+                    {authError || 'Verifica el código confidencial proporcionado por la administración central.'}
+                  </p>
                 </div>
               )}
 
