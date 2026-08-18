@@ -113,6 +113,32 @@ export interface OrdenProduccion {
   mensajeNotificacion?: string;
 }
 
+export interface CotizacionProveedor {
+  id: string;
+  proveedorId: string;
+  proveedorCodigo?: string;
+  proveedorNombre?: string;
+  proveedorTelefono?: string;
+  proveedorMunicipio?: string;
+  tituloProducto: string; // Ej: 100 Talonarios media carta autocopiante 2 copias
+  categoria: ProveedorCategoria; // Ej: Talonarios, Almanaques, etc.
+  cantidad: number; // Ej: 100
+  unidadMedida?: string; // Ej: Talonarios, Unidades, Millares, Paquetes
+  medidasFormato?: string; // Ej: Media carta (14x21.5cm), Cuarto de carta (10.7x14cm)
+  materialPapel?: string; // Ej: Papel químico autocopiante 70g (Original blanco + copia rosada)
+  tintasColores?: string; // Ej: 1x0 Tinta negra o 4x0 policromía
+  terminaciones?: string; // Ej: Numerado consecutivo rojo, prepicado, engrapado con tapa kraft
+  tiempoEntregaDias?: string; // Ej: 2 a 3 días hábiles
+  descripcionDetallada: string; // Espacio amplio para 500 a 1000 palabras con todas las especificaciones y condiciones
+  precioCostoTotal: number; // Valor total cobrado por el lote/pedido en COP
+  precioCostoUnitario?: number; // Calculado precioCostoTotal / cantidad
+  fechaCreacion: string;
+  fechaActualizacion?: string;
+  activo: boolean; // Si está activa para que el admin la consulte
+  destacadaAdmin?: boolean; // Marcada como favorita/mejor costo por admin
+  notasAdmin?: string; // Anotaciones internas del administrador
+}
+
 export interface PagoProveedor {
   id: string;
   reciboConsecutivo: string; // Ej: REC-PRV-2026-0012
@@ -121,7 +147,9 @@ export interface PagoProveedor {
   monto: number;
   metodoPago: 'Transferencia Bancolombia' | 'Nequi' | 'Daviplata' | 'Efectivo' | 'Cheque' | 'Otro';
   referenciaBancaria?: string;
-  comprobanteJpgUrl: string; // Imagen estricta JPG del comprobante de transferencia
+  comprobanteJpgUrl: string; // URL o DataURL en base64 de la imagen JPG/PNG o archivo PDF
+  comprobanteTipo?: 'jpg' | 'png' | 'pdf' | string; // Tipo de comprobante (JPG, PNG o PDF)
+  comprobanteNombre?: string; // Nombre original del archivo adjunto
   fechaPago: string;
   registradoPor: string;
   observaciones?: string;

@@ -33,12 +33,21 @@ import {
   Key,
   Copy,
   Edit3,
-  Sliders
+  Sliders,
+  PlusCircle,
+  Trash2,
+  Tag,
+  Calculator,
+  Search,
+  BookOpen,
+  Filter,
+  CheckSquare
 } from 'lucide-react';
 import {
   ProveedorRecord,
   OrdenProduccion,
   PagoProveedor,
+  CotizacionProveedor,
   OrdenProduccionEstado,
   OrdenProduccionTipoEntrega,
   ProveedorCategoria
@@ -48,7 +57,10 @@ import {
   saveStoredProveedores,
   getStoredOrdenes,
   saveStoredOrdenes,
-  getStoredPagos
+  getStoredPagos,
+  getStoredCotizaciones,
+  saveStoredCotizaciones,
+  getStoredCategorias
 } from '../data/proveedoresData';
 
 interface ProveedorVirtualOfficeProps {
@@ -71,13 +83,34 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [pagos, setPagos] = useState<PagoProveedor[]>([]);
   
   // 3. UI Tabs & Modals
-  const [activeTab, setActiveTab] = useState<'pedidos' | 'banco' | 'pagos' | 'resumen'>('pedidos');
+  const [activeTab, setActiveTab] = useState<'pedidos' | 'cotizaciones' | 'banco' | 'pagos' | 'resumen'>('pedidos');
   const [filterEstado, setFilterEstado] = useState<string>('todos');
   const [selectedOrden, setSelectedOrden] = useState<OrdenProduccion | null>(null);
   const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
   const [viewingComprobanteUrl, setViewingComprobanteUrl] = useState<string | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<PagoProveedor | null>(null);
   const [notificationBanner, setNotificationBanner] = useState<{ msg: string; type: 'success' | 'info' | 'warning' } | null>(null);
+
+  // 4. Quotations / Proposiciones de Costos del Proveedor
+  const [allCotizaciones, setAllCotizaciones] = useState<CotizacionProveedor[]>(() => getStoredCotizaciones());
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [editingQuoteId, setEditingQuoteId] = useState<string | null>(null);
+  const [quoteSearchTerm, setQuoteSearchTerm] = useState('');
+  const [quoteCategoryFilter, setQuoteCategoryFilter] = useState('todas');
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null);
+  const [quoteForm, setQuoteForm] = useState({
+    tituloProducto: '',
+    categoria: 'Talonarios',
+    cantidad: 100,
+    unidadMedida: 'Talonarios',
+    medidasFormato: 'Media carta (14 x 21.5 cm)',
+    materialPapel: 'Papel químico autocopiante 70g (Original blanco + 1 copia color) — 50 juegos / 100 hojas',
+    tintasColores: '1x0 Tinta negra estándar',
+    terminaciones: 'Numerado consecutivo en tinta roja, perforado con prepicado y engrapado',
+    tiempoEntregaDias: '2 a 3 días hábiles',
+    descripcionDetallada: '',
+    precioCostoTotal: 450000
+  });
 
   // 4. Form states for Finishing an Order
   const [finishLogistica, setFinishLogistica] = useState<OrdenProduccionTipoEntrega>('Recoger_Taller');
@@ -202,6 +235,22 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     return () => clearTimeout(timer1);
   }, [initialTokenOrId]);
 
+  // Sincronización en tiempo real con cambios emitidos desde el Administrador
+  useEffect(() => {
+    if (!currentProveedor) return;
+    const handleStorageUpdate = () => {
+      const allOrders = getStoredOrdenes();
+      const allPayments = getStoredPagos();
+      const allCots = getStoredCotizaciones();
+      setOrdenes(allOrders.filter((o) => o.proveedorId === currentProveedor.id));
+      setPagos(allPayments.filter((p) => p.proveedorId === currentProveedor.id));
+      setAllCotizaciones(allCots);
+    };
+
+    window.addEventListener('storage', handleStorageUpdate);
+    return () => window.removeEventListener('storage', handleStorageUpdate);
+  }, [currentProveedor]);
+
   // Handle manual token submission with security check
   const handleManualTokenSubmit = (e?: React.FormEvent, directCode?: string) => {
     if (e) e.preventDefault();
@@ -259,6 +308,20 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   // Filtered orders (guaranteed to belong only to this provider)
   const providerOrders = ordenes;
   const providerPayments = pagos;
+
+  const myCotizaciones = currentProveedor
+    ? allCotizaciones.filter(c => c.proveedorId === currentProveedor.id)
+    : [];
+
+  const filteredMyCotizaciones = myCotizaciones.filter(c => {
+    const matchCategory = quoteCategoryFilter === 'todas' || c.categoria === quoteCategoryFilter;
+    const matchSearch = !quoteSearchTerm.trim() || 
+      c.tituloProducto.toLowerCase().includes(quoteSearchTerm.toLowerCase()) ||
+      (c.materialPapel && c.materialPapel.toLowerCase().includes(quoteSearchTerm.toLowerCase())) ||
+      (c.medidasFormato && c.medidasFormato.toLowerCase().includes(quoteSearchTerm.toLowerCase())) ||
+      (c.descripcionDetallada && c.descripcionDetallada.toLowerCase().includes(quoteSearchTerm.toLowerCase()));
+    return matchCategory && matchSearch;
+  });
 
   const filteredOrders = ordenes.filter((o) => {
     if (filterEstado === 'todos') return true;
@@ -445,6 +508,169 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       }
     }, 400);
   };
+
+  // ==================== GESTIÓN DE COTIZACIONES Y TARIFAS DEL TALLER ====================
+  const countWords = (text: string) => {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).filter(Boolean).length;
+  };
+
+  const handleOpenNewQuoteModal = () => {
+    setEditingQuoteId(null);
+    const defaultCat = currentProveedor?.categoria || (currentProveedor?.categorias && currentProveedor.categorias[0]) || 'Talonarios';
+    setQuoteForm({
+      tituloProducto: '',
+      categoria: defaultCat,
+      cantidad: 100,
+      unidadMedida: defaultCat === 'Almanaques' ? 'Unidades' : (defaultCat === 'Talonarios' ? 'Talonarios' : 'Unidades'),
+      medidasFormato: defaultCat === 'Talonarios' ? 'Media carta (14 x 21.5 cm)' : (defaultCat === 'Almanaques' ? '33 x 50 cm' : '9 x 5.5 cm'),
+      materialPapel: defaultCat === 'Talonarios' ? 'Papel químico autocopiante 70g (Original blanco + 1 copia color) — 50 juegos / 100 hojas' : 'Propalcote 300g brillante',
+      tintasColores: '1x0 Tinta negra estándar',
+      terminaciones: 'Numerado consecutivo en tinta roja, perforado con prepicado y engrapado',
+      tiempoEntregaDias: '2 a 3 días hábiles',
+      descripcionDetallada: '',
+      precioCostoTotal: 480000
+    });
+    setIsQuoteModalOpen(true);
+  };
+
+  const handleEditQuote = (cot: CotizacionProveedor) => {
+    setEditingQuoteId(cot.id);
+    setQuoteForm({
+      tituloProducto: cot.tituloProducto,
+      categoria: cot.categoria,
+      cantidad: cot.cantidad,
+      unidadMedida: cot.unidadMedida || 'Unidades',
+      medidasFormato: cot.medidasFormato || '',
+      materialPapel: cot.materialPapel || '',
+      tintasColores: cot.tintasColores || '',
+      terminaciones: cot.terminaciones || '',
+      tiempoEntregaDias: cot.tiempoEntregaDias || '2 a 3 días hábiles',
+      descripcionDetallada: cot.descripcionDetallada || '',
+      precioCostoTotal: cot.precioCostoTotal
+    });
+    setIsQuoteModalOpen(true);
+  };
+
+  const handleDuplicateQuote = (cot: CotizacionProveedor) => {
+    setEditingQuoteId(null);
+    setQuoteForm({
+      tituloProducto: `${cot.tituloProducto} (Copia / Variante)`,
+      categoria: cot.categoria,
+      cantidad: cot.cantidad,
+      unidadMedida: cot.unidadMedida || 'Unidades',
+      medidasFormato: cot.medidasFormato || '',
+      materialPapel: cot.materialPapel || '',
+      tintasColores: cot.tintasColores || '',
+      terminaciones: cot.terminaciones || '',
+      tiempoEntregaDias: cot.tiempoEntregaDias || '2 a 3 días hábiles',
+      descripcionDetallada: cot.descripcionDetallada || '',
+      precioCostoTotal: cot.precioCostoTotal
+    });
+    setIsQuoteModalOpen(true);
+  };
+
+  const handleDeleteQuote = (id: string) => {
+    if (!confirm('¿Estás seguro de eliminar esta cotización? Dejará de aparecer en el comparador de precios del administrador.')) return;
+    const current = getStoredCotizaciones();
+    const updated = current.filter(c => c.id !== id);
+    saveStoredCotizaciones(updated);
+    setAllCotizaciones(updated);
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+    setNotificationBanner({
+      msg: 'Cotización eliminada correctamente.',
+      type: 'info'
+    });
+  };
+
+  const handleSaveQuoteForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentProveedor) return;
+
+    if (!quoteForm.tituloProducto.trim()) {
+      alert('Por favor ingresa un título descriptivo del producto o trabajo que estás cotizando.');
+      return;
+    }
+
+    if (quoteForm.precioCostoTotal <= 0) {
+      alert('Por favor ingresa un valor de costo válido mayor a $0.');
+      return;
+    }
+
+    const currentList = getStoredCotizaciones();
+    const unitPrice = quoteForm.cantidad > 0 ? Math.round(quoteForm.precioCostoTotal / quoteForm.cantidad) : quoteForm.precioCostoTotal;
+
+    if (editingQuoteId) {
+      // Update existing quote
+      const updated = currentList.map(c => {
+        if (c.id === editingQuoteId) {
+          return {
+            ...c,
+            tituloProducto: quoteForm.tituloProducto.trim(),
+            categoria: quoteForm.categoria,
+            cantidad: quoteForm.cantidad,
+            unidadMedida: quoteForm.unidadMedida,
+            medidasFormato: quoteForm.medidasFormato.trim(),
+            materialPapel: quoteForm.materialPapel.trim(),
+            tintasColores: quoteForm.tintasColores.trim(),
+            terminaciones: quoteForm.terminaciones.trim(),
+            tiempoEntregaDias: quoteForm.tiempoEntregaDias.trim(),
+            descripcionDetallada: quoteForm.descripcionDetallada.trim(),
+            precioCostoTotal: quoteForm.precioCostoTotal,
+            precioCostoUnitario: unitPrice,
+            fechaActualizacion: new Date().toISOString()
+          };
+        }
+        return c;
+      });
+      saveStoredCotizaciones(updated);
+      setAllCotizaciones(updated);
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+      setNotificationBanner({
+        msg: `✓ Cotización "${quoteForm.tituloProducto}" actualizada exitosamente. Ya está disponible en el panel del Administrador.`,
+        type: 'success'
+      });
+    } else {
+      // Create new quote
+      const newQuote: CotizacionProveedor = {
+        id: `cot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        proveedorId: currentProveedor.id,
+        proveedorCodigo: currentProveedor.codigo,
+        proveedorNombre: currentProveedor.nombreComercial,
+        proveedorTelefono: currentProveedor.telefonoWhatsapp,
+        proveedorMunicipio: currentProveedor.municipio || 'Medellín',
+        tituloProducto: quoteForm.tituloProducto.trim(),
+        categoria: quoteForm.categoria,
+        cantidad: quoteForm.cantidad,
+        unidadMedida: quoteForm.unidadMedida,
+        medidasFormato: quoteForm.medidasFormato.trim(),
+        materialPapel: quoteForm.materialPapel.trim(),
+        tintasColores: quoteForm.tintasColores.trim(),
+        terminaciones: quoteForm.terminaciones.trim(),
+        tiempoEntregaDias: quoteForm.tiempoEntregaDias.trim(),
+        descripcionDetallada: quoteForm.descripcionDetallada.trim(),
+        precioCostoTotal: quoteForm.precioCostoTotal,
+        precioCostoUnitario: unitPrice,
+        fechaCreacion: new Date().toISOString(),
+        activo: true,
+        destacadaAdmin: false
+      };
+      const updated = [newQuote, ...currentList];
+      saveStoredCotizaciones(updated);
+      setAllCotizaciones(updated);
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+      setNotificationBanner({
+        msg: `🎉 ¡Cotización "${newQuote.tituloProducto}" publicada! Aparecerá de inmediato en el comparador de precios de Atziluth Gráfic para asignarte órdenes.`,
+        type: 'success'
+      });
+    }
+
+    setIsQuoteModalOpen(false);
+  };
+
 
   // 1. LOADING SPINNER STATE
   if (isValidating) {
@@ -826,6 +1052,21 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('cotizaciones')}
+              className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 cursor-pointer border ${
+                activeTab === 'cotizaciones'
+                  ? 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 border-amber-300 shadow-xl shadow-amber-500/30 font-black scale-105'
+                  : 'bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border-amber-500/40'
+              }`}
+            >
+              <Tag className="w-4 h-4 text-amber-400" />
+              <span>💰 MIS COTIZACIONES & TARIFAS ({myCotizaciones.length})</span>
+              <span className="px-1.5 py-0.2 bg-amber-400 text-slate-950 rounded text-[10px] font-mono font-black">
+                {myCotizaciones.length}
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('banco')}
               className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 border-2 cursor-pointer ${
                 activeTab === 'banco'
@@ -1118,6 +1359,280 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
           </section>
         )}
 
+        {/* TAB: COTIZACIONES & TARIFAS DE COSTOS DEL TALLER */}
+        {activeTab === 'cotizaciones' && (
+          <section className="space-y-6">
+            {/* Header / Intro Box */}
+            <div className="bg-gradient-to-br from-amber-950/30 via-slate-900 to-slate-900 border-2 border-amber-500/40 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1.5 max-w-2xl">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md text-[10px] font-mono font-bold uppercase tracking-wider">
+                      Espacio de Precios & Producción
+                    </span>
+                    <span className="text-xs font-mono text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 className="w-3.5 h-3.5" /> Sincronizado en Vivo con Admin
+                    </span>
+                  </div>
+                  <h2 className="text-lg sm:text-xl font-bold font-mono text-white tracking-tight">
+                    Catálogo de Cotizaciones & Ofertas de Costo del Taller
+                  </h2>
+                  <p className="text-xs text-slate-300 font-sans leading-relaxed">
+                    Registra aquí lo que tu taller puede fabricar (ej: <strong className="text-amber-300">100 talonarios media carta o cuarto de carta</strong>, 500 almanaques, 1000 tarjetas, etc.). Puedes detallar especificaciones completas de <strong className="text-amber-300">500 a 1.000 palabras</strong> y tu precio neto de costo. El Administrador General revisa estas cotizaciones en su comparador de precios para asignarte las órdenes con los mejores costos.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleOpenNewQuoteModal}
+                    className="px-4 py-3 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer border border-amber-300 transform active:scale-95"
+                  >
+                    <PlusCircle className="w-4 h-4 text-slate-950" />
+                    <span>➕ PUBLICAR NUEVA COTIZACIÓN</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Informative tips */}
+              <div className="mt-4 pt-4 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] font-mono text-slate-300">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span><strong>Transparencia total:</strong> Tus costos van directo al Admin.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span><strong>Hasta 1.000 palabras:</strong> Explica papeles, tintas y empaque.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  <span><strong>Actualización libre:</strong> Edita o ajusta precios cuando gustes.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Filter & Search Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-md">
+              <div className="flex flex-wrap items-center gap-2.5 flex-1 min-w-[280px]">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={quoteSearchTerm}
+                    onChange={(e) => setQuoteSearchTerm(e.target.value)}
+                    placeholder="Buscar por producto, papel, formato, terminación..."
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <Filter className="w-3.5 h-3.5 text-amber-400" />
+                  <select
+                    value={quoteCategoryFilter}
+                    onChange={(e) => setQuoteCategoryFilter(e.target.value)}
+                    className="bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="todas">Todas las Categorías</option>
+                    {getStoredCategorias().map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="text-xs font-mono text-slate-400 flex items-center gap-2">
+                <span>Publicadas: <strong className="text-amber-400">{filteredMyCotizaciones.length}</strong> de {myCotizaciones.length}</span>
+                {quoteSearchTerm && (
+                  <button
+                    onClick={() => { setQuoteSearchTerm(''); setQuoteCategoryFilter('todas'); }}
+                    className="text-[10px] text-slate-400 hover:text-amber-300 underline"
+                  >
+                    Limpiar
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* List of Provider's Quotes */}
+            {filteredMyCotizaciones.length === 0 ? (
+              <div className="bg-slate-900/40 border-2 border-dashed border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto text-amber-400 border border-amber-500/20">
+                  <DollarSign className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-bold font-mono text-slate-200">
+                    {myCotizaciones.length === 0
+                      ? 'Aún no has registrado cotizaciones ni listas de precios'
+                      : 'No se encontraron cotizaciones con los filtros aplicados'}
+                  </h3>
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    {myCotizaciones.length === 0
+                      ? 'Agrega tu primera cotización para que el Administrador de Atziluth Gráfic consulte tus precios de costo y te seleccione en sus órdenes.'
+                      : 'Prueba cambiando los términos de búsqueda o seleccionando otra categoría.'}
+                  </p>
+                </div>
+                {myCotizaciones.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleOpenNewQuoteModal}
+                    className="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-bold rounded-xl shadow-lg cursor-pointer transition-all inline-flex items-center gap-2"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                    <span>PUBLICAR MI PRIMERA COTIZACIÓN</span>
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-5">
+                {filteredMyCotizaciones.map((cot) => {
+                  const isExpanded = expandedQuoteId === cot.id;
+                  const words = countWords(cot.descripcionDetallada);
+                  const unitCost = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
+
+                  return (
+                    <div
+                      key={cot.id}
+                      className="bg-slate-900/90 border border-slate-800 hover:border-amber-500/40 rounded-3xl p-5 sm:p-6 transition-all space-y-4 shadow-xl relative overflow-hidden"
+                    >
+                      {/* Top Bar */}
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-slate-800/80 pb-4">
+                        <div className="space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold uppercase">
+                              {cot.categoria}
+                            </span>
+                            <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-mono">
+                              Cantidad Base: <strong className="text-white">{cot.cantidad} {cot.unidadMedida || 'unidades'}</strong>
+                            </span>
+                            <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-800/60 rounded text-[10px] font-mono flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              Visible en Admin
+                            </span>
+                          </div>
+
+                          <h3 className="text-base sm:text-lg font-bold font-mono text-white tracking-tight">
+                            {cot.tituloProducto}
+                          </h3>
+                        </div>
+
+                        {/* Cost Highlighted Box */}
+                        <div className="bg-slate-950 border-2 border-amber-500/60 rounded-2xl p-3 sm:p-4 text-right shrink-0 shadow-lg min-w-[200px]">
+                          <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                            Tu Precio de Costo Total:
+                          </span>
+                          <span className="text-xl sm:text-2xl font-black font-mono text-amber-400 block tracking-tight">
+                            {formatCOP(cot.precioCostoTotal)}
+                          </span>
+                          <div className="text-[11px] font-mono text-slate-400 pt-0.5 border-t border-slate-800/80 mt-1 flex items-center justify-between">
+                            <span>Unitario:</span>
+                            <strong className="text-emerald-400">{formatCOP(unitCost)} / {cot.unidadMedida ? cot.unidadMedida.replace(/s$/, '') : 'u'}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Technical Specs Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800/80 text-xs font-mono">
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase text-slate-400 block font-bold">Formato / Medidas:</span>
+                          <span className="text-slate-200 font-bold">{cot.medidasFormato || 'Estándar'}</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase text-slate-400 block font-bold">Papel / Sustrato:</span>
+                          <span className="text-slate-200">{cot.materialPapel || 'No especificado'}</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase text-slate-400 block font-bold">Tintas / Colores:</span>
+                          <span className="text-slate-200">{cot.tintasColores || '1x0 / 4x0'}</span>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-[10px] uppercase text-slate-400 block font-bold">Tiempo de Entrega:</span>
+                          <span className="text-amber-300 font-bold flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5 text-amber-400" />
+                            {cot.tiempoEntregaDias || '2 a 3 días hábiles'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {cot.terminaciones && (
+                        <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 text-xs font-mono flex items-start gap-2">
+                          <span className="text-amber-400 font-bold shrink-0">Terminaciones & Acabados:</span>
+                          <span className="text-slate-300">{cot.terminaciones}</span>
+                        </div>
+                      )}
+
+                      {/* Extended Technical Description (supports 500-1000 words) */}
+                      {cot.descripcionDetallada && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1.5">
+                              <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                              Memoria Técnica & Especificaciones Detalladas ({words} palabras):
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpandedQuoteId(isExpanded ? null : cot.id)}
+                              className="text-[11px] font-mono text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
+                            >
+                              {isExpanded ? 'Ver menos' : 'Leer todo completo'}
+                            </button>
+                          </div>
+
+                          <div className={`p-4 bg-slate-950/90 rounded-2xl border border-slate-800 text-xs font-sans leading-relaxed text-slate-300 whitespace-pre-line ${
+                            !isExpanded && cot.descripcionDetallada.length > 250 ? 'line-clamp-3' : ''
+                          }`}>
+                            {cot.descripcionDetallada}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Action Footer */}
+                      <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
+                        <div className="text-[10px] font-mono text-slate-400">
+                          Fecha de Registro: {new Date(cot.fechaCreacion).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}
+                          {cot.fechaActualizacion && ` (Actualizado: ${new Date(cot.fechaActualizacion).toLocaleDateString('es-CO', { month: 'short', day: 'numeric' })})`}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateQuote(cot)}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            title="Duplicar cotización para crear una variante rápida"
+                          >
+                            <Copy className="w-3.5 h-3.5 text-slate-400" />
+                            <span>Duplicar Variante</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleEditQuote(cot)}
+                            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-mono font-bold rounded-xl border border-amber-500/40 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Editar</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteQuote(cot.id)}
+                            className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 text-xs font-mono rounded-xl border border-rose-800/50 transition-colors flex items-center gap-1.5 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                            <span>Eliminar</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* TAB 2: DATOS BANCARIOS & CÓDIGO DE ACCESO */}
         {activeTab === 'banco' && (
           <section className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl max-w-3xl mx-auto space-y-6">
@@ -1393,10 +1908,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                 <div className="space-y-1">
                   <h2 className="text-lg font-bold font-mono text-white flex items-center gap-2">
                     <Receipt className="w-5 h-5 text-amber-400" />
-                    Historial de Pagos & Comprobantes JPG
+                    Historial de Pagos & Comprobantes (JPG / PDF)
                   </h2>
                   <p className="text-xs font-mono text-slate-400">
-                    Registro de todas las transferencias realizadas por la administración con su comprobante oficial y consecutivo.
+                    Registro oficial de todas las transferencias realizadas por Atziluth Gráfic con su archivo de comprobación (JPG o PDF) para soporte contable.
                   </p>
                 </div>
 
@@ -1417,65 +1932,96 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {providerPayments.map((pago) => (
-                    <div
-                      key={pago.id}
-                      className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 space-y-4 transition-all shadow-md"
-                    >
-                      <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-3">
-                        <div>
-                          <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded-lg">
-                            {pago.reciboConsecutivo}
-                          </span>
-                          <span className="text-[11px] font-mono text-slate-400 block mt-1">
-                            Fecha: {pago.fechaPago}
-                          </span>
-                        </div>
-                        <div className="text-right">
-                          <span className="text-sm font-bold font-mono text-emerald-400">
-                            +{formatCOP(pago.monto)}
-                          </span>
-                          <span className="text-[10px] font-mono text-slate-500 block">
-                            {pago.metodoPago}
-                          </span>
-                        </div>
-                      </div>
+                  {providerPayments.map((pago) => {
+                    const isPdf = pago.comprobanteTipo === 'pdf' ||
+                      (pago.comprobanteJpgUrl && pago.comprobanteJpgUrl.startsWith('data:application/pdf')) ||
+                      (pago.comprobanteNombre && pago.comprobanteNombre.toLowerCase().endsWith('.pdf'));
 
-                      <div className="text-xs font-mono text-slate-300 space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
-                        {pago.referenciaBancaria && (
+                    return (
+                      <div
+                        key={pago.id}
+                        className="bg-slate-950/80 border border-slate-800 hover:border-slate-700 rounded-2xl p-4.5 space-y-4 transition-all shadow-md"
+                      >
+                        <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-3">
+                          <div>
+                            <span className="text-xs font-mono font-bold text-amber-400 bg-amber-950/80 border border-amber-800 px-2 py-0.5 rounded-lg">
+                              {pago.reciboConsecutivo}
+                            </span>
+                            <span className="text-[11px] font-mono text-slate-400 block mt-1">
+                              Fecha: {pago.fechaPago}
+                            </span>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-sm font-bold font-mono text-emerald-400">
+                              +{formatCOP(pago.monto)}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-500 block">
+                              {pago.metodoPago}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-xs font-mono text-slate-300 space-y-1 bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+                          {pago.referenciaBancaria && (
+                            <p>
+                              <strong className="text-slate-400">Ref Bancaria:</strong> {pago.referenciaBancaria}
+                            </p>
+                          )}
                           <p>
-                            <strong className="text-slate-400">Ref Bancaria:</strong> {pago.referenciaBancaria}
+                            <strong className="text-slate-400">Registrado por:</strong> {pago.registradoPor}
                           </p>
-                        )}
-                        <p>
-                          <strong className="text-slate-400">Registrado por:</strong> {pago.registradoPor}
-                        </p>
-                        {pago.observaciones && (
-                          <p className="text-slate-400">
-                            <strong className="text-slate-300">Nota:</strong> {pago.observaciones}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Voucher Preview & View Button */}
-                      <div className="flex items-center justify-between gap-2 pt-1">
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-amber-400" />
-                          <span className="text-[11px] font-mono text-slate-400">Comprobante JPG</span>
+                          {pago.observaciones && (
+                            <p className="text-slate-400">
+                              <strong className="text-slate-300">Nota:</strong> {pago.observaciones}
+                            </p>
+                          )}
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setViewingComprobanteUrl(pago.comprobanteJpgUrl)}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Ver Comprobante</span>
-                          </button>
+                        {/* Voucher Preview & View Button */}
+                        <div className="flex items-center justify-between gap-2 pt-1 flex-wrap">
+                          <div className="flex items-center gap-1.5">
+                            {isPdf ? (
+                              <span className="px-2 py-1 bg-rose-950/80 text-rose-300 border border-rose-500/40 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1">
+                                <FileText className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Archivo PDF</span>
+                              </span>
+                            ) : (
+                              <span className="px-2 py-1 bg-amber-950/80 text-amber-300 border border-amber-500/40 rounded-lg text-[10px] font-mono font-bold flex items-center gap-1">
+                                <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Imagen JPG/PNG</span>
+                              </span>
+                            )}
+                            {pago.comprobanteNombre && (
+                              <span className="text-[10px] font-mono text-slate-400 truncate max-w-[110px]" title={pago.comprobanteNombre}>
+                                {pago.comprobanteNombre}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={pago.comprobanteJpgUrl}
+                              download={pago.comprobanteNombre || (isPdf ? `comprobante_${pago.reciboConsecutivo}.pdf` : `comprobante_${pago.reciboConsecutivo}.jpg`)}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Descargar Comprobante"
+                              className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-xl border border-slate-700 transition-colors"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+
+                            <button
+                              onClick={() => setViewingComprobanteUrl(pago.comprobanteJpgUrl)}
+                              className="px-3 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-mono font-bold rounded-xl flex items-center gap-1.5 transition-all shadow cursor-pointer"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Ver {isPdf ? 'PDF' : 'JPG'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -1710,51 +2256,332 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: VISOR DE COMPROBANTE JPG DE TRANSFERENCIA */}
-      {viewingComprobanteUrl && (
-        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 animate-scale-up">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <div className="flex items-center gap-2 text-amber-400">
-                <ImageIcon className="w-5 h-5" />
-                <h3 className="text-base font-bold font-mono text-white">
-                  Comprobante Oficial de Transferencia (.JPG)
-                </h3>
+      {/* MODAL 3: AGREGAR O EDITAR COTIZACIÓN / TARIFA DEL PROVEEDOR */}
+      {isQuoteModalOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-3xl max-w-3xl w-full p-5 sm:p-7 shadow-2xl space-y-5 my-8 max-h-[92vh] overflow-y-auto animate-scale-up">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-amber-500 text-slate-950 rounded-xl font-bold">
+                  <Tag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base sm:text-lg font-bold font-mono text-white">
+                    {editingQuoteId ? 'Editar Cotización / Tarifa' : 'Publicar Nueva Cotización de Costo'}
+                  </h3>
+                  <p className="text-xs text-slate-400 font-mono">
+                    Taller: <strong className="text-amber-400">{currentProveedor.nombreComercial}</strong> ({currentProveedor.codigo})
+                  </p>
+                </div>
               </div>
               <button
-                onClick={() => setViewingComprobanteUrl(null)}
-                className="text-slate-400 hover:text-white p-1"
+                type="button"
+                onClick={() => setIsQuoteModalOpen(false)}
+                className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center max-h-[65vh]">
-              <img
-                src={viewingComprobanteUrl}
-                alt="Comprobante Bancario JPG"
-                className="w-full h-full object-contain max-h-[60vh]"
-              />
-            </div>
+            <form onSubmit={handleSaveQuoteForm} className="space-y-4">
+              {/* Row 1: Título y Categoría */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Título o Nombre del Trabajo <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={quoteForm.tituloProducto}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, tituloProducto: e.target.value })}
+                    placeholder="Ej: 100 Talonarios Media Carta Químico 2 Copias"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
 
-            <div className="flex items-center justify-between gap-3 pt-2">
-              <span className="text-[11px] font-mono text-slate-400">
-                Formato validado: <strong>JPG Estricto</strong> &bull; Respaldo digital Atziluth
-              </span>
-              <a
-                href={viewingComprobanteUrl}
-                download="comprobante_transferencia_atziluth.jpg"
-                target="_blank"
-                rel="noreferrer"
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-mono text-xs font-bold rounded-xl shadow transition-colors flex items-center gap-1.5"
-              >
-                <Download className="w-4 h-4" />
-                <span>Descargar JPG</span>
-              </a>
-            </div>
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Categoría de Producción <span className="text-amber-400">*</span>
+                  </label>
+                  <select
+                    value={quoteForm.categoria}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, categoria: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    {getStoredCategorias().map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Cantidad Base, Unidad de Medida, y Formato */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Cantidad Base Cotizada <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={quoteForm.cantidad || ''}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, cantidad: parseInt(e.target.value, 10) || 1 })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white focus:outline-none focus:border-amber-400 font-bold"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Unidad de Medida
+                  </label>
+                  <select
+                    value={quoteForm.unidadMedida}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, unidadMedida: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="Talonarios">Talonarios</option>
+                    <option value="Unidades">Unidades</option>
+                    <option value="Millares">Millares (1.000 u)</option>
+                    <option value="Paquetes">Paquetes</option>
+                    <option value="Juegos">Juegos</option>
+                    <option value="Metros Lineales">Metros Lineales</option>
+                    <option value="Metros Cuadrados">Metros Cuadrados (m²)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Formato / Medidas
+                  </label>
+                  <input
+                    type="text"
+                    value={quoteForm.medidasFormato}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, medidasFormato: e.target.value })}
+                    placeholder="Ej: Media carta (14 x 21.5 cm) o Cuarto carta"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Row 3: Material / Papel / Sustrato, Tintas, y Tiempo de Entrega */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Papel / Sustrato / Material
+                  </label>
+                  <input
+                    type="text"
+                    value={quoteForm.materialPapel}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, materialPapel: e.target.value })}
+                    placeholder="Ej: Químico 70g (Original + 1 copia) 50 juegos"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Tintas / Impresión
+                  </label>
+                  <input
+                    type="text"
+                    value={quoteForm.tintasColores}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, tintasColores: e.target.value })}
+                    placeholder="Ej: 1x0 Tinta negra estándar / 4x0 Full color"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                    Tiempo de Producción / Entrega
+                  </label>
+                  <input
+                    type="text"
+                    value={quoteForm.tiempoEntregaDias}
+                    onChange={(e) => setQuoteForm({ ...quoteForm, tiempoEntregaDias: e.target.value })}
+                    placeholder="Ej: 2 a 3 días hábiles"
+                    className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Row 4: Terminaciones & Acabados */}
+              <div className="space-y-1">
+                <label className="block text-xs font-mono font-bold uppercase text-slate-300">
+                  Terminaciones & Acabados
+                </label>
+                <input
+                  type="text"
+                  value={quoteForm.terminaciones}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, terminaciones: e.target.value })}
+                  placeholder="Ej: Numerado en rojo, perforado con prepicado para desprendible, grapado y carátula kraft"
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs font-mono text-white placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              {/* Row 5: PRECIO DE COSTO TOTAL Y CÁLCULO UNITARIO */}
+              <div className="p-4 bg-gradient-to-r from-amber-950/50 via-slate-950 to-amber-950/30 border-2 border-amber-500/60 rounded-2xl space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center">
+                  <div>
+                    <label className="block text-xs font-mono font-black uppercase text-amber-300 mb-1">
+                      💰 Valor / Precio de Costo Total ($ COP) <span className="text-amber-400">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={100}
+                      step={100}
+                      required
+                      value={quoteForm.precioCostoTotal || ''}
+                      onChange={(e) => setQuoteForm({ ...quoteForm, precioCostoTotal: parseFloat(e.target.value) || 0 })}
+                      placeholder="Ej: 480000"
+                      className="w-full bg-slate-900 border-2 border-amber-400 rounded-xl p-3 text-base font-mono text-amber-300 font-black focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                  </div>
+
+                  <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-700 text-xs font-mono space-y-1">
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Cálculo Automático Unitario:</span>
+                    <div className="text-lg font-bold text-emerald-400">
+                      {formatCOP(quoteForm.cantidad > 0 ? Math.round(quoteForm.precioCostoTotal / quoteForm.cantidad) : 0)}
+                      <span className="text-xs text-slate-400 font-normal"> / {quoteForm.unidadMedida ? quoteForm.unidadMedida.replace(/s$/, '') : 'unidad'}</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      Total por lote de {quoteForm.cantidad} {quoteForm.unidadMedida}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 6: ESPACIO AMPLIO PARA MEMORIA TÉCNICA (500 a 1.000 palabras) */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-mono font-bold uppercase text-slate-300 flex items-center gap-1.5">
+                    <BookOpen className="w-4 h-4 text-amber-400" />
+                    <span>Descripción Técnica Detallada, Especificaciones & Condiciones</span>
+                  </label>
+                  <div className="text-[11px] font-mono text-slate-400 flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-slate-800 rounded text-amber-300 font-bold">
+                      {countWords(quoteForm.descripcionDetallada)} palabras
+                    </span>
+                    <span>({quoteForm.descripcionDetallada.length} caracteres)</span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-400 font-mono">
+                  Espacio amplio disponible (hasta 1.000 palabras) para especificar gramajes, calibres, tintas especiales, condiciones de entrega, garantía y requerimientos de archivo.
+                </p>
+
+                <textarea
+                  rows={6}
+                  value={quoteForm.descripcionDetallada}
+                  onChange={(e) => setQuoteForm({ ...quoteForm, descripcionDetallada: e.target.value })}
+                  placeholder={`Ejemplo de especificaciones técnicas detalladas:\n• Talonarios en papel químico autocopiante de 70g (Original blanco + 1ra copia rosada/amarilla).\n• 50 juegos por talonario (100 hojas en total).\n• Numeración consecutiva tipográfica en tinta roja con 6 dígitos.\n• Prepicado uniforme para fácil desprendimiento sin rasgar la matriz.\n• Tapa y contratapa en cartulina kraft o cartón paja resistente.\n• Engrapado con alambre galvanizado y cinta percalina negra en el lomo.\n• Incluye empaque plástico termoencogido en paquetes de 10 unidades.\n• Tiempo de entrega: 2 a 3 días hábiles tras aprobación de arte.`}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-2xl p-4 text-xs font-sans text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-amber-400 resize-y leading-relaxed font-mono"
+                />
+              </div>
+
+              {/* Botones de acción del Modal */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setIsQuoteModalOpen(false)}
+                  className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2.5 bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 cursor-pointer border border-amber-300"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{editingQuoteId ? 'GUARDAR CAMBIOS EN COTIZACIÓN' : 'PUBLICAR COTIZACIÓN AHORA'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
+
+      {/* MODAL 2: VISOR DE COMPROBANTE JPG / PDF DE TRANSFERENCIA */}
+      {viewingComprobanteUrl && (() => {
+        const isPdf = viewingComprobanteUrl.startsWith('data:application/pdf') || 
+          viewingComprobanteUrl.includes('.pdf') || 
+          providerPayments.some(p => p.comprobanteJpgUrl === viewingComprobanteUrl && (p.comprobanteTipo === 'pdf' || (p.comprobanteNombre && p.comprobanteNombre.toLowerCase().endsWith('.pdf'))));
+        
+        const matchingPago = providerPayments.find(p => p.comprobanteJpgUrl === viewingComprobanteUrl);
+        const fileName = matchingPago?.comprobanteNombre || (isPdf ? `comprobante_${matchingPago?.reciboConsecutivo || 'pago'}.pdf` : `comprobante_${matchingPago?.reciboConsecutivo || 'pago'}.jpg`);
+
+        return (
+          <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-3xl w-full p-6 shadow-2xl space-y-4 animate-scale-up">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2 text-amber-400">
+                  {isPdf ? <FileText className="w-5 h-5 text-rose-400" /> : <ImageIcon className="w-5 h-5 text-amber-400" />}
+                  <h3 className="text-base font-bold font-mono text-white">
+                    Comprobante Oficial de Pago ({isPdf ? 'Documento PDF' : 'Imagen JPG/PNG'})
+                  </h3>
+                </div>
+                <button
+                  onClick={() => setViewingComprobanteUrl(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 flex items-center justify-center max-h-[65vh] min-h-[300px]">
+                {isPdf ? (
+                  <iframe
+                    src={viewingComprobanteUrl}
+                    title="Comprobante PDF"
+                    className="w-full h-[60vh] border-0 rounded-2xl bg-slate-900"
+                  />
+                ) : (
+                  <img
+                    src={viewingComprobanteUrl}
+                    alt="Comprobante Bancario JPG"
+                    className="w-full h-full object-contain max-h-[60vh]"
+                  />
+                )}
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2 flex-wrap">
+                <span className="text-[11px] font-mono text-slate-400 flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Formato verificado: <strong>{isPdf ? 'PDF Digital' : 'JPG/PNG'}</strong> &bull; Respaldo emitido por Atziluth</span>
+                </span>
+
+                <div className="flex items-center gap-2">
+                  <a
+                    href={viewingComprobanteUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Pestaña Nueva</span>
+                  </a>
+
+                  <a
+                    href={viewingComprobanteUrl}
+                    download={fileName}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={`px-4 py-2 text-slate-950 font-mono text-xs font-bold rounded-xl shadow transition-all flex items-center gap-1.5 ${
+                      isPdf ? 'bg-rose-500 hover:bg-rose-400 text-white' : 'bg-amber-500 hover:bg-amber-400'
+                    }`}
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Descargar {isPdf ? 'PDF' : 'JPG'}</span>
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { ProveedorRecord, OrdenProduccion, PagoProveedor, DEFAULT_PROVEEDORES_CATEGORIAS } from '../types/proveedor';
+import { ProveedorRecord, OrdenProduccion, PagoProveedor, CotizacionProveedor, DEFAULT_PROVEEDORES_CATEGORIAS } from '../types/proveedor';
 
 export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
@@ -166,6 +166,104 @@ export const INITIAL_ORDENES: OrdenProduccion[] = [
   }
 ];
 
+export const INITIAL_COTIZACIONES: CotizacionProveedor[] = [
+  {
+    id: "cot_tal_01",
+    proveedorId: "prv_2",
+    proveedorCodigo: "PRV-TAL-002",
+    proveedorNombre: "Litografía & Formas Continuas Antioquia",
+    proveedorTelefono: "+57 300 789 1234",
+    proveedorMunicipio: "Medellín",
+    tituloProducto: "100 Talonarios Media Carta (14x21.5cm) — Químico Autocopiante 2 Copias",
+    categoria: "Talonarios",
+    cantidad: 100,
+    unidadMedida: "Talonarios",
+    medidasFormato: "Media carta (14 x 21.5 cm)",
+    materialPapel: "Papel químico autocopiante 70g (Original blanco + 1 Copia rosada o amarilla). 50 juegos por talonario (100 hojas en total).",
+    tintasColores: "1x0 Tinta negra estándar o azul reflex",
+    terminaciones: "Numeración consecutiva en tinta roja tipográfica, perforado con prepicado para desprendimiento fácil, engrapado con 2 grapas de alambre y tapa en cartón Kraft 240g envolvente.",
+    tiempoEntregaDias: "2 a 3 días hábiles",
+    descripcionDetallada: "Cotización de producción litográfica para 100 talonarios tamaño media carta. Cada talonario contiene 50 juegos (Original en papel químico blanco de 70 gramos y 1 copia en papel químico autocopiante color a elección). Incluye diseño tipográfico base, numerado consecutivo en tinta roja de 6 dígitos sin costo extra, perforado longitudinal de máxima precisión, cosido o engrapado al lomo con refuerzo de cinta lito de encuadernación y cartón de respaldo con solapa protectora separadora. Garantizamos nitidez en la copia de transferencia y entrega perfectamente empacada en paquetes termoencogidos de 10 unidades para proteger de la humedad.",
+    precioCostoTotal: 480000,
+    precioCostoUnitario: 4800,
+    fechaCreacion: "2026-08-15T10:00:00",
+    activo: true,
+    destacadaAdmin: true,
+    notasAdmin: "Excelente precio y acabado de numerado limpio. Opción prioritaria para pedidos medianos."
+  },
+  {
+    id: "cot_tal_02",
+    proveedorId: "prv_1",
+    proveedorCodigo: "PRV-ALM-001",
+    proveedorNombre: "Talleres Gráficos & Troquelados del Valle",
+    proveedorTelefono: "+57 312 456 7890",
+    proveedorMunicipio: "Medellín",
+    tituloProducto: "100 Talonarios Cuarto de Carta (10.7x14cm) — Químico Autocopiante 2 Copias",
+    categoria: "Talonarios",
+    cantidad: 100,
+    unidadMedida: "Talonarios",
+    medidasFormato: "Cuarto de carta (10.7 x 14 cm)",
+    materialPapel: "Papel químico 70g (Original blanco + 1 copia color). 50 juegos / 100 hojas por talonario.",
+    tintasColores: "1x0 Tinta negra",
+    terminaciones: "Numerado rojo consecutivo, prepicado de alta precisión, lomo engrapado con cinta protectora.",
+    tiempoEntregaDias: "3 días hábiles",
+    descripcionDetallada: "Oferta directa de taller para 100 talonarios cuarto de carta. Ideal para recibos de caja menor, comandas de restaurantes o comprobantes rápidos de entrega. Cada talonario incluye 50 juegos con papel químico de alta transferencia (blanco/amarillo). Terminación encuadernada con grapa industrial y refuerzo, portada en cartulina manila y cartón intermedio rígido de escritura.",
+    precioCostoTotal: 340000,
+    precioCostoUnitario: 3400,
+    fechaCreacion: "2026-08-16T11:30:00",
+    activo: true,
+    destacadaAdmin: true,
+    notasAdmin: "Tarifa muy competitiva para cuarto de carta."
+  },
+  {
+    id: "cot_alm_01",
+    proveedorId: "prv_1",
+    proveedorCodigo: "PRV-ALM-001",
+    proveedorNombre: "Talleres Gráficos & Troquelados del Valle",
+    proveedorTelefono: "+57 312 456 7890",
+    proveedorMunicipio: "Medellín",
+    tituloProducto: "500 Almanaques Modelo Gigante (33x50cm) con Ojillete y Taco Mensual",
+    categoria: "Almanaques",
+    cantidad: 500,
+    unidadMedida: "Unidades",
+    medidasFormato: "Respaldo 33 x 50 cm — Taco 33 x 15 cm",
+    materialPapel: "Cartón Duplex 320g plastificado brillante + Taco en papel Bond 75g de 12 hojas",
+    tintasColores: "Policromía 4x0 tintas en respaldo con barniz UV brillante",
+    terminaciones: "Ojillete metálico superior reforzado, taco mensual con festivos colombianos engrapado.",
+    tiempoEntregaDias: "4 a 5 días hábiles",
+    descripcionDetallada: "Cotización de temporada para 500 almanaques de pared tamaño gigante. Respaldo impreso en cartón duplex de 320 gramos con recubrimiento brillante UV total para máxima durabilidad y realce fotográfico. Taco de 12 meses impreso en papel bond de 75 gramos con calendario tributario, lunas y festivos nacionales oficiales. Ensamblado con doble grapa industrial y perforación con ojillete niquelado anti-óxido. Empacado plano en paquetes de 25 unidades con cantoneras.",
+    precioCostoTotal: 680000,
+    precioCostoUnitario: 1360,
+    fechaCreacion: "2026-08-14T09:00:00",
+    activo: true,
+    destacadaAdmin: true,
+    notasAdmin: "Calidad de ojillete y laca UV insuperable."
+  },
+  {
+    id: "cot_tar_01",
+    proveedorId: "prv_2",
+    proveedorCodigo: "PRV-TAL-002",
+    proveedorNombre: "Litografía & Formas Continuas Antioquia",
+    proveedorTelefono: "+57 300 789 1234",
+    proveedorMunicipio: "Medellín",
+    tituloProducto: "1000 Tarjetas de Presentación — Propalcote 300g Mate + Brillo UV Parcial 2 Caras",
+    categoria: "Tarjetas",
+    cantidad: 1000,
+    unidadMedida: "Unidades",
+    medidasFormato: "9 x 5.5 cm",
+    materialPapel: "Propalcote importado de 300 gramos calibre alto",
+    tintasColores: "Policromía 4x4 (Full color ambas caras)",
+    terminaciones: "Laminado mate aterciopelado en ambas caras + reserva de brillo parcial UV en logos.",
+    tiempoEntregaDias: "3 días hábiles",
+    descripcionDetallada: "Tarjetas premium de presentación corporativa por millar. Impresión offset de alta resolución a 2400 DPI en propalcote de 300 gramos. Proceso de termolaminado mate que brinda textura suave al tacto y resistencia al agua, con aplicación selectiva de barniz UV serigráfico curado en logos y datos clave para generar contraste visual de lujo. Corte recto electrónico de esquinas perfectas.",
+    precioCostoTotal: 75000,
+    precioCostoUnitario: 75,
+    fechaCreacion: "2026-08-17T08:30:00",
+    activo: true,
+    destacadaAdmin: false
+  }
+];
+
 export const INITIAL_PAGOS: PagoProveedor[] = [
   {
     id: "pag_1",
@@ -176,6 +274,8 @@ export const INITIAL_PAGOS: PagoProveedor[] = [
     metodoPago: "Transferencia Bancolombia",
     referenciaBancaria: "TRF-883920194",
     comprobanteJpgUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+    comprobanteTipo: "jpg",
+    comprobanteNombre: "comprobante_bancolombia_rec_0001.jpg",
     fechaPago: "2026-08-13",
     registradoPor: "Estivenson Navarro (Administrador General)",
     observaciones: "Pago liquidado al 100% por entrega conforme de 1.000 almanaques de bolsillo.",
@@ -187,7 +287,8 @@ const STORAGE_KEYS = {
   PROVEEDORES: "atziluth_proveedores_records",
   ORDENES: "atziluth_ordenes_produccion",
   PAGOS: "atziluth_pagos_proveedores",
-  CATEGORIAS: "atziluth_prov_categorias"
+  CATEGORIAS: "atziluth_prov_categorias",
+  COTIZACIONES: "atziluth_cotizaciones_proveedores"
 };
 
 export function getStoredCategorias(): string[] {
@@ -291,3 +392,27 @@ export function saveStoredPagos(list: PagoProveedor[]): void {
     console.error("Error saving pagos to localStorage:", e);
   }
 }
+
+export function getStoredCotizaciones(): CotizacionProveedor[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.COTIZACIONES);
+    if (!raw) {
+      localStorage.setItem(STORAGE_KEYS.COTIZACIONES, JSON.stringify(INITIAL_COTIZACIONES));
+      return INITIAL_COTIZACIONES;
+    }
+    const list: CotizacionProveedor[] = JSON.parse(raw);
+    return list;
+  } catch (e) {
+    console.error("Error loading cotizaciones from localStorage:", e);
+    return INITIAL_COTIZACIONES;
+  }
+}
+
+export function saveStoredCotizaciones(list: CotizacionProveedor[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEYS.COTIZACIONES, JSON.stringify(list));
+  } catch (e) {
+    console.error("Error saving cotizaciones to localStorage:", e);
+  }
+}
+

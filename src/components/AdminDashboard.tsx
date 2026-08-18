@@ -52,13 +52,20 @@ import {
   Sliders,
   ArrowRight,
   AlertTriangle,
-  Zap
+  Zap,
+  BookOpen,
+  Star,
+  Percent,
+  BarChart3,
+  TrendingDown,
+  Inbox
 } from "lucide-react";
 import { ClientRecord, ClientPayment } from "../types";
 import {
   ProveedorRecord,
   OrdenProduccion,
   PagoProveedor,
+  CotizacionProveedor,
   ProveedorCategoria,
   ProveedorBankDetails,
   DEFAULT_PROVEEDORES_CATEGORIAS
@@ -70,8 +77,11 @@ import {
   saveStoredOrdenes,
   getStoredPagos,
   saveStoredPagos,
+  getStoredCotizaciones,
+  saveStoredCotizaciones,
   getStoredCategorias,
-  saveStoredCategorias
+  saveStoredCategorias,
+  INITIAL_COTIZACIONES
 } from "../data/proveedoresData";
 import CustomerRegistrationForm from "./CustomerRegistrationForm";
 import CustomerList from "./CustomerList";
@@ -267,11 +277,17 @@ export type AdminTab =
   | 'panel_general'
   | 'talleres'
   | 'proveedores'
+  | 'cotizaciones_talleres'
+  | 'cotizaciones_recibidas'
   | 'balance'
   | 'vendedores'
   | 'clientes'
   | 'facturacion'
   | 'branding';
+
+const formatCOP = (num: number) => {
+  return '$' + (Number(num) || 0).toLocaleString('es-CO') + ' COP';
+};
 
 export default function AdminDashboard() {
   const [activeAdminTab, setActiveAdminTab] = useState<AdminTab>(() => {
@@ -279,7 +295,7 @@ export default function AdminDashboard() {
       const hash = window.location.hash || '';
       if (hash.includes('tab=')) {
         const tab = hash.split('tab=')[1]?.split('&')[0] as AdminTab;
-        if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
+        if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'cotizaciones_talleres', 'cotizaciones_recibidas', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
           return tab;
         }
       }
@@ -312,7 +328,7 @@ export default function AdminDashboard() {
         const hash = window.location.hash || '';
         if (hash.includes('tab=')) {
           const tab = hash.split('tab=')[1]?.split('&')[0] as AdminTab;
-          if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
+          if (['panel_general', 'talleres', 'vendedores', 'proveedores', 'cotizaciones_talleres', 'cotizaciones_recibidas', 'balance', 'clientes', 'facturacion', 'branding'].includes(tab)) {
             setActiveAdminTab(tab);
           }
         }
@@ -339,6 +355,10 @@ export default function AdminDashboard() {
     return getStoredPagos();
   });
 
+  const [provCotizaciones, setProvCotizaciones] = useState<CotizacionProveedor[]>(() => {
+    return getStoredCotizaciones();
+  });
+
   // Sync with LocalStorage
   useEffect(() => {
     saveStoredProveedores(proveedores);
@@ -351,6 +371,42 @@ export default function AdminDashboard() {
   useEffect(() => {
     saveStoredPagos(provPagos);
   }, [provPagos]);
+
+  useEffect(() => {
+    saveStoredCotizaciones(provCotizaciones);
+  }, [provCotizaciones]);
+
+  // Live real-time sync with ProveedorVirtualOffice submissions across tabs/windows
+  useEffect(() => {
+    const handleSync = () => {
+      setProveedores(getStoredProveedores());
+      setProvOrdenes(getStoredOrdenes());
+      setProvPagos(getStoredPagos());
+      setProvCotizaciones(getStoredCotizaciones());
+      setCategoriesList(getStoredCategorias());
+    };
+
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("atziluth_prov_data_change", handleSync);
+    window.addEventListener("focus", handleSync);
+
+    return () => {
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("atziluth_prov_data_change", handleSync);
+      window.removeEventListener("focus", handleSync);
+    };
+  }, []);
+
+  // Sub-panel navigation inside "Gestión de Proveedores"
+  const [provActiveSubPanel, setProvActiveSubPanel] = useState<'cotizaciones' | 'talleres' | 'nuevo' | 'tokens'>('cotizaciones');
+
+  // Quotation comparison & filtering state in Admin
+  const [cotSearchTerm, setCotSearchTerm] = useState("");
+  const [cotCategoryFilter, setCotCategoryFilter] = useState("all");
+  const [cotProviderFilter, setCotProviderFilter] = useState("all");
+  const [cotSortMode, setCotSortMode] = useState<"menor_precio" | "menor_unitario" | "reciente" | "proveedor">("menor_precio");
+  const [cotDecisionMode, setCotDecisionMode] = useState<"todas" | "solo_mejores" | "matriz_ahorro" | "destacadas">("todas");
+  const [expandedCotId, setExpandedCotId] = useState<string | null>(null);
 
   // Dynamic categories list (loaded from localStorage with standard defaults)
   const [categoriesList, setCategoriesList] = useState<string[]>(() => getStoredCategorias());
@@ -418,6 +474,7 @@ export default function AdminDashboard() {
   const [payReferencia, setPayReferencia] = useState("");
   const [payComprobanteJpg, setPayComprobanteJpg] = useState<string>("");
   const [payComprobanteFileName, setPayComprobanteFileName] = useState("");
+  const [payComprobanteTipo, setPayComprobanteTipo] = useState<string>("jpg");
 
   // Receipt Modal State
   const [viewingProvReceipt, setViewingProvReceipt] = useState<PagoProveedor | null>(null);
@@ -997,7 +1054,7 @@ export default function AdminDashboard() {
       return;
     }
     if (!payComprobanteJpg) {
-      alert("Es obligatorio subir el comprobante de transferencia bancaria en formato .JPG.");
+      alert("Es obligatorio subir el comprobante de pago en archivo JPG, PNG o PDF.");
       return;
     }
 
@@ -1012,6 +1069,8 @@ export default function AdminDashboard() {
       metodoPago: payMetodo as any,
       referenciaBancaria: payReferencia.trim() || `TRF-${Math.floor(100000000 + Math.random() * 900000000)}`,
       comprobanteJpgUrl: payComprobanteJpg,
+      comprobanteTipo: payComprobanteTipo || (payComprobanteFileName.toLowerCase().endsWith('.pdf') ? 'pdf' : 'jpg'),
+      comprobanteNombre: payComprobanteFileName || `comprobante_${receiptNum}`,
       fechaPago: new Date().toISOString().split('T')[0],
       registradoPor: "Administrador Central",
       createdAt: new Date().toISOString()
@@ -1021,14 +1080,20 @@ export default function AdminDashboard() {
     setProvPagos(updated);
     saveStoredPagos(updated);
 
+    // Disparar evento de storage para sincronizar oficinas virtuales abiertas
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+    }
+
     setPaymentModalProv(null);
     setPayMonto(0);
     setPayReferencia("");
     setPayComprobanteJpg("");
     setPayComprobanteFileName("");
+    setPayComprobanteTipo("jpg");
 
-    setSaveStatus(`✓ Pago ${receiptNum} registrado exitosamente.`);
-    setTimeout(() => setSaveStatus(null), 4000);
+    setSaveStatus(`✓ Pago ${receiptNum} registrado y comprobante (${newPayment.comprobanteTipo?.toUpperCase()}) enviado a la Oficina Virtual de ${paymentModalProv.nombreComercial}.`);
+    setTimeout(() => setSaveStatus(null), 4500);
   };
 
   const handleOpenProvPortal = (prov: ProveedorRecord) => {
@@ -3059,7 +3124,21 @@ export default function AdminDashboard() {
 
         <div className="flex flex-wrap items-center gap-2 self-start md:self-auto">
           <button
-            onClick={() => handleNavigateTab('proveedores', 'seccion-proveedores')}
+            onClick={() => {
+              setProvActiveSubPanel('cotizaciones');
+              handleNavigateTab('proveedores', 'subpanel-cotizaciones-proveedores');
+            }}
+            className="px-4 py-2 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-300 text-xs font-mono font-black text-slate-950 rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-xl border-2 border-amber-300 ring-2 ring-amber-400/40 animate-pulse"
+          >
+            <Tag className="w-4 h-4 text-slate-950" />
+            <span>📥 VER COTIZACIONES ({provCotizaciones.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setProvActiveSubPanel('talleres');
+              handleNavigateTab('proveedores', 'seccion-proveedores');
+            }}
             className="px-4 py-2 bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-xs font-mono font-bold text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg border border-amber-400/30"
           >
             <Building2 className="w-4 h-4 text-amber-200" />
@@ -3112,7 +3191,7 @@ export default function AdminDashboard() {
       <div className="bg-slate-900/90 border border-slate-800 p-2 rounded-2xl flex flex-wrap items-center gap-2 shadow-xl sticky top-2 z-40 backdrop-blur-md">
         <button
           onClick={() => handleNavigateTab('panel_general')}
-          className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
+          className={`flex-1 min-w-[140px] py-3 px-3.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
             activeAdminTab === 'panel_general'
               ? 'bg-gradient-to-r from-brand-orange to-amber-600 text-white shadow-lg border border-brand-orange/30'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
@@ -3124,14 +3203,31 @@ export default function AdminDashboard() {
 
         <button
           onClick={() => handleNavigateTab('proveedores')}
-          className={`flex-1 min-w-[150px] py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer ${
-            activeAdminTab === 'proveedores'
+          className={`flex-1 min-w-[160px] py-3 px-3.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+            activeAdminTab === 'proveedores' || activeAdminTab === 'talleres'
               ? 'bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-lg border border-amber-500/30 font-black'
               : 'bg-slate-950/60 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-800'
           }`}
         >
           <Building2 className="w-4 h-4 text-amber-400" />
-          <span>🏭 Gestión de Proveedores ({proveedores.length})</span>
+          <span>🏭 Proveedores & Talleres ({proveedores.length})</span>
+        </button>
+
+        <button
+          onClick={() => handleNavigateTab('cotizaciones_talleres')}
+          className={`flex-1 min-w-[180px] py-3 px-3.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer border ${
+            activeAdminTab === 'cotizaciones_talleres'
+              ? 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 shadow-xl border-amber-300 font-black scale-105'
+              : 'bg-gradient-to-r from-amber-500/20 to-yellow-500/10 text-amber-300 hover:text-white hover:bg-amber-500/30 border-amber-500/50 ring-1 ring-amber-500/30'
+          }`}
+        >
+          <Tag className="w-4 h-4 text-amber-400" />
+          <span className="font-black">📥 Cotizaciones & Costos ({provCotizaciones.length})</span>
+          {provCotizaciones.length > 0 && (
+            <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[10px] rounded-full font-black">
+              {provCotizaciones.length}
+            </span>
+          )}
         </button>
 
         <button
@@ -3220,22 +3316,33 @@ export default function AdminDashboard() {
                 <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
                   <Building2 className="w-5 h-5" />
                 </div>
-                <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded-full uppercase">
-                  Oficinas Virtuales
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-mono font-bold text-amber-400 bg-amber-950 border border-amber-800 px-2 py-0.5 rounded-full uppercase">
+                    {provCotizaciones.length} Cotizaciones
+                  </span>
+                </div>
               </div>
-              <h3 className="text-base font-bold text-white font-display">Gestión de Proveedores & Costos</h3>
+              <h3 className="text-base font-bold text-white font-display">Proveedores & Buzón de Cotizaciones</h3>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                Control de talleres aliados, órdenes de producción, cuentas bancarias, pagos con recibo .JPG y métricas de utilidad en vivo.
+                Control de talleres aliados, buzón de cotizaciones recibidas de proveedores, comparador de costos más baratos, órdenes de producción y pagos con soporte .JPG.
               </p>
             </div>
-            <button
-              onClick={() => handleNavigateTab('proveedores', 'seccion-proveedores')}
-              className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>GESTIONAR PROVEEDORES ↗</span>
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => handleNavigateTab('cotizaciones_talleres', 'seccion-cotizaciones-buzon')}
+                className="w-full py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-mono text-xs font-black rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+              >
+                <Tag className="w-4 h-4" />
+                <span>📥 VER COTIZACIONES ({provCotizaciones.length}) ↗</span>
+              </button>
+              <button
+                onClick={() => handleNavigateTab('proveedores', 'seccion-proveedores')}
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+              >
+                <Building2 className="w-4 h-4" />
+                <span>Gestionar Proveedores & Códigos</span>
+              </button>
+            </div>
           </div>
 
           {/* Portal 3: Almanaques & Calendarios */}
@@ -3291,6 +3398,628 @@ export default function AdminDashboard() {
               <span>ABRIR EDITOR DE CONTENIDO ↗</span>
             </a>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* SECCIÓN PRINCIPAL: COTIZACIONES RECIBIDAS (ENVIADAS DESDE PROVEEDOR VIRTUAL OFFICE) */}
+      {/* ========================================================================= */}
+      {(activeAdminTab === 'panel_general' || activeAdminTab === 'cotizaciones_recibidas' || activeAdminTab === 'cotizaciones_talleres') && (
+        <div id="seccion-cotizaciones-recibidas" className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border-2 border-amber-500/60 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden animate-fadeIn">
+          <div className="absolute -right-20 -top-20 w-72 h-72 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          {/* Encabezado Principal de Cotizaciones Recibidas */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800 relative z-10">
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="p-3.5 bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 text-slate-950 rounded-2xl font-black shadow-xl shadow-amber-500/30 shrink-0">
+                <Tag className="w-7 h-7" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl md:text-2xl font-bold text-white font-display flex items-center gap-2">
+                    📥 Cotizaciones Recibidas (Enviadas desde ProveedorVirtualOffice)
+                  </h2>
+                  <span className="px-3 py-1 bg-amber-400 text-slate-950 text-xs font-mono rounded-full font-black uppercase shadow">
+                    {provCotizaciones.length} Cotizaciones Registradas
+                  </span>
+                  <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono rounded-full font-bold uppercase flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-emerald-400" /> Sincronización en Tiempo Real
+                  </span>
+                </div>
+                <p className="text-xs md:text-sm text-slate-300 mt-1 font-sans leading-relaxed">
+                  Listado y comparador en tiempo real de todas las cotizaciones y tarifas enviadas por los proveedores y talleres aliados. 
+                  Resalta automáticamente el registro con el <strong className="text-emerald-400">precio unitario más bajo por producto</strong> para facilitar la toma de decisiones y maximizar la rentabilidad de las órdenes.
+                </p>
+              </div>
+            </div>
+
+            {/* Acciones Rápidas del Encabezado */}
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  const latest = getStoredCotizaciones();
+                  if (latest.length === 0) {
+                    saveStoredCotizaciones(INITIAL_COTIZACIONES);
+                    setProvCotizaciones(INITIAL_COTIZACIONES);
+                  } else {
+                    setProvCotizaciones(latest);
+                  }
+                  setProveedores(getStoredProveedores());
+                  setSaveStatus("✓ Cotizaciones sincronizadas en tiempo real desde LocalStorage");
+                  setTimeout(() => setSaveStatus(null), 3000);
+                }}
+                className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
+                title="Sincronizar cotizaciones desde LocalStorage"
+              >
+                <RefreshCw className="w-4 h-4 text-amber-400" />
+                <span>Sincronizar en Vivo</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  saveStoredCotizaciones(INITIAL_COTIZACIONES);
+                  setProvCotizaciones(INITIAL_COTIZACIONES);
+                  setSaveStatus("✓ Cotizaciones de demostración cargadas correctamente");
+                  setTimeout(() => setSaveStatus(null), 3000);
+                }}
+                className="px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/50 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
+                title="Cargar cotizaciones de prueba con diferentes precios unitarios"
+              >
+                <Sparkles className="w-4 h-4 text-amber-400" />
+                <span>Cargar Demo</span>
+              </button>
+
+              <a
+                href="/proveedores/index.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-4 py-2.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all shadow flex items-center gap-1.5 cursor-pointer"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span>Portal Talleres ↗</span>
+              </a>
+            </div>
+          </div>
+
+          {/* Tarjetas KPI de Resumen de Cotizaciones */}
+          {(() => {
+            const currentCots = provCotizaciones.length > 0 ? provCotizaciones : INITIAL_COTIZACIONES;
+            const uniqueProvCount = new Set(currentCots.map(c => c.proveedorId)).size;
+            const unitPrices = currentCots.map(c => c.precioCostoUnitario || (c.cantidad > 0 ? c.precioCostoTotal / c.cantidad : c.precioCostoTotal)).filter(p => p > 0);
+            const minUnit = unitPrices.length > 0 ? Math.min(...unitPrices) : 0;
+            const bestQuote = currentCots.find(c => {
+              const u = c.precioCostoUnitario || (c.cantidad > 0 ? c.precioCostoTotal / c.cantidad : c.precioCostoTotal);
+              return Math.abs(u - minUnit) < 0.01;
+            });
+
+            return (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 shadow">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Total Cotizaciones:</span>
+                  <div className="text-2xl font-black font-mono text-amber-400 mt-0.5">{currentCots.length}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Ofertas registradas</span>
+                </div>
+
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 shadow">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Talleres Cotizantes:</span>
+                  <div className="text-2xl font-black font-mono text-emerald-400 mt-0.5">{uniqueProvCount}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Proveedores activos</span>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-950/80 to-slate-950 p-4 rounded-2xl border-2 border-emerald-500/40 shadow">
+                  <span className="text-[10px] font-mono uppercase text-emerald-300 font-bold block flex items-center gap-1">
+                    <Award className="w-3.5 h-3.5 text-emerald-400" /> Mejor Precio Unitario:
+                  </span>
+                  <div className="text-2xl font-black font-mono text-emerald-300 mt-0.5 truncate">
+                    {minUnit > 0 ? `$${Math.round(minUnit).toLocaleString('es-CO')} COP` : '$0'}
+                  </div>
+                  <span className="text-[10px] text-emerald-400/90 font-mono truncate block">
+                    {bestQuote ? bestQuote.tituloProducto.substring(0, 28) + '...' : 'Costo unitario mínimo'}
+                  </span>
+                </div>
+
+                <div className="bg-slate-950/80 p-4 rounded-2xl border border-slate-800 shadow">
+                  <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Líneas Litográficas:</span>
+                  <div className="text-2xl font-black font-mono text-sky-400 mt-0.5">{new Set(currentCots.map(c => c.categoria)).size}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Categorías ofertadas</span>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* BARRA DE FILTROS INTELIGENTES Y MODO DE DECISIÓN */}
+          <div className="bg-slate-950/90 p-4 sm:p-5 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              {/* Buscador en Vivo */}
+              <div className="md:col-span-4 relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3 pointer-events-none" />
+                <input
+                  type="text"
+                  value={cotSearchTerm}
+                  onChange={(e) => setCotSearchTerm(e.target.value)}
+                  placeholder="Buscar por proveedor, producto, papel, formato..."
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400 shadow-inner"
+                />
+              </div>
+
+              {/* Filtro por Proveedor */}
+              <div className="md:col-span-4 flex items-center gap-2">
+                <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Taller:</span>
+                <select
+                  value={cotProviderFilter}
+                  onChange={(e) => setCotProviderFilter(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 cursor-pointer shadow-inner"
+                >
+                  <option value="all">Todos los Talleres ({proveedores.length})</option>
+                  {proveedores.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.codigo} — {p.nombreComercial}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filtro por Categoría / Línea */}
+              <div className="md:col-span-4 flex items-center gap-2">
+                <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Línea:</span>
+                <select
+                  value={cotCategoryFilter}
+                  onChange={(e) => setCotCategoryFilter(e.target.value)}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 cursor-pointer shadow-inner"
+                >
+                  <option value="all">Todas las Líneas ({getStoredCategorias().length})</option>
+                  {getStoredCategorias().map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* BOTONES DE DECISIÓN Y ORDENAMIENTO */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-800/80">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] font-mono text-slate-400 uppercase font-bold">Filtro de Decisión:</span>
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("todas")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                    cotDecisionMode === "todas"
+                      ? "bg-amber-400 text-slate-950 font-black shadow-md"
+                      : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  📋 Todas ({provCotizaciones.length || INITIAL_COTIZACIONES.length})
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("solo_mejores")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    cotDecisionMode === "solo_mejores"
+                      ? "bg-emerald-400 text-slate-950 font-black shadow-lg ring-2 ring-emerald-400/40"
+                      : "bg-emerald-950/40 text-emerald-300 border border-emerald-600/40 hover:bg-emerald-900/40"
+                  }`}
+                >
+                  <Award className="w-4 h-4 text-emerald-400" />
+                  <span>🏆 Solo Precio Más Bajo por Producto</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("destacadas")}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    cotDecisionMode === "destacadas"
+                      ? "bg-yellow-400 text-slate-950 font-black shadow-md"
+                      : "bg-slate-900 text-amber-300 border border-slate-800 hover:text-white"
+                  }`}
+                >
+                  <Star className="w-3.5 h-3.5" />
+                  <span>⭐ Destacadas ({provCotizaciones.filter(c => c.destacadaAdmin).length})</span>
+                </button>
+              </div>
+
+              {/* Selector de Orden */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Ordenar:</span>
+                <select
+                  value={cotSortMode}
+                  onChange={(e) => setCotSortMode(e.target.value as any)}
+                  className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
+                >
+                  <option value="menor_unitario">Menor Precio Unitario (Recomendado)</option>
+                  <option value="menor_precio">Menor Costo Total</option>
+                  <option value="reciente">Fecha de Envío (Más reciente)</option>
+                  <option value="proveedor">Por Proveedor</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ========================================================================= */}
+          {/* TABLA PRINCIPAL DE COTIZACIONES RECIBIDAS CON RESALTADO DE PRECIO MÁS BAJO */}
+          {/* ========================================================================= */}
+          {(() => {
+            const baseList = provCotizaciones.length > 0 ? provCotizaciones : INITIAL_COTIZACIONES;
+
+            // 1. Calculate map of lowest unit price per product and category
+            const lowestUnitByProduct = new Map<string, number>();
+            baseList.forEach(c => {
+              const unitPrice = c.precioCostoUnitario || (c.cantidad > 0 ? c.precioCostoTotal / c.cantidad : c.precioCostoTotal);
+              const prodKey = (c.tituloProducto || "").trim().toLowerCase();
+              const catKey = (c.categoria || "").trim().toLowerCase();
+              
+              if (prodKey) {
+                const current = lowestUnitByProduct.get(`prod_${prodKey}`);
+                if (current === undefined || unitPrice < current) {
+                  lowestUnitByProduct.set(`prod_${prodKey}`, unitPrice);
+                }
+              }
+              if (catKey) {
+                const currentCat = lowestUnitByProduct.get(`cat_${catKey}`);
+                if (currentCat === undefined || unitPrice < currentCat) {
+                  lowestUnitByProduct.set(`cat_${catKey}`, unitPrice);
+                }
+              }
+            });
+
+            // 2. Filter items based on user criteria
+            let list = baseList.filter((cot) => {
+              const matchCat = cotCategoryFilter === 'all' || cot.categoria === cotCategoryFilter;
+              const matchProv = cotProviderFilter === 'all' || cot.proveedorId === cotProviderFilter;
+              const matchDestacada = cotDecisionMode !== "destacadas" || cot.destacadaAdmin;
+
+              if (!matchCat || !matchProv || !matchDestacada) return false;
+
+              if (cotSearchTerm.trim()) {
+                const term = cotSearchTerm.toLowerCase();
+                const prov = proveedores.find(p => p.id === cot.proveedorId);
+                const matchText = (
+                  cot.tituloProducto?.toLowerCase().includes(term) ||
+                  cot.categoria?.toLowerCase().includes(term) ||
+                  cot.descripcionDetallada?.toLowerCase().includes(term) ||
+                  cot.materialPapel?.toLowerCase().includes(term) ||
+                  cot.medidasFormato?.toLowerCase().includes(term) ||
+                  cot.proveedorNombre?.toLowerCase().includes(term) ||
+                  (prov && prov.nombreComercial.toLowerCase().includes(term)) ||
+                  (prov && prov.codigo.toLowerCase().includes(term))
+                );
+                if (!matchText) return false;
+              }
+
+              if (cotDecisionMode === "solo_mejores") {
+                const unitPrice = cot.precioCostoUnitario || (cot.cantidad > 0 ? cot.precioCostoTotal / cot.cantidad : cot.precioCostoTotal);
+                const prodKey = (cot.tituloProducto || "").trim().toLowerCase();
+                const catKey = (cot.categoria || "").trim().toLowerCase();
+                const isMinProd = prodKey && lowestUnitByProduct.get(`prod_${prodKey}`) === unitPrice;
+                const isMinCat = catKey && lowestUnitByProduct.get(`cat_${catKey}`) === unitPrice;
+                return isMinProd || isMinCat;
+              }
+
+              return true;
+            });
+
+            // 3. Sorting
+            list.sort((a, b) => {
+              const unitA = a.precioCostoUnitario || (a.cantidad > 0 ? a.precioCostoTotal / a.cantidad : a.precioCostoTotal);
+              const unitB = b.precioCostoUnitario || (b.cantidad > 0 ? b.precioCostoTotal / b.cantidad : b.precioCostoTotal);
+              if (cotSortMode === "menor_unitario") return unitA - unitB;
+              if (cotSortMode === "menor_precio") return a.precioCostoTotal - b.precioCostoTotal;
+              if (cotSortMode === "reciente") return new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
+              if (cotSortMode === "proveedor") return (a.proveedorNombre || "").localeCompare(b.proveedorNombre || "");
+              return unitA - unitB;
+            });
+
+            if (list.length === 0) {
+              return (
+                <div className="bg-slate-950/90 p-12 rounded-3xl border-2 border-dashed border-slate-800 text-center space-y-4">
+                  <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto text-amber-400 border border-amber-500/20">
+                    <Inbox className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold font-mono text-slate-200">
+                      No se encontraron cotizaciones con los filtros actuales
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      Prueba restableciendo la búsqueda o seleccionando "Todas las Líneas".
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCotSearchTerm('');
+                      setCotCategoryFilter('all');
+                      setCotProviderFilter('all');
+                      setCotDecisionMode('todas');
+                    }}
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
+                  >
+                    Restablecer Filtros
+                  </button>
+                </div>
+              );
+            }
+
+            return (
+              <div className="overflow-hidden border-2 border-amber-500/40 rounded-3xl bg-slate-950 shadow-2xl">
+                <div className="overflow-x-auto custom-scrollbar">
+                  <table className="w-full text-left border-collapse min-w-[1050px]">
+                    <thead>
+                      <tr className="border-b-2 border-slate-800 bg-slate-900/95 text-[11px] font-mono text-slate-300 uppercase tracking-wider">
+                        <th className="py-4 px-4 font-bold">Nombre del Proveedor</th>
+                        <th className="py-4 px-4 font-bold">Descripción del Producto</th>
+                        <th className="py-4 px-4 text-center font-bold">Cantidad</th>
+                        <th className="py-4 px-4 bg-amber-950/40 text-amber-300 border-x border-amber-500/30 font-bold">
+                          Precio Unitario & Costo
+                        </th>
+                        <th className="py-4 px-4 font-bold">Fecha de Envío</th>
+                        <th className="py-4 px-4 text-center font-bold">Acciones / Decisión</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/80">
+                      {list.map((cot) => {
+                        const prov = proveedores.find(p => p.id === cot.proveedorId);
+                        const provNombre = prov ? prov.nombreComercial : (cot.proveedorNombre || "Taller Litográfico Aliado");
+                        const provCodigo = prov ? prov.codigo : (cot.proveedorCodigo || "PRV");
+                        const provTelefono = prov ? prov.telefonoWhatsapp : cot.proveedorTelefono;
+                        const provMunicipio = prov ? (prov.municipio || "Medellín") : (cot.proveedorMunicipio || "Medellín");
+                        const unitPrice = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
+
+                        // Check if this quote is the lowest price in its product or category
+                        const prodKey = (cot.tituloProducto || "").trim().toLowerCase();
+                        const catKey = (cot.categoria || "").trim().toLowerCase();
+                        const minProdPrice = prodKey ? lowestUnitByProduct.get(`prod_${prodKey}`) : undefined;
+                        const minCatPrice = catKey ? lowestUnitByProduct.get(`cat_${catKey}`) : undefined;
+                        const isLowestPrice = (minProdPrice !== undefined && unitPrice <= minProdPrice) || (minCatPrice !== undefined && unitPrice <= minCatPrice);
+
+                        const formattedDate = (() => {
+                          try {
+                            const d = new Date(cot.fechaCreacion);
+                            if (isNaN(d.getTime())) return cot.fechaCreacion || "Fecha reciente";
+                            return d.toLocaleDateString('es-CO', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            });
+                          } catch (_) {
+                            return cot.fechaCreacion || "Fecha reciente";
+                          }
+                        })();
+
+                        const cleanPhone = provTelefono ? provTelefono.replace(/[^0-9]/g, "") : "";
+                        const waLink = cleanPhone
+                          ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hola ${provNombre}, te contacto desde Atziluth Graphics sobre la cotización de "${cot.tituloProducto}" (${cot.cantidad} ${cot.unidadMedida || 'u'}).`)}`
+                          : null;
+
+                        return (
+                          <tr
+                            key={cot.id}
+                            className={`transition-all text-xs ${
+                              isLowestPrice
+                                ? "bg-gradient-to-r from-emerald-950/80 via-emerald-900/40 to-slate-950 hover:bg-emerald-950/90 border-l-4 border-l-emerald-400"
+                                : cot.destacadaAdmin
+                                ? "bg-amber-950/20 hover:bg-amber-950/30 border-l-4 border-l-amber-400"
+                                : "hover:bg-slate-900/60"
+                            }`}
+                          >
+                            {/* COLUMNA 1: NOMBRE DEL PROVEEDOR */}
+                            <td className="py-4 px-4 align-top">
+                              <div className="space-y-1.5 max-w-[240px]">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono font-bold text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
+                                    {provCodigo}
+                                  </span>
+                                  {isLowestPrice && (
+                                    <span className="px-2 py-0.5 bg-emerald-500 text-slate-950 text-[9px] font-mono font-black rounded-full flex items-center gap-1 animate-pulse shadow">
+                                      <Award className="w-3 h-3" /> MEJOR PRECIO
+                                    </span>
+                                  )}
+                                </div>
+
+                                <strong className="text-white text-sm block font-sans leading-tight">
+                                  {provNombre}
+                                </strong>
+
+                                <div className="text-[11px] text-slate-400 space-y-0.5 font-mono">
+                                  {prov && prov.contactoNombre && (
+                                    <div>Contacto: <span className="text-slate-300">{prov.contactoNombre}</span></div>
+                                  )}
+                                  <div className="flex items-center gap-1 text-slate-400">
+                                    <MapPin className="w-3 h-3 text-amber-400" />
+                                    <span>{provMunicipio}</span>
+                                  </div>
+                                </div>
+
+                                {waLink && (
+                                  <a
+                                    href={waLink}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400 hover:text-emerald-300 bg-emerald-950/50 hover:bg-emerald-950 px-2 py-1 rounded-md border border-emerald-600/40 transition-colors"
+                                  >
+                                    <MessageSquare className="w-3 h-3 text-emerald-400" />
+                                    <span>WhatsApp Directo</span>
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* COLUMNA 2: DESCRIPCIÓN DEL PRODUCTO */}
+                            <td className="py-4 px-4 align-top max-w-[340px]">
+                              <div className="space-y-1.5">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-mono font-bold rounded">
+                                    {cot.categoria}
+                                  </span>
+                                  {cot.tiempoEntregaDias && (
+                                    <span className="text-[10px] font-mono text-amber-300/90 flex items-center gap-1">
+                                      <Clock className="w-3 h-3 text-amber-400" /> {cot.tiempoEntregaDias}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <h4 className="text-xs sm:text-sm font-bold text-white font-mono leading-snug">
+                                  {cot.tituloProducto}
+                                </h4>
+
+                                <div className="text-[11px] text-slate-300 space-y-0.5 font-sans bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                                  {cot.medidasFormato && (
+                                    <div><strong className="text-slate-400">Formato:</strong> {cot.medidasFormato}</div>
+                                  )}
+                                  {cot.materialPapel && (
+                                    <div><strong className="text-slate-400">Papel / Material:</strong> {cot.materialPapel}</div>
+                                  )}
+                                  {cot.tintasColores && (
+                                    <div><strong className="text-slate-400">Tintas:</strong> {cot.tintasColores}</div>
+                                  )}
+                                  {cot.terminaciones && (
+                                    <div><strong className="text-slate-400">Acabados:</strong> {cot.terminaciones}</div>
+                                  )}
+                                </div>
+
+                                {cot.descripcionDetallada && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedCotId(expandedCotId === cot.id ? null : cot.id)}
+                                    className="text-[10px] font-mono text-amber-400 hover:text-amber-300 underline font-bold flex items-center gap-1 cursor-pointer pt-0.5"
+                                  >
+                                    <BookOpen className="w-3 h-3" />
+                                    <span>{expandedCotId === cot.id ? "Ocultar descripción técnica" : "Ver especificación completa"}</span>
+                                  </button>
+                                )}
+
+                                {expandedCotId === cot.id && cot.descripcionDetallada && (
+                                  <div className="text-[11px] text-slate-300 bg-slate-950 p-3 rounded-xl border border-amber-500/30 font-sans leading-relaxed mt-2 animate-fadeIn">
+                                    {cot.descripcionDetallada}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* COLUMNA 3: CANTIDAD */}
+                            <td className="py-4 px-4 align-top text-center">
+                              <div className="inline-block bg-slate-900 px-3 py-2 rounded-xl border border-slate-800 text-center">
+                                <span className="text-base font-black font-mono text-amber-400 block">
+                                  {cot.cantidad.toLocaleString('es-CO')}
+                                </span>
+                                <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                                  {cot.unidadMedida || 'Unidades'}
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* COLUMNA 4: PRECIO UNITARIO & TOTAL */}
+                            <td className={`py-4 px-4 align-top border-x border-slate-800/80 ${isLowestPrice ? "bg-emerald-950/40" : "bg-slate-950/40"}`}>
+                              <div className="space-y-1.5 min-w-[160px]">
+                                <div className="text-[10px] font-mono uppercase text-slate-400 font-bold">
+                                  Precio Unitario Taller:
+                                </div>
+                                <div className={`text-base font-black font-mono ${isLowestPrice ? "text-emerald-300" : "text-amber-400"}`}>
+                                  ${Math.round(unitPrice).toLocaleString('es-CO')} COP <span className="text-[10px] font-normal text-slate-400">/ {cot.unidadMedida || 'u'}</span>
+                                </div>
+
+                                <div className="text-[11px] font-mono text-slate-300 pt-1 border-t border-slate-800">
+                                  Costo Total: <strong className="text-white">${cot.precioCostoTotal.toLocaleString('es-CO')} COP</strong>
+                                </div>
+
+                                {isLowestPrice && (
+                                  <div className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded text-[9px] font-mono font-bold flex items-center gap-1">
+                                    <Award className="w-3 h-3 text-emerald-400" /> Tarifa más económica
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* COLUMNA 5: FECHA DE ENVÍO */}
+                            <td className="py-4 px-4 align-top font-mono text-xs text-slate-300">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-1 text-slate-300 font-bold">
+                                  <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>{formattedDate}</span>
+                                </div>
+                                <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Cotización Activa
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* COLUMNA 6: ACCIONES / DECISIÓN */}
+                            <td className="py-4 px-4 align-top text-center">
+                              <div className="flex flex-col gap-2 min-w-[130px]">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (prov) {
+                                      setOrderModalProv(prov);
+                                      setNewOrdDescripcion(`${cot.tituloProducto} | ${cot.medidasFormato || ''} | ${cot.materialPapel || ''}`);
+                                      setNewOrdCantidad(cot.cantidad);
+                                      setNewOrdCostoProv(cot.precioCostoTotal);
+                                      setNewOrdCategoria(cot.categoria);
+                                      setSaveStatus(`✓ Cotización de ${prov.nombreComercial} cargada para orden`);
+                                      setTimeout(() => setSaveStatus(null), 3000);
+                                    } else {
+                                      setSaveStatus(`⚠️ Proveedor no encontrado`);
+                                    }
+                                  }}
+                                  className="w-full py-2 px-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black font-mono text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                                  title="Crear orden de producción asignada a este proveedor con esta tarifa"
+                                >
+                                  <Package className="w-3.5 h-3.5" />
+                                  <span>Asignar Orden</span>
+                                </button>
+
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = provCotizaciones.map(c => c.id === cot.id ? { ...c, destacadaAdmin: !c.destacadaAdmin } : c);
+                                      setProvCotizaciones(updated);
+                                      saveStoredCotizaciones(updated);
+                                      setSaveStatus(cot.destacadaAdmin ? "Cotización removida de destacadas" : "✓ Cotización marcada como destacada");
+                                      setTimeout(() => setSaveStatus(null), 3000);
+                                    }}
+                                    className={`flex-1 py-1 px-2 rounded-lg border text-xs font-mono flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                                      cot.destacadaAdmin
+                                        ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40 font-bold"
+                                        : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                                    }`}
+                                    title={cot.destacadaAdmin ? "Quitar de destacadas" : "Marcar como cotización destacada"}
+                                  >
+                                    <Star className={`w-3 h-3 ${cot.destacadaAdmin ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                                    <span>{cot.destacadaAdmin ? "Destacada" : "Destacar"}</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (confirm(`¿Eliminar esta cotización de "${cot.tituloProducto}"?`)) {
+                                        const updated = provCotizaciones.filter(c => c.id !== cot.id);
+                                        setProvCotizaciones(updated);
+                                        saveStoredCotizaciones(updated);
+                                        setSaveStatus('✓ Cotización eliminada');
+                                        setTimeout(() => setSaveStatus(null), 3000);
+                                      }
+                                    }}
+                                    className="p-1.5 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-800 transition-colors cursor-pointer"
+                                    title="Eliminar cotización"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -3917,60 +4646,82 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* BARRA DE NAVEGACIÓN INTERNA: PROVEEDORES <-> BALANCE CONTABLE */}
-          <div className="bg-slate-950/90 border border-amber-500/20 p-3.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-inner">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-mono font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                <Sliders className="w-3.5 h-3.5 text-amber-400" /> Navegación Interna:
+          {/* BARRA DE NAVEGACIÓN INTERNA & SUB-PANELES: GESTIÓN DE PROVEEDORES */}
+          <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-slate-950 border-2 border-amber-500/50 p-4 rounded-3xl flex flex-wrap items-center justify-between gap-3 shadow-2xl">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <span className="text-[11px] font-mono font-bold uppercase text-amber-400 flex items-center gap-1.5 mr-1">
+                <Layers className="w-4 h-4 text-amber-400" /> Sub-Paneles:
               </span>
+
+              {/* BOTÓN SUB-PANEL: VER COTIZACIONES */}
               <button
                 type="button"
-                onClick={() => handleNavigateTab('proveedores')}
-                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeAdminTab === 'proveedores'
-                    ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                id="btn-subpanel-ver-cotizaciones"
+                onClick={() => setProvActiveSubPanel('cotizaciones')}
+                className={`px-4 py-2.5 rounded-2xl font-mono text-xs font-black transition-all flex items-center gap-2 cursor-pointer shadow-lg border ${
+                  provActiveSubPanel === 'cotizaciones'
+                    ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400/50 scale-105 shadow-amber-500/20'
+                    : 'bg-amber-500/20 text-amber-300 hover:text-white hover:bg-amber-500/30 border-amber-500/40'
+                }`}
+              >
+                <Tag className="w-4 h-4" />
+                <span>📥 VER COTIZACIONES DE PROVEEDORES</span>
+                <span className="px-2 py-0.5 bg-slate-950 text-amber-300 text-[10px] rounded-full font-black border border-amber-500/40">
+                  {provCotizaciones.length}
+                </span>
+              </button>
+
+              {/* BOTÓN SUB-PANEL: TALLERES REGISTRADOS */}
+              <button
+                type="button"
+                onClick={() => setProvActiveSubPanel('talleres')}
+                className={`px-3.5 py-2.5 rounded-2xl font-mono text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  provActiveSubPanel === 'talleres'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
                     : 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800'
                 }`}
               >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>🏭 Gestión de Proveedores ({proveedores.length})</span>
+                <Building2 className="w-4 h-4 text-amber-400" />
+                <span>🏢 Talleres Registrados ({proveedores.length})</span>
               </button>
 
+              {/* BOTÓN SUB-PANEL: REGISTRAR NUEVO */}
               <button
                 type="button"
-                onClick={() => handleNavigateTab('talleres', 'generador-tokens-proveedores')}
-                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeAdminTab === 'talleres'
-                    ? 'bg-amber-400 text-slate-950 shadow-md font-black ring-1 ring-amber-300'
+                onClick={() => setProvActiveSubPanel('nuevo')}
+                className={`px-3.5 py-2.5 rounded-2xl font-mono text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  provActiveSubPanel === 'nuevo'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
+                    : 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800'
+                }`}
+              >
+                <PlusCircle className="w-4 h-4 text-emerald-400" />
+                <span>➕ Registrar Nuevo Taller</span>
+              </button>
+
+              {/* BOTÓN SUB-PANEL: GENERADOR TOKENS */}
+              <button
+                type="button"
+                onClick={() => setProvActiveSubPanel('tokens')}
+                className={`px-3.5 py-2.5 rounded-2xl font-mono text-xs font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                  provActiveSubPanel === 'tokens'
+                    ? 'bg-amber-500 text-slate-950 font-black shadow-md'
                     : 'bg-slate-900 text-amber-300 hover:text-white hover:bg-slate-800 border border-amber-500/30'
                 }`}
               >
-                <Key className="w-3.5 h-3.5 text-amber-400" />
-                <span>🔑 Gestión de Talleres & Códigos</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleNavigateTab('balance')}
-                className={`px-3 py-1.5 rounded-xl font-mono text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  activeAdminTab === 'balance' || activeAdminTab === 'clientes'
-                    ? 'bg-indigo-600 text-white shadow-md font-black'
-                    : 'bg-slate-900 text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-800'
-                }`}
-              >
-                <Wallet className="w-3.5 h-3.5" />
-                <span>💼 Balance Contable & Clientes</span>
+                <Key className="w-4 h-4 text-amber-400" />
+                <span>🔑 Códigos & Tokens</span>
               </button>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => handleNavigateTab('balance', 'seccion-clientes')}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-indigo-950 to-slate-900 hover:from-indigo-900 hover:to-slate-800 border border-indigo-700/60 text-indigo-300 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
+                onClick={() => handleNavigateTab('cotizaciones_talleres')}
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 hover:from-amber-500/25 hover:to-yellow-500/25 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
               >
-                <span>Ver Balance Contable Consolidado</span>
-                <ArrowRight className="w-3.5 h-3.5 text-indigo-400" />
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                <span>Comparador & Matriz</span>
               </button>
             </div>
           </div>
@@ -4036,57 +4787,85 @@ export default function AdminDashboard() {
             const saldoPendiente = Math.max(0, totalCostos - totalPagado);
 
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3.5">
                 {/* KPI 1: Proveedores */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-1.5 relative overflow-hidden shadow-lg">
+                <div 
+                  onClick={() => setProvActiveSubPanel('talleres')}
+                  className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg cursor-pointer hover:border-amber-400 transition-all group"
+                  title="Ver Talleres Registrados"
+                >
                   <div className="flex items-center justify-between text-slate-400">
                     <span className="text-[10px] font-mono uppercase font-bold text-amber-400">Talleres Registrados</span>
                     <Building2 className="w-4 h-4 text-amber-400" />
                   </div>
-                  <div className="text-2xl font-bold font-mono text-white">{totalTalleres}</div>
-                  <span className="text-[10px] text-slate-400 font-mono">Aliados comerciales activos</span>
+                  <div className="text-xl font-bold font-mono text-white group-hover:text-amber-300">{totalTalleres}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Aliados comerciales</span>
                 </div>
 
-                {/* KPI 2: Órdenes en Taller */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-1.5 relative overflow-hidden shadow-lg">
+                {/* KPI 2: Cotizaciones Recibidas */}
+                <div 
+                  onClick={() => setProvActiveSubPanel('cotizaciones')}
+                  className={`bg-gradient-to-br from-amber-950/60 via-slate-950 to-slate-950 border-2 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg cursor-pointer transition-all group ${
+                    provActiveSubPanel === 'cotizaciones' ? 'border-amber-400 ring-2 ring-amber-400/40' : 'border-amber-500/60 hover:border-amber-400'
+                  }`}
+                  title="Clic para abrir el Sub-Panel de Cotizaciones"
+                >
+                  <div className="flex items-center justify-between text-amber-400">
+                    <span className="text-[10px] font-mono uppercase font-bold flex items-center gap-1">
+                      <Tag className="w-3.5 h-3.5 text-amber-400" />
+                      Cotizaciones Recibidas
+                    </span>
+                    <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 text-[9px] rounded font-black">Buzón</span>
+                  </div>
+                  <div className="text-xl font-black font-mono text-amber-400 flex items-center gap-1">
+                    <span>{provCotizaciones.length}</span>
+                    <span className="text-xs text-slate-400 font-normal">ofertas</span>
+                  </div>
+                  <span className="text-[10px] text-amber-300/90 font-mono group-hover:underline block font-bold">
+                    ↓ Ver Sub-Panel de Cotizaciones
+                  </span>
+                </div>
+
+                {/* KPI 3: Órdenes en Taller */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[10px] font-mono uppercase font-bold text-sky-400">En Taller / Producción</span>
+                    <span className="text-[10px] font-mono uppercase font-bold text-sky-400">En Producción</span>
                     <Clock className="w-4 h-4 text-sky-400" />
                   </div>
-                  <div className="text-2xl font-bold font-mono text-sky-400">{ordenesEnProduccion} <span className="text-xs text-slate-500 font-normal">/ {provOrdenes.length} total</span></div>
-                  <span className="text-[10px] text-slate-400 font-mono">Trabajos en proceso activo</span>
+                  <div className="text-xl font-bold font-mono text-sky-400">{ordenesEnProduccion} <span className="text-xs text-slate-500 font-normal">/ {provOrdenes.length} tot.</span></div>
+                  <span className="text-[10px] text-slate-400 font-mono">Trabajos activos</span>
                 </div>
 
-                {/* KPI 3: Facturado al Cliente */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-1.5 relative overflow-hidden shadow-lg">
+                {/* KPI 4: Facturado al Cliente */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[10px] font-mono uppercase font-bold text-indigo-400">Facturación Clientes</span>
+                    <span className="text-[10px] font-mono uppercase font-bold text-indigo-400">Facturación</span>
                     <DollarSign className="w-4 h-4 text-indigo-400" />
                   </div>
-                  <div className="text-xl font-bold font-mono text-indigo-300">{formatCOP(totalVentaClientes)}</div>
-                  <span className="text-[10px] text-slate-400 font-mono">Precio de venta consolidado</span>
+                  <div className="text-base font-bold font-mono text-indigo-300 truncate">{formatCOP(totalVentaClientes)}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Precio de venta</span>
                 </div>
 
-                {/* KPI 4: Costo de Producción */}
-                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-1.5 relative overflow-hidden shadow-lg">
+                {/* KPI 5: Costo de Producción */}
+                <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg">
                   <div className="flex items-center justify-between text-slate-400">
-                    <span className="text-[10px] font-mono uppercase font-bold text-rose-400">Costo Total Talleres</span>
+                    <span className="text-[10px] font-mono uppercase font-bold text-rose-400">Costo Talleres</span>
                     <CreditCard className="w-4 h-4 text-rose-400" />
                   </div>
-                  <div className="text-xl font-bold font-mono text-rose-300">{formatCOP(totalCostos)}</div>
-                  <span className="text-[10px] text-slate-400 font-mono">Pagado: {formatCOP(totalPagado)} | Saldo: {formatCOP(saldoPendiente)}</span>
+                  <div className="text-base font-bold font-mono text-rose-300 truncate">{formatCOP(totalCostos)}</div>
+                  <span className="text-[10px] text-slate-400 font-mono">Saldo: {formatCOP(saldoPendiente)}</span>
                 </div>
 
-                {/* KPI 5: Utilidad Neta & Margen */}
-                <div className="bg-gradient-to-br from-emerald-950/90 via-slate-950 to-slate-950 border border-emerald-500/40 rounded-2xl p-4 space-y-1.5 relative overflow-hidden shadow-lg">
+                {/* KPI 6: Utilidad Neta & Margen */}
+                <div className="bg-gradient-to-br from-emerald-950/90 via-slate-950 to-slate-950 border border-emerald-500/40 rounded-2xl p-3.5 space-y-1 relative overflow-hidden shadow-lg">
                   <div className="flex items-center justify-between text-emerald-400">
-                    <span className="text-[10px] font-mono uppercase font-bold">Utilidad Neta General</span>
+                    <span className="text-[10px] font-mono uppercase font-bold">Utilidad Neta</span>
                     <TrendingUp className="w-4 h-4 text-emerald-400" />
                   </div>
-                  <div className="text-xl font-bold font-mono text-emerald-400">{formatCOP(utilidadNeta)}</div>
+                  <div className="text-base font-bold font-mono text-emerald-400 truncate">{formatCOP(utilidadNeta)}</div>
                   <div className="flex items-center justify-between text-[10px] font-mono">
-                    <span className="text-slate-300">Margen Real:</span>
-                    <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded font-bold">{margenPct}%</span>
+                    <span className="text-slate-300">Margen:</span>
+                    <span className="px-1.5 py-0.2 bg-emerald-500/20 text-emerald-300 rounded font-bold">{margenPct}%</span>
                   </div>
                 </div>
               </div>
@@ -4094,9 +4873,520 @@ export default function AdminDashboard() {
           })()}
 
           {/* ========================================================================= */}
-          {/* PANEL PRINCIPAL: EDITOR & GENERADOR DE CÓDIGOS Y TOKENS PARA PROVEEDORES */}
+          {/* SUB-PANEL DEDICADO: COTIZACIONES ENVIADAS DESDE OFICINA VIRTUAL PROVEEDORES */}
           {/* ========================================================================= */}
-          {proveedores.length > 0 && (
+          {provActiveSubPanel === 'cotizaciones' && (
+            <div id="subpanel-cotizaciones-proveedores" className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border-2 border-amber-500/60 rounded-3xl p-5 md:p-7 space-y-6 shadow-2xl relative overflow-hidden">
+              <div className="absolute -right-16 -top-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+                <div className="flex items-start sm:items-center gap-3.5">
+                  <div className="p-3.5 bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 text-slate-950 rounded-2xl font-black shadow-xl shadow-amber-500/30 shrink-0">
+                    <Tag className="w-7 h-7" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-base sm:text-lg font-black font-mono uppercase text-white tracking-wide flex items-center gap-2">
+                        📥 Sub-Panel de Cotizaciones Enviadas por Proveedores
+                      </h3>
+                      <span className="px-3 py-1 bg-amber-400 text-slate-950 text-xs font-mono rounded-full font-black uppercase shadow">
+                        {provCotizaciones.length} Cotizaciones Registradas
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 mt-1 font-sans">
+                      Consumo en tiempo real de tarifas y cotizaciones enviadas por tus talleres aliados desde su Oficina Virtual (<code className="text-amber-300 font-mono font-bold">/proveedores/index.html</code>). Resalta automáticamente la mejor tarifa por producto.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProvCotizaciones(getStoredCotizaciones());
+                      setProveedores(getStoredProveedores());
+                      setSaveStatus("✓ Cotizaciones de proveedores sincronizadas en tiempo real");
+                      setTimeout(() => setSaveStatus(null), 3000);
+                    }}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Sincronizar</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateTab('cotizaciones_talleres')}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all flex items-center gap-1.5 shadow-lg shadow-amber-500/20 cursor-pointer border border-amber-300"
+                  >
+                    <Award className="w-4 h-4 text-slate-950" />
+                    <span>Abrir Matriz Comparativa</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* FILTROS, BÚSQUEDA Y DECISIÓN DE MEJOR PRECIO */}
+              <div className="bg-slate-950/90 p-4 sm:p-5 rounded-2xl border border-amber-500/30 space-y-4 shadow-inner">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                  {/* Buscador de texto */}
+                  <div className="md:col-span-4 relative">
+                    <Search className="w-4 h-4 text-amber-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={cotSearchTerm}
+                      onChange={(e) => setCotSearchTerm(e.target.value)}
+                      placeholder="Buscar por proveedor, producto, formato..."
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 font-mono focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  {/* Filtro por Proveedor */}
+                  <div className="md:col-span-4 flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Taller:</span>
+                    <select
+                      value={cotProviderFilter}
+                      onChange={(e) => setCotProviderFilter(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
+                    >
+                      <option value="all">Todos los Talleres ({proveedores.length})</option>
+                      {proveedores.map(p => (
+                        <option key={p.id} value={p.id}>
+                          {p.codigo} — {p.nombreComercial}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Filtro por Categoría / Línea */}
+                  <div className="md:col-span-4 flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Línea:</span>
+                    <select
+                      value={cotCategoryFilter}
+                      onChange={(e) => setCotCategoryFilter(e.target.value)}
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-300 font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
+                    >
+                      <option value="all">Todas las Líneas ({getStoredCategorias().length})</option>
+                      {getStoredCategorias().map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* FILTRO INTELIGENTE PARA RESALTAR & DECIDIR EL MEJOR PRECIO */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold">Filtro de Decisión:</span>
+                    <button
+                      type="button"
+                      onClick={() => setCotDecisionMode("todas")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                        cotDecisionMode === "todas"
+                          ? "bg-amber-400 text-slate-950 font-black shadow-md"
+                          : "bg-slate-900 text-slate-300 hover:text-white border border-slate-800"
+                      }`}
+                    >
+                      📋 Todas ({provCotizaciones.length})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCotDecisionMode("solo_mejores")}
+                      className={`px-3.5 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        cotDecisionMode === "solo_mejores"
+                          ? "bg-emerald-400 text-slate-950 font-black shadow-lg ring-2 ring-emerald-400/40"
+                          : "bg-emerald-950/40 text-emerald-300 border border-emerald-600/40 hover:bg-emerald-900/40"
+                      }`}
+                    >
+                      <Award className="w-4 h-4 text-emerald-400" />
+                      <span>🏆 Solo Precio Más Bajo por Producto</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCotDecisionMode("destacadas")}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                        cotDecisionMode === "destacadas"
+                          ? "bg-yellow-400 text-slate-950 font-black shadow-md"
+                          : "bg-slate-900 text-amber-300 border border-slate-800 hover:text-white"
+                      }`}
+                    >
+                      <Star className="w-3.5 h-3.5" />
+                      <span>⭐ Destacadas ({provCotizaciones.filter(c => c.destacadaAdmin).length})</span>
+                    </button>
+                  </div>
+
+                  {/* Ordenamiento */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-mono text-slate-400 uppercase font-bold whitespace-nowrap">Ordenar:</span>
+                    <select
+                      value={cotSortMode}
+                      onChange={(e) => setCotSortMode(e.target.value as any)}
+                      className="bg-slate-900 border border-slate-700 rounded-xl px-2.5 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400 cursor-pointer"
+                    >
+                      <option value="menor_unitario">Menor Precio Unitario</option>
+                      <option value="menor_precio">Menor Costo Total</option>
+                      <option value="reciente">Fecha de Envío (Más reciente)</option>
+                      <option value="proveedor">Por Proveedor</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* ========================================================================= */}
+              {/* TABLA PRINCIPAL DEL SUB-PANEL DE COTIZACIONES DE PROVEEDORES */}
+              {/* ========================================================================= */}
+              {(() => {
+                // 1. Calculate map of lowest price per product group and category group
+                const lowestUnitByProduct = new Map<string, number>();
+                provCotizaciones.forEach(c => {
+                  const unitPrice = c.precioCostoUnitario || (c.cantidad > 0 ? c.precioCostoTotal / c.cantidad : c.precioCostoTotal);
+                  const prodKey = (c.tituloProducto || "").trim().toLowerCase();
+                  const catKey = (c.categoria || "").trim().toLowerCase();
+                  
+                  if (prodKey) {
+                    const current = lowestUnitByProduct.get(`prod_${prodKey}`);
+                    if (current === undefined || unitPrice < current) {
+                      lowestUnitByProduct.set(`prod_${prodKey}`, unitPrice);
+                    }
+                  }
+                  if (catKey) {
+                    const currentCat = lowestUnitByProduct.get(`cat_${catKey}`);
+                    if (currentCat === undefined || unitPrice < currentCat) {
+                      lowestUnitByProduct.set(`cat_${catKey}`, unitPrice);
+                    }
+                  }
+                });
+
+                // 2. Filter list
+                let list = provCotizaciones.filter((cot) => {
+                  const matchCat = cotCategoryFilter === 'all' || cot.categoria === cotCategoryFilter;
+                  const matchProv = cotProviderFilter === 'all' || cot.proveedorId === cotProviderFilter;
+                  const matchDestacada = cotDecisionMode !== "destacadas" || cot.destacadaAdmin;
+
+                  if (!matchCat || !matchProv || !matchDestacada) return false;
+
+                  if (cotSearchTerm.trim()) {
+                    const term = cotSearchTerm.toLowerCase();
+                    const prov = proveedores.find(p => p.id === cot.proveedorId);
+                    const matchText = (
+                      cot.tituloProducto?.toLowerCase().includes(term) ||
+                      cot.categoria?.toLowerCase().includes(term) ||
+                      cot.descripcionDetallada?.toLowerCase().includes(term) ||
+                      (cot as any).descripcionTecnica?.toLowerCase().includes(term) ||
+                      cot.materialPapel?.toLowerCase().includes(term) ||
+                      cot.medidasFormato?.toLowerCase().includes(term) ||
+                      cot.proveedorNombre?.toLowerCase().includes(term) ||
+                      (prov && prov.nombreComercial.toLowerCase().includes(term)) ||
+                      (prov && prov.codigo.toLowerCase().includes(term))
+                    );
+                    if (!matchText) return false;
+                  }
+
+                  if (cotDecisionMode === "solo_mejores") {
+                    const unitPrice = cot.precioCostoUnitario || (cot.cantidad > 0 ? cot.precioCostoTotal / cot.cantidad : cot.precioCostoTotal);
+                    const prodKey = (cot.tituloProducto || "").trim().toLowerCase();
+                    const catKey = (cot.categoria || "").trim().toLowerCase();
+                    const isMinProd = prodKey && lowestUnitByProduct.get(`prod_${prodKey}`) === unitPrice;
+                    const isMinCat = catKey && lowestUnitByProduct.get(`cat_${catKey}`) === unitPrice;
+                    return isMinProd || isMinCat;
+                  }
+
+                  return true;
+                });
+
+                // 3. Sort list
+                list.sort((a, b) => {
+                  const unitA = a.precioCostoUnitario || (a.cantidad > 0 ? a.precioCostoTotal / a.cantidad : a.precioCostoTotal);
+                  const unitB = b.precioCostoUnitario || (b.cantidad > 0 ? b.precioCostoTotal / b.cantidad : b.precioCostoTotal);
+                  if (cotSortMode === "menor_unitario") return unitA - unitB;
+                  if (cotSortMode === "menor_precio") return a.precioCostoTotal - b.precioCostoTotal;
+                  if (cotSortMode === "reciente") return new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
+                  if (cotSortMode === "proveedor") return (a.proveedorNombre || "").localeCompare(b.proveedorNombre || "");
+                  return unitA - unitB;
+                });
+
+                if (list.length === 0) {
+                  return (
+                    <div className="bg-slate-950 p-10 rounded-2xl border border-slate-800 text-center space-y-3">
+                      <Inbox className="w-14 h-14 text-slate-600 mx-auto" />
+                      <h4 className="text-base font-bold font-mono text-slate-300">
+                        No hay cotizaciones para mostrar con los filtros seleccionados
+                      </h4>
+                      <p className="text-xs text-slate-400 max-w-md mx-auto">
+                        Tus proveedores aliados pueden enviar cotizaciones y tarifas de sus productos litográficos desde su portal (<code className="text-amber-300">/proveedores/index.html</code>) y se listarán automáticamente en esta tabla.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => { setCotCategoryFilter('all'); setCotProviderFilter('all'); setCotDecisionMode('todas'); setCotSearchTerm(''); }}
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
+                      >
+                        Restablecer Filtros
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="overflow-x-auto border-2 border-amber-500/40 rounded-2xl bg-slate-950 shadow-2xl custom-scrollbar">
+                    <table className="w-full text-left border-collapse min-w-[1050px]">
+                      <thead>
+                        <tr className="border-b-2 border-slate-800 bg-slate-900/90 text-[11px] font-mono text-slate-300 uppercase tracking-wider">
+                          <th className="py-4 px-4">Nombre del Proveedor</th>
+                          <th className="py-4 px-4">Descripción del Producto</th>
+                          <th className="py-4 px-4 text-center">Cantidad</th>
+                          <th className="py-4 px-4 bg-amber-950/30 text-amber-300 border-x border-amber-500/30">
+                            Precio Unitario & Total
+                          </th>
+                          <th className="py-4 px-4">Fecha de Envío</th>
+                          <th className="py-4 px-4 text-center">Acciones / Decisión</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/80">
+                        {list.map((cot) => {
+                          const prov = proveedores.find(p => p.id === cot.proveedorId);
+                          const provNombre = prov ? prov.nombreComercial : (cot.proveedorNombre || "Taller Aliado");
+                          const provCodigo = prov ? prov.codigo : (cot.proveedorCodigo || "PRV");
+                          const provTelefono = prov ? prov.telefonoWhatsapp : cot.proveedorTelefono;
+                          const provMunicipio = prov ? (prov.municipio || "Medellín") : (cot.proveedorMunicipio || "Medellín");
+                          const unitPrice = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
+
+                          // Check if this quote is the lowest price in its product or category
+                          const prodKey = (cot.tituloProducto || "").trim().toLowerCase();
+                          const catKey = (cot.categoria || "").trim().toLowerCase();
+                          const minProdPrice = prodKey ? lowestUnitByProduct.get(`prod_${prodKey}`) : undefined;
+                          const minCatPrice = catKey ? lowestUnitByProduct.get(`cat_${catKey}`) : undefined;
+                          const isLowestPrice = (minProdPrice !== undefined && unitPrice <= minProdPrice) || (minCatPrice !== undefined && unitPrice <= minCatPrice);
+
+                          const formattedDate = (() => {
+                            try {
+                              const d = new Date(cot.fechaCreacion);
+                              if (isNaN(d.getTime())) return cot.fechaCreacion || "Fecha reciente";
+                              return d.toLocaleDateString('es-CO', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+                            } catch (_) {
+                              return cot.fechaCreacion || "Fecha reciente";
+                            }
+                          })();
+
+                          return (
+                            <tr
+                              key={cot.id}
+                              className={`transition-all text-xs ${
+                                isLowestPrice
+                                  ? "bg-gradient-to-r from-emerald-950/40 via-slate-900/90 to-slate-950 hover:bg-emerald-950/60 border-l-4 border-l-emerald-400"
+                                  : cot.destacadaAdmin
+                                  ? "bg-amber-950/20 hover:bg-amber-950/30 border-l-4 border-l-amber-400"
+                                  : "hover:bg-slate-900/60"
+                              }`}
+                            >
+                              {/* 1. NOMBRE DEL PROVEEDOR */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-1.5 max-w-[200px]">
+                                  <div className="flex items-center gap-2">
+                                    <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-300 font-mono font-black text-xs shrink-0">
+                                      <Building2 className="w-4 h-4 text-amber-400" />
+                                    </div>
+                                    <div className="min-w-0">
+                                      <span className="font-bold text-white block truncate text-xs" title={provNombre}>
+                                        {provNombre}
+                                      </span>
+                                      <span className="px-1.5 py-0.2 bg-slate-900 border border-slate-700 text-amber-300 text-[10px] font-mono rounded font-bold">
+                                        {provCodigo}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                                    <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                                    <span className="truncate">{provMunicipio}</span>
+                                  </div>
+
+                                  {provTelefono && (
+                                    <a
+                                      href={`https://wa.me/${provTelefono.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(
+                                        `Hola ${provNombre}, requiero confirmar la cotización de "${cot.tituloProducto}" (${cot.cantidad} ${cot.unidadMedida || 'und'}) por ${formatCOP(cot.precioCostoTotal)}.`
+                                      )}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/30 rounded-md text-[10px] font-mono font-bold transition-colors"
+                                      title="Abrir chat WhatsApp con el taller"
+                                    >
+                                      <Share2 className="w-2.5 h-2.5 text-emerald-400" />
+                                      <span>WhatsApp</span>
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 2. DESCRIPCIÓN DEL PRODUCTO */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-2 max-w-[340px]">
+                                  <div className="flex items-start gap-1.5 flex-wrap">
+                                    <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono rounded font-bold uppercase shrink-0">
+                                      {cot.categoria}
+                                    </span>
+                                    <h4 className="text-xs font-bold font-mono text-white leading-snug">
+                                      {cot.tituloProducto}
+                                    </h4>
+                                  </div>
+
+                                  {/* Badges de especificaciones */}
+                                  <div className="flex flex-wrap gap-1.5 text-[10px] font-mono">
+                                    {cot.medidasFormato && (
+                                      <span className="px-2 py-0.5 bg-slate-900 text-slate-300 border border-slate-800 rounded">
+                                        📐 {cot.medidasFormato}
+                                      </span>
+                                    )}
+                                    {cot.materialPapel && (
+                                      <span className="px-2 py-0.5 bg-slate-900 text-slate-300 border border-slate-800 rounded">
+                                        📄 {cot.materialPapel}
+                                      </span>
+                                    )}
+                                    {(cot.tintasColores || (cot as any).tintasColor) && (
+                                      <span className="px-2 py-0.5 bg-slate-900 text-slate-300 border border-slate-800 rounded">
+                                        🎨 {cot.tintasColores || (cot as any).tintasColor}
+                                      </span>
+                                    )}
+                                    {(cot.tiempoEntregaDias || (cot as any).tiempoEntregaEstimado) && (
+                                      <span className="px-2 py-0.5 bg-slate-900 text-amber-300/90 border border-slate-800 rounded flex items-center gap-1">
+                                        <Clock className="w-2.5 h-2.5 text-amber-400" />
+                                        <span>{cot.tiempoEntregaDias || (cot as any).tiempoEntregaEstimado}</span>
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Descripción técnica */}
+                                  {(cot.descripcionDetallada || (cot as any).descripcionTecnica) && (
+                                    <p className="text-[11px] text-slate-300 font-sans leading-relaxed line-clamp-2 bg-slate-900/50 p-1.5 rounded-lg border border-slate-800/80">
+                                      {cot.descripcionDetallada || (cot as any).descripcionTecnica}
+                                    </p>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 3. CANTIDAD */}
+                              <td className="py-3.5 px-4 text-center align-top">
+                                <div className="space-y-1 inline-block text-center">
+                                  <span className="text-sm font-black font-mono text-white block">
+                                    {cot.cantidad.toLocaleString('es-CO')}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-slate-400 uppercase bg-slate-900 px-2 py-0.5 rounded border border-slate-800 block">
+                                    {cot.unidadMedida || 'Unidades'}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 4. PRECIO UNITARIO & TOTAL */}
+                              <td className="py-3.5 px-4 align-top bg-amber-950/15 border-x border-amber-500/20">
+                                <div className="space-y-1.5 min-w-[160px]">
+                                  {/* Resaltado automático de mejor precio */}
+                                  {isLowestPrice && (
+                                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-mono text-[10px] font-black uppercase rounded-full shadow-md animate-pulse">
+                                      <Award className="w-3 h-3 text-slate-950" />
+                                      <span>🏆 PRECIO MÁS BAJO</span>
+                                    </div>
+                                  )}
+
+                                  <div>
+                                    <span className="text-[10px] font-mono uppercase text-slate-400 block font-bold">
+                                      Precio Unitario:
+                                    </span>
+                                    <div className="text-base font-black font-mono text-emerald-400">
+                                      {formatCOP(unitPrice)} <span className="text-[10px] font-normal text-slate-400">/u</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="pt-1 border-t border-slate-800/80">
+                                    <span className="text-[10px] font-mono uppercase text-slate-400 block">
+                                      Costo Total del Lote:
+                                    </span>
+                                    <span className="text-xs font-bold font-mono text-amber-300">
+                                      {formatCOP(cot.precioCostoTotal)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* 5. FECHA DE ENVÍO */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-1 text-xs font-mono">
+                                  <div className="flex items-center gap-1.5 text-slate-200">
+                                    <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                    <span>{formattedDate}</span>
+                                  </div>
+                                  <span className="text-[10px] text-slate-500 block font-sans">
+                                    Enviado desde Oficina Virtual
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 6. ACCIONES / ASIGNAR ORDEN */}
+                              <td className="py-3.5 px-4 text-center align-top">
+                                <div className="flex flex-col items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (prov) {
+                                        setOrderModalProv(prov);
+                                        setNewOrdDescripcion(`${cot.tituloProducto} | ${cot.medidasFormato || ''} | ${cot.materialPapel || ''}`);
+                                        setNewOrdCantidad(cot.cantidad);
+                                        setNewOrdCostoProv(cot.precioCostoTotal);
+                                        setNewOrdCategoria(cot.categoria);
+                                        setSaveStatus(`✓ Cotización de ${prov.nombreComercial} cargada para orden`);
+                                        setTimeout(() => setSaveStatus(null), 3000);
+                                      } else {
+                                        setSaveStatus(`⚠️ Proveedor no encontrado`);
+                                      }
+                                    }}
+                                    className="w-full py-2 px-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black font-mono text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1.5 cursor-pointer"
+                                    title="Crear orden de producción asignada a este proveedor con esta tarifa"
+                                  >
+                                    <Package className="w-3.5 h-3.5" />
+                                    <span>Asignar Orden</span>
+                                  </button>
+
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = provCotizaciones.map(c => c.id === cot.id ? { ...c, destacadaAdmin: !c.destacadaAdmin } : c);
+                                        setProvCotizaciones(updated);
+                                        saveStoredCotizaciones(updated);
+                                        setSaveStatus(cot.destacadaAdmin ? "Cotización removida de destacadas" : "✓ Cotización marcada como destacada");
+                                        setTimeout(() => setSaveStatus(null), 3000);
+                                      }}
+                                      className={`px-2.5 py-1 rounded-lg border text-xs font-mono flex items-center gap-1 transition-colors cursor-pointer ${
+                                        cot.destacadaAdmin
+                                          ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40 font-bold"
+                                          : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                                      }`}
+                                      title={cot.destacadaAdmin ? "Quitar de destacadas" : "Marcar como cotización destacada"}
+                                    >
+                                      <Star className={`w-3.5 h-3.5 ${cot.destacadaAdmin ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                                      <span>{cot.destacadaAdmin ? "Destacada" : "Destacar"}</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* SUB-PANEL: GENERADOR DE CÓDIGOS Y TOKENS (CUANDO ESTÁ SELECCIONADO O EN TAB TALLERES) */}
+          {(provActiveSubPanel === 'tokens' || activeAdminTab === 'talleres') && proveedores.length > 0 && (
             <div id="generador-tokens-proveedores" className="bg-gradient-to-br from-slate-900 via-slate-950 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 space-y-5 shadow-2xl relative overflow-hidden">
               <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
               
@@ -4309,34 +5599,27 @@ export default function AdminDashboard() {
 
                           <button
                             type="button"
-                            onClick={() => handleShareProvWhatsApp(currentProv)}
-                            className="px-3 py-2 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow"
+                            onClick={() => handleOpenProvPortal(currentProv)}
+                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                           >
-                            <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-                            <span>WhatsApp</span>
+                            <Eye className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Ver Oficina</span>
                           </button>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => window.open(fullAccessUrl, '_blank')}
-                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 rounded-xl text-xs font-mono flex items-center justify-center gap-1.5 cursor-pointer flex-1"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Probar Ingreso</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            disabled={!!collidingOther || !quickTokenInput.trim()}
-                            onClick={() => handleQuickSaveToken(currentProv.id, quickTokenInput)}
-                            className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-slate-950 font-mono text-xs font-black rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/20 cursor-pointer flex-1 transition-all"
-                          >
-                            <Save className="w-4 h-4" />
-                            <span>Guardar Token</span>
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleQuickSaveToken(currentProv.id, quickTokenInput)}
+                          disabled={Boolean(collidingOther) || !quickTokenInput.trim()}
+                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-mono font-black flex items-center justify-center gap-2 shadow-lg transition-all ${
+                            collidingOther || !quickTokenInput.trim()
+                              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 cursor-pointer shadow-amber-500/20'
+                          }`}
+                        >
+                          <Save className="w-4 h-4 text-slate-950" />
+                          <span>Guardar Código de Acceso para "{currentProv.nombreComercial}"</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -4346,7 +5629,8 @@ export default function AdminDashboard() {
           )}
 
           {/* FORMULARIO: REGISTRAR NUEVO PROVEEDOR */}
-          <div id="formulario-nuevo-proveedor" className="bg-slate-950/90 border border-amber-500/20 rounded-2xl p-6 space-y-5 shadow-xl">
+          {(provActiveSubPanel === 'nuevo' || activeAdminTab === 'talleres') && (
+            <div id="formulario-nuevo-proveedor" className="bg-slate-950/90 border border-amber-500/20 rounded-2xl p-6 space-y-5 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg border border-amber-500/20">
@@ -4804,9 +6088,12 @@ export default function AdminDashboard() {
               </div>
             </form>
           </div>
+          )}
 
-          {/* BUSCADOR & FILTROS DE PROVEEDORES */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
+          {/* BUSCADOR & FILTROS DE PROVEEDORES & LISTADO DE TALLERES */}
+          {(provActiveSubPanel === 'talleres' || activeAdminTab === 'talleres') && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-950/70 p-3 rounded-2xl border border-slate-800">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -5070,7 +6357,25 @@ export default function AdminDashboard() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCotProviderFilter('all');
+                        const el = document.getElementById("subseccion-cotizaciones-recibidas-proveedores");
+                        if (el) {
+                          el.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        setSaveStatus("✓ Desplazando al buzón de Cotizaciones Recibidas");
+                        setTimeout(() => setSaveStatus(null), 2500);
+                      }}
+                      className="px-3.5 py-1.5 bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all shadow-md shadow-amber-500/20 flex items-center gap-1.5 cursor-pointer"
+                      title="Desplazarse directamente al historial de cotizaciones recibidas"
+                    >
+                      <Tag className="w-3.5 h-3.5 text-slate-950" />
+                      <span>Ver Cotizaciones ({provCotizaciones.length || INITIAL_COTIZACIONES.length})</span>
+                    </button>
+
                     <span className="px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-full font-mono text-[11px] font-bold">
                       {filtered.length} de {proveedores.length} Talleres Activos
                     </span>
@@ -5298,16 +6603,48 @@ export default function AdminDashboard() {
 
                               {/* Líneas / Especialidades (múltiples) */}
                               <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1 max-w-[200px]">
-                                  {pCats.map((cat) => (
-                                    <span
-                                      key={cat}
-                                      className="px-2 py-0.5 bg-slate-900 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-md font-bold inline-flex items-center gap-1 shadow-sm"
-                                    >
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                      {cat}
-                                    </span>
-                                  ))}
+                                <div className="space-y-1.5 max-w-[220px]">
+                                  <div className="flex flex-wrap gap-1">
+                                    {pCats.map((cat) => (
+                                      <span
+                                        key={cat}
+                                        className="px-2 py-0.5 bg-slate-900 text-amber-300 border border-amber-500/30 text-[10px] font-mono rounded-md font-bold inline-flex items-center gap-1 shadow-sm"
+                                      >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                                        {cat}
+                                      </span>
+                                    ))}
+                                  </div>
+
+                                  {/* Contador y link rápido a cotizaciones de este taller */}
+                                  <div>
+                                    {(() => {
+                                      const provCots = provCotizaciones.filter(c => c.proveedorId === prov.id);
+                                      if (provCots.length > 0) {
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              setCotProviderFilter(prov.id);
+                                              setCotDecisionMode("todas");
+                                              const el = document.getElementById("buzon-cotizaciones-proveedores");
+                                              if (el) el.scrollIntoView({ behavior: 'smooth' });
+                                            }}
+                                            className="px-2 py-0.5 bg-gradient-to-r from-amber-500/20 to-yellow-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-300 border border-amber-500/40 rounded-md text-[9px] font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer shadow-sm"
+                                            title="Ver cotizaciones de este taller en el buzón"
+                                          >
+                                            <Tag className="w-2.5 h-2.5 text-amber-400" />
+                                            <span>📥 {provCots.length} cotización(es) recibida(s)</span>
+                                          </button>
+                                        );
+                                      }
+                                      return (
+                                        <span className="text-[9px] font-mono text-slate-500 italic block">
+                                          Sin cotizaciones registradas
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                               </td>
 
@@ -5358,18 +6695,42 @@ export default function AdminDashboard() {
 
                               {/* ACCIONES DE GESTIÓN Y EDICIÓN RÁPIDA */}
                               <td className="py-3 px-4 text-center">
-                                <div className="flex flex-col items-center gap-1.5">
+                                <div className="flex flex-col items-center gap-1.5 min-w-[140px]">
+                                  {/* Botón Ver Cotizaciones de este Proveedor */}
+                                  {(() => {
+                                    const count = (provCotizaciones.length > 0 ? provCotizaciones : INITIAL_COTIZACIONES).filter(c => c.proveedorId === prov.id).length;
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setCotProviderFilter(prov.id);
+                                          const el = document.getElementById("subseccion-cotizaciones-recibidas-proveedores");
+                                          if (el) {
+                                            el.scrollIntoView({ behavior: 'smooth' });
+                                          }
+                                          setSaveStatus(`✓ Mostrando ${count} cotización(es) recibida(s) de ${prov.nombreComercial}`);
+                                          setTimeout(() => setSaveStatus(null), 3000);
+                                        }}
+                                        title={`Ver cotizaciones recibidas de ${prov.nombreComercial}`}
+                                        className="w-full py-1 px-2 bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-yellow-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/50 rounded-xl text-[11px] font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+                                      >
+                                        <Tag className="w-3 h-3 text-amber-400" />
+                                        <span>Ver Cotizaciones ({count})</span>
+                                      </button>
+                                    );
+                                  })()}
+
                                   <button
                                     type="button"
                                     onClick={() => handleOpenEditProv(prov)}
                                     title="Editar Información Completa del Proveedor"
-                                    className="w-full py-1.5 px-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/40 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm"
+                                    className="w-full py-1 px-2 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-xl text-[11px] font-mono font-bold transition-all flex items-center justify-center gap-1 cursor-pointer shadow-sm"
                                   >
-                                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                    <Edit3 className="w-3 h-3 text-amber-400" />
                                     <span>Editar Datos</span>
                                   </button>
 
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center justify-center gap-1 w-full">
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -5381,7 +6742,7 @@ export default function AdminDashboard() {
                                         setNewOrdCostoProv(0);
                                       }}
                                       title="Asignar Nueva Orden de Producción"
-                                      className="p-1.5 bg-sky-950 hover:bg-sky-900 text-sky-400 border border-sky-500/30 rounded-lg transition-colors cursor-pointer"
+                                      className="flex-1 p-1.5 bg-sky-950 hover:bg-sky-900 text-sky-400 border border-sky-500/30 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
                                     >
                                       <Package className="w-3.5 h-3.5" />
                                     </button>
@@ -5394,11 +6755,13 @@ export default function AdminDashboard() {
                                         setPayReferencia("");
                                         setPayComprobanteJpg("");
                                         setPayComprobanteFileName("");
+                                        setPayComprobanteTipo("jpg");
                                       }}
-                                      title="Registrar Pago / Transferencia con .JPG"
-                                      className="p-1.5 bg-emerald-950 hover:bg-emerald-900 text-emerald-400 border border-emerald-500/30 rounded-lg transition-colors cursor-pointer"
+                                      title="Cargar Comprobante de Pago (JPG / PDF) y notificar a su Oficina Virtual"
+                                      className="flex-1 py-1.5 px-2 bg-emerald-950/90 hover:bg-emerald-900 text-emerald-300 border border-emerald-500/50 rounded-lg text-[10px] font-mono font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-sm"
                                     >
-                                      <Receipt className="w-3.5 h-3.5" />
+                                      <Receipt className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>Pagar / JPG-PDF</span>
                                     </button>
 
                                     <button
@@ -5411,6 +6774,285 @@ export default function AdminDashboard() {
                                     </button>
                                   </div>
                                 </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ========================================================================= */}
+          {/* CONTENEDOR VISUAL: COTIZACIONES RECIBIDAS (HISTORIAL ORDENADO POR PRECIO UNITARIO ASCENDENTE) */}
+          {/* ========================================================================= */}
+          {(() => {
+            const rawQuotes = provCotizaciones && provCotizaciones.length > 0
+              ? provCotizaciones
+              : (getStoredCotizaciones().length > 0 ? getStoredCotizaciones() : INITIAL_COTIZACIONES);
+
+            // Filtrado opcional por proveedor seleccionado
+            const filteredByProv = cotProviderFilter === 'all'
+              ? rawQuotes
+              : rawQuotes.filter(c => c.proveedorId === cotProviderFilter);
+
+            // Ordenamiento automático por precio unitario ascendente (del más económico al más costoso)
+            const sortedByLowestUnit = [...filteredByProv].sort((a, b) => {
+              const uA = a.precioCostoUnitario || (a.cantidad > 0 ? a.precioCostoTotal / a.cantidad : a.precioCostoTotal);
+              const uB = b.precioCostoUnitario || (b.cantidad > 0 ? b.precioCostoTotal / b.cantidad : b.precioCostoTotal);
+              return uA - uB;
+            });
+
+            // Determinar el precio unitario más bajo global
+            const minUnit = sortedByLowestUnit.length > 0
+              ? (sortedByLowestUnit[0].precioCostoUnitario || (sortedByLowestUnit[0].cantidad > 0 ? sortedByLowestUnit[0].precioCostoTotal / sortedByLowestUnit[0].cantidad : sortedByLowestUnit[0].precioCostoTotal))
+              : 0;
+
+            const selectedProvObj = proveedores.find(p => p.id === cotProviderFilter);
+
+            return (
+              <div id="subseccion-cotizaciones-recibidas-proveedores" className="space-y-4 pt-6 border-t-2 border-amber-500/40">
+                <div className="bg-gradient-to-r from-amber-950/70 via-slate-900 to-slate-950 p-5 rounded-2xl border border-amber-500/40 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="p-3 bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/20 shrink-0">
+                      <Tag className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-base sm:text-lg font-bold font-mono uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                          📥 Cotizaciones Recibidas
+                        </h3>
+                        <span className="px-2.5 py-0.5 bg-amber-400 text-slate-950 text-xs font-mono font-black rounded-full uppercase">
+                          {sortedByLowestUnit.length} Cotizaciones
+                        </span>
+                        <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono rounded-full font-bold uppercase flex items-center gap-1">
+                          <Award className="w-3 h-3 text-emerald-400" /> Ordenado por Menor Precio Unitario (Ascendente)
+                        </span>
+                        {selectedProvObj && (
+                          <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono rounded-full font-bold flex items-center gap-1">
+                            Filtro: {selectedProvObj.nombreComercial}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-slate-300 mt-1 font-sans">
+                        Historial de cotizaciones enviadas desde <strong className="text-amber-300">ProveedorVirtualOffice</strong>. 
+                        Las filas se ordenan automáticamente del precio unitario más bajo al más alto para resaltar el mejor costo.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                    {cotProviderFilter !== 'all' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCotProviderFilter('all');
+                          setSaveStatus("✓ Mostrando cotizaciones de todos los talleres");
+                          setTimeout(() => setSaveStatus(null), 2500);
+                        }}
+                        className="px-3 py-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow"
+                      >
+                        ✕ Ver Todas ({rawQuotes.length})
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const fresh = getStoredCotizaciones();
+                        if (fresh.length === 0) {
+                          saveStoredCotizaciones(INITIAL_COTIZACIONES);
+                          setProvCotizaciones(INITIAL_COTIZACIONES);
+                        } else {
+                          setProvCotizaciones(fresh);
+                        }
+                        setSaveStatus("✓ Cotizaciones sincronizadas desde el estado compartido");
+                        setTimeout(() => setSaveStatus(null), 3000);
+                      }}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Actualizar Datos</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto border-2 border-slate-800 rounded-2xl bg-slate-950 shadow-2xl custom-scrollbar">
+                  <table className="w-full text-left border-collapse min-w-[950px]">
+                    <thead>
+                      <tr className="border-b-2 border-slate-800 bg-slate-900/95 text-[11px] font-mono text-slate-300 uppercase tracking-wider">
+                        <th className="py-3.5 px-4 font-bold">Nombre del Proveedor</th>
+                        <th className="py-3.5 px-4 font-bold">Producto</th>
+                        <th className="py-3.5 px-4 text-center font-bold">Cantidad</th>
+                        <th className="py-3.5 px-4 font-bold bg-amber-950/40 text-amber-300 border-x border-amber-500/20">
+                          Precio Unitario (Moneda)
+                        </th>
+                        <th className="py-3.5 px-4 font-bold">Fecha</th>
+                        <th className="py-3.5 px-4 text-center font-bold">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {sortedByLowestUnit.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="py-8 text-center text-slate-500 text-xs font-mono">
+                            No hay cotizaciones recibidas en el historial aún.
+                          </td>
+                        </tr>
+                      ) : (
+                        sortedByLowestUnit.map((cot, index) => {
+                          const prov = proveedores.find(p => p.id === cot.proveedorId);
+                          const provNombre = prov ? prov.nombreComercial : (cot.proveedorNombre || "Taller Litográfico");
+                          const provCodigo = prov ? prov.codigo : (cot.proveedorCodigo || "PRV");
+                          const provMunicipio = prov ? (prov.municipio || "Medellín") : (cot.proveedorMunicipio || "Medellín");
+                          const unitPrice = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
+                          const isLowestOverall = index === 0 || Math.abs(unitPrice - minUnit) < 0.01;
+
+                          const formattedDate = (() => {
+                            try {
+                              const d = new Date(cot.fechaCreacion);
+                              if (isNaN(d.getTime())) return cot.fechaCreacion || "Reciente";
+                              return d.toLocaleDateString('es-CO', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              });
+                            } catch (_) {
+                              return cot.fechaCreacion || "Reciente";
+                            }
+                          })();
+
+                          return (
+                            <tr
+                              key={cot.id || `quote-${index}`}
+                              className={`transition-all text-xs ${
+                                isLowestOverall
+                                  ? "bg-gradient-to-r from-emerald-950/80 via-emerald-900/30 to-slate-950 hover:bg-emerald-950/90 border-l-4 border-l-emerald-400"
+                                  : index % 2 === 0
+                                  ? "bg-slate-950/60 hover:bg-slate-900/60"
+                                  : "bg-slate-900/30 hover:bg-slate-900/60"
+                              }`}
+                            >
+                              {/* 1. Nombre del Proveedor */}
+                              <td className="py-3.5 px-4 align-top">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="font-mono font-bold text-[10px] px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
+                                      {provCodigo}
+                                    </span>
+                                    {isLowestOverall && (
+                                      <span className="px-2 py-0.5 bg-emerald-500 text-slate-950 text-[9px] font-mono font-black rounded-full flex items-center gap-1 shadow animate-pulse">
+                                        <Award className="w-3 h-3" /> MEJOR COSTO
+                                      </span>
+                                    )}
+                                  </div>
+                                  <strong className="text-white text-sm font-sans block leading-tight">
+                                    {provNombre}
+                                  </strong>
+                                  <span className="text-[11px] font-mono text-slate-400 block">
+                                    📍 {provMunicipio} {prov?.contactoNombre ? `• ${prov.contactoNombre}` : ''}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 2. Producto */}
+                              <td className="py-3.5 px-4 align-top max-w-[320px]">
+                                <div className="space-y-1">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className="px-2 py-0.5 bg-slate-800 text-slate-300 text-[10px] font-mono font-bold rounded">
+                                      {cot.categoria || "Litografía"}
+                                    </span>
+                                    {cot.tiempoEntregaDias && (
+                                      <span className="text-[10px] font-mono text-amber-400/90 flex items-center gap-0.5">
+                                        <Clock className="w-3 h-3" /> {cot.tiempoEntregaDias}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-xs font-bold text-white font-mono leading-snug">
+                                    {cot.tituloProducto}
+                                  </div>
+                                  {(cot.materialPapel || cot.medidasFormato) && (
+                                    <div className="text-[11px] text-slate-400 font-sans line-clamp-2">
+                                      {cot.materialPapel && <span>{cot.materialPapel} </span>}
+                                      {cot.medidasFormato && <span>• {cot.medidasFormato} </span>}
+                                      {cot.tintasColores && <span>• {cot.tintasColores}</span>}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 3. Cantidad */}
+                              <td className="py-3.5 px-4 align-top text-center">
+                                <div className="inline-block bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800 text-center">
+                                  <span className="text-sm font-black font-mono text-amber-400 block">
+                                    {cot.cantidad.toLocaleString('es-CO')}
+                                  </span>
+                                  <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                                    {cot.unidadMedida || 'u'}
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 4. Precio Unitario (Formato Moneda) */}
+                              <td className={`py-3.5 px-4 align-top border-x border-slate-800/80 ${isLowestOverall ? 'bg-emerald-950/30' : 'bg-slate-950/40'}`}>
+                                <div className="space-y-1">
+                                  <div className="text-[10px] font-mono uppercase text-slate-400 font-bold">
+                                    Precio Unitario:
+                                  </div>
+                                  <div className={`text-base font-black font-mono ${isLowestOverall ? 'text-emerald-300' : 'text-amber-400'}`}>
+                                    {formatCOP(unitPrice)} <span className="text-[10px] font-normal text-slate-400">/ {cot.unidadMedida || 'u'}</span>
+                                  </div>
+                                  <div className="text-[11px] font-mono text-slate-300">
+                                    Total: <strong className="text-white">{formatCOP(cot.precioCostoTotal)}</strong>
+                                  </div>
+                                  {isLowestOverall && (
+                                    <div className="text-[9px] font-mono text-emerald-400 font-bold flex items-center gap-1">
+                                      ★ Tarifa más económica
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* 5. Fecha */}
+                              <td className="py-3.5 px-4 align-top font-mono text-xs text-slate-300">
+                                <div className="space-y-0.5">
+                                  <div className="flex items-center gap-1 font-bold text-slate-200">
+                                    <Calendar className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>{formattedDate}</span>
+                                  </div>
+                                  <span className="text-[10px] text-emerald-400 flex items-center gap-1">
+                                    <CheckCircle2 className="w-3 h-3" /> Cotización Vigente
+                                  </span>
+                                </div>
+                              </td>
+
+                              {/* 6. Acción */}
+                              <td className="py-3.5 px-4 align-top text-center">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (prov) {
+                                      setOrderModalProv(prov);
+                                      setNewOrdDescripcion(`${cot.tituloProducto} | ${cot.medidasFormato || ''} | ${cot.materialPapel || ''}`);
+                                      setNewOrdCantidad(cot.cantidad);
+                                      setNewOrdCostoProv(cot.precioCostoTotal);
+                                      setNewOrdCategoria(cot.categoria);
+                                      setSaveStatus(`✓ Cotización de ${prov.nombreComercial} cargada para orden`);
+                                      setTimeout(() => setSaveStatus(null), 3000);
+                                    } else {
+                                      setSaveStatus(`⚠️ Proveedor no encontrado`);
+                                    }
+                                  }}
+                                  className="py-1.5 px-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black font-mono text-xs rounded-xl transition-all shadow flex items-center justify-center gap-1 cursor-pointer mx-auto"
+                                  title="Crear orden con esta cotización"
+                                >
+                                  <Package className="w-3.5 h-3.5" />
+                                  <span>Asignar</span>
+                                </button>
                               </td>
                             </tr>
                           );
@@ -5512,15 +7154,15 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* HISTORIAL DE PAGOS A PROVEEDORES CON COMPROBANTES .JPG */}
+          {/* HISTORIAL DE PAGOS A PROVEEDORES CON COMPROBANTES JPG / PDF */}
           <div className="space-y-4 pt-4 border-t border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
                 <Receipt className="w-4 h-4 text-emerald-400" />
-                Historial de Transferencias & Recibos de Pago (.JPG) ({provPagos.length})
+                Historial de Transferencias & Comprobantes de Pago (JPG / PDF) ({provPagos.length})
               </h3>
               <span className="text-[11px] font-mono text-slate-400">
-                Comprobantes oficiales emitidos para soporte contable de transferencias bancarias
+                Comprobantes oficiales emitidos para soporte contable y enviados a la Oficina Virtual del taller
               </span>
             </div>
 
@@ -5533,7 +7175,7 @@ export default function AdminDashboard() {
                     <th className="py-2.5 px-3">Fecha</th>
                     <th className="py-2.5 px-3">Monto Pagado</th>
                     <th className="py-2.5 px-3">Método & Ref. Bancaria</th>
-                    <th className="py-2.5 px-3">Comprobante .JPG</th>
+                    <th className="py-2.5 px-3">Comprobante (JPG / PDF)</th>
                     <th className="py-2.5 px-3 text-right">Recibo</th>
                   </tr>
                 </thead>
@@ -5547,6 +7189,8 @@ export default function AdminDashboard() {
                   ) : (
                     provPagos.map((pago) => {
                       const prov = proveedores.find((p) => p.id === pago.proveedorId);
+                      const isPdf = pago.comprobanteTipo === 'pdf' || (pago.comprobanteJpgUrl && pago.comprobanteJpgUrl.startsWith('data:application/pdf')) || (pago.comprobanteNombre && pago.comprobanteNombre.toLowerCase().endsWith('.pdf'));
+
                       return (
                         <tr key={pago.id} className="hover:bg-slate-900/40 text-xs">
                           <td className="py-2.5 px-3 font-mono font-bold text-amber-400">{pago.reciboConsecutivo}</td>
@@ -5562,13 +7206,17 @@ export default function AdminDashboard() {
                               <button
                                 type="button"
                                 onClick={() => setViewingProvReceipt(pago)}
-                                className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 hover:text-emerald-300 bg-slate-900 px-2 py-1 rounded border border-emerald-500/30 cursor-pointer"
+                                className={`flex items-center gap-1 text-[11px] font-mono px-2 py-1 rounded border transition-colors cursor-pointer ${
+                                  isPdf
+                                    ? 'text-rose-300 hover:text-rose-200 bg-rose-950/40 border-rose-500/40'
+                                    : 'text-emerald-300 hover:text-emerald-200 bg-emerald-950/40 border-emerald-500/40'
+                                }`}
                               >
-                                <Eye className="w-3 h-3" />
-                                <span>Ver JPG</span>
+                                {isPdf ? <FileText className="w-3 h-3 text-rose-400" /> : <Eye className="w-3 h-3 text-emerald-400" />}
+                                <span>{isPdf ? '📄 Ver PDF' : '🖼️ Ver JPG'}</span>
                               </button>
                             ) : (
-                              <span className="text-[10px] font-mono text-slate-600 italic">Sin JPG</span>
+                              <span className="text-[10px] font-mono text-slate-600 italic">Sin adjunto</span>
                             )}
                           </td>
                           <td className="py-2.5 px-3 text-right">
@@ -5588,6 +7236,761 @@ export default function AdminDashboard() {
               </table>
             </div>
           </div>
+        </div>
+      )}
+    </div>
+  )}
+
+      {/* ========================================================================= */}
+      {/* SECCIÓN: COMPARADOR DE COTIZACIONES, COSTOS & OFERTAS DE TALLERES ALIADOS */}
+      {/* ========================================================================= */}
+      {activeAdminTab === 'cotizaciones_talleres' && (
+        <div id="seccion-cotizaciones-buzon" className="space-y-6 animate-fadeIn">
+          {/* Header del Comparador */}
+          <div className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-950 border-2 border-amber-500/50 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-amber-400 to-yellow-500 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/30">
+                  <Award className="w-7 h-7" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-xl font-bold text-white font-mono uppercase tracking-wide">
+                      Comparador & Decisiones de Costo de Talleres
+                    </h2>
+                    <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono rounded-full font-bold uppercase flex items-center gap-1">
+                      <Zap className="w-3 h-3 text-amber-400" /> Sincronización en Tiempo Real
+                    </span>
+                  </div>
+                  <p className="text-xs md:text-sm text-slate-300 mt-1 font-sans">
+                    Analiza las cotizaciones y tarifas enviadas desde la Oficina Virtual de Proveedores. Usa los filtros inteligentes para identificar qué taller ofrece el menor costo y maximizar la rentabilidad de cada orden.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProvCotizaciones(getStoredCotizaciones());
+                    setProveedores(getStoredProveedores());
+                    setSaveStatus("✓ Cotizaciones de talleres actualizadas");
+                  }}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Recargar cotizaciones de talleres"
+                >
+                  <RefreshCw className="w-4 h-4 text-amber-400" />
+                  <span>Actualizar</span>
+                </button>
+
+                <a
+                  href="/proveedores/index.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 rounded-xl text-xs font-mono font-black transition-all shadow flex items-center gap-1.5 cursor-pointer"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>Portal Talleres</span>
+                </a>
+              </div>
+            </div>
+
+            {/* KPIs Rápidos del Comparador */}
+            {(() => {
+              const totalCots = provCotizaciones.length;
+              const uniqueProvIds = new Set(provCotizaciones.map(c => c.proveedorId)).size;
+              const uniqueCats = new Set(provCotizaciones.map(c => c.categoria)).size;
+              const prices = provCotizaciones.map(c => c.precioCostoTotal).filter(p => p > 0);
+              const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
+              const maxPrice = prices.length > 0 ? Math.max(...prices) : 0;
+
+              // Calculate total potential savings across categories
+              const catMap = new Map<string, number[]>();
+              provCotizaciones.forEach(c => {
+                const arr = catMap.get(c.categoria) || [];
+                arr.push(c.precioCostoTotal);
+                catMap.set(c.categoria, arr);
+              });
+
+              let totalSavingsEstimated = 0;
+              catMap.forEach((pricesList) => {
+                if (pricesList.length > 1) {
+                  const min = Math.min(...pricesList);
+                  const max = Math.max(...pricesList);
+                  totalSavingsEstimated += (max - min);
+                }
+              });
+
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Cotizaciones Recibidas:</span>
+                    <span className="text-xl font-bold font-mono text-amber-400">{totalCots} registradas</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Talleres Cotizantes:</span>
+                    <span className="text-xl font-bold font-mono text-emerald-400">{uniqueProvIds} talleres</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Líneas de Producción:</span>
+                    <span className="text-xl font-bold font-mono text-sky-400">{uniqueCats} categorías</span>
+                  </div>
+
+                  <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                    <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">Ahorro Máx Detectado:</span>
+                    <span className="text-base font-bold font-mono text-emerald-400 truncate block">
+                      {totalSavingsEstimated > 0 ? `+${formatCOP(totalSavingsEstimated)}` : formatCOP(minPrice)}
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* FILTROS PRINCIPALES DE DECISIÓN DE COMPRA / TOMA DE DECISIONES */}
+            <div className="space-y-3 pt-2">
+              <div className="text-xs font-mono text-slate-300 font-bold flex items-center gap-2">
+                <Sliders className="w-4 h-4 text-amber-400" />
+                <span>MODO DE VISUALIZACIÓN & TOMA DE DECISIONES:</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("todas")}
+                  className={`p-3 rounded-2xl border text-xs font-mono font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
+                    cotDecisionMode === "todas"
+                      ? "bg-amber-500 text-slate-950 border-amber-400 shadow-lg shadow-amber-500/20 font-black"
+                      : "bg-slate-950/80 text-slate-300 border-slate-800 hover:border-slate-700 hover:bg-slate-900"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-[11px] uppercase">📋 Todas las Cotizaciones</span>
+                    <span className="text-[10px] opacity-80 block">{provCotizaciones.length} ofertas totales</span>
+                  </div>
+                  <Tag className="w-4 h-4 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("solo_mejores")}
+                  className={`p-3 rounded-2xl border text-xs font-mono font-bold transition-all text-left flex items-center justify-between cursor-pointer relative overflow-hidden ${
+                    cotDecisionMode === "solo_mejores"
+                      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 border-emerald-300 shadow-xl shadow-emerald-500/30 font-black scale-102"
+                      : "bg-emerald-950/40 text-emerald-300 border-emerald-600/40 hover:bg-emerald-900/40"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-[11px] uppercase flex items-center gap-1 font-black">
+                      🏆 Solo Mejores Precios
+                    </span>
+                    <span className="text-[10px] opacity-90 block">Taller ganador por línea</span>
+                  </div>
+                  <Award className="w-4 h-4 shrink-0 text-emerald-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("matriz_ahorro")}
+                  className={`p-3 rounded-2xl border text-xs font-mono font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
+                    cotDecisionMode === "matriz_ahorro"
+                      ? "bg-gradient-to-r from-sky-500 to-indigo-500 text-white border-sky-400 shadow-lg shadow-sky-500/20 font-black"
+                      : "bg-sky-950/40 text-sky-300 border-sky-600/40 hover:bg-sky-900/40"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-[11px] uppercase flex items-center gap-1 font-bold">
+                      📊 Matriz de Ahorro
+                    </span>
+                    <span className="text-[10px] opacity-80 block">Comparativa tabular</span>
+                  </div>
+                  <BarChart3 className="w-4 h-4 shrink-0 text-sky-400" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setCotDecisionMode("destacadas")}
+                  className={`p-3 rounded-2xl border text-xs font-mono font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
+                    cotDecisionMode === "destacadas"
+                      ? "bg-gradient-to-r from-yellow-500 to-amber-500 text-slate-950 border-yellow-300 shadow-lg shadow-yellow-500/20 font-black"
+                      : "bg-slate-950/80 text-amber-300 border-slate-800 hover:border-slate-700 hover:bg-slate-900"
+                  }`}
+                >
+                  <div className="space-y-0.5">
+                    <span className="block text-[11px] uppercase flex items-center gap-1">
+                      ⭐ Destacadas Admin
+                    </span>
+                    <span className="text-[10px] opacity-80 block">
+                      {provCotizaciones.filter(c => c.destacadaAdmin).length} seleccionadas
+                    </span>
+                  </div>
+                  <Star className="w-4 h-4 shrink-0 text-yellow-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Barra de Filtros secundarios: Búsqueda, Categoría y Taller */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Search */}
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={cotSearchTerm}
+                    onChange={(e) => setCotSearchTerm(e.target.value)}
+                    placeholder="Buscar producto, papel, formato, notas..."
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-xs font-mono text-white placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                {/* Category Filter */}
+                <div>
+                  <select
+                    value={cotCategoryFilter}
+                    onChange={(e) => setCotCategoryFilter(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="all">Todas las Categorías ({getStoredCategorias().length})</option>
+                    {getStoredCategorias().map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Provider Filter */}
+                <div>
+                  <select
+                    value={cotProviderFilter}
+                    onChange={(e) => setCotProviderFilter(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="all">Todos los Talleres ({proveedores.length})</option>
+                    {proveedores.map((p) => (
+                      <option key={p.id} value={p.id}>{p.codigo} — {p.nombreComercial}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Sort Order */}
+                <div>
+                  <select
+                    value={cotSortMode}
+                    onChange={(e) => setCotSortMode(e.target.value as any)}
+                    className="w-full bg-slate-900 border border-amber-500/50 rounded-xl px-3 py-2 text-xs font-mono text-amber-300 font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                  >
+                    <option value="menor_precio">🏆 Menor Precio de Costo Total</option>
+                    <option value="menor_unitario">🏷️ Menor Costo Unitario ($/u)</option>
+                    <option value="reciente">⏱️ Más Recientes Primero</option>
+                    <option value="proveedor">🏭 Agrupar por Proveedor</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Categorías Rápidas en Chips */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1 border-t border-slate-900">
+                <span className="text-[10px] font-mono text-slate-400 uppercase font-bold mr-1">Filtrar por línea:</span>
+                <button
+                  type="button"
+                  onClick={() => setCotCategoryFilter("all")}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all cursor-pointer ${
+                    cotCategoryFilter === "all"
+                      ? "bg-amber-400 text-slate-950 font-bold shadow-sm"
+                      : "bg-slate-900 text-slate-400 hover:text-white border border-slate-800"
+                  }`}
+                >
+                  Todas
+                </button>
+                {getStoredCategorias().map((cat) => {
+                  const count = provCotizaciones.filter(c => c.categoria === cat).length;
+                  if (count === 0 && cotCategoryFilter !== cat) return null;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setCotCategoryFilter(cat)}
+                      className={`px-2.5 py-1 rounded-lg text-[11px] font-mono transition-all flex items-center gap-1 cursor-pointer ${
+                        cotCategoryFilter === cat
+                          ? "bg-amber-400 text-slate-950 font-bold shadow-sm"
+                          : "bg-slate-900 text-slate-400 hover:text-amber-300 border border-slate-800"
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span className="text-[9px] px-1 py-0.2 bg-slate-950 rounded-full font-bold">
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* VISTA 1: MATRIZ DE AHORRO & COMPARATIVA TABULAR */}
+          {cotDecisionMode === "matriz_ahorro" && (
+            <div className="bg-slate-900 border border-sky-500/40 rounded-3xl p-6 space-y-5 shadow-2xl animate-fadeIn">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5 text-sky-400" />
+                  <h3 className="text-base font-bold font-mono text-white">
+                    Matriz Comparativa de Costos por Categoría & Ahorro Estimado
+                  </h3>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  Calculado sobre {provCotizaciones.length} cotizaciones registradas
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] bg-slate-950/60">
+                      <th className="py-3 px-3">Línea de Producción</th>
+                      <th className="py-3 px-3">Taller Ganador (Menor Costo)</th>
+                      <th className="py-3 px-3 text-right">Mejor Precio Costo</th>
+                      <th className="py-3 px-3 text-right">Costo Unitario</th>
+                      <th className="py-3 px-3">Taller Alternativo / Máximo</th>
+                      <th className="py-3 px-3 text-right">Ahorro Detectado</th>
+                      <th className="py-3 px-3 text-center">Acción Inmediata</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {(() => {
+                      const allCats = Array.from(new Set(provCotizaciones.map(c => c.categoria)));
+                      if (allCats.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={7} className="py-8 text-center text-slate-400">
+                              No hay cotizaciones para comparar en este momento.
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return allCats.map((cat) => {
+                        const inCat = provCotizaciones.filter(c => c.categoria === cat);
+                        const sorted = [...inCat].sort((a, b) => a.precioCostoTotal - b.precioCostoTotal);
+                        const best = sorted[0];
+                        const worst = sorted[sorted.length - 1];
+                        const savings = worst.precioCostoTotal - best.precioCostoTotal;
+                        const savingsPct = worst.precioCostoTotal > 0 ? Math.round((savings / worst.precioCostoTotal) * 100) : 0;
+                        const bestProv = proveedores.find(p => p.id === best.proveedorId);
+                        const worstProv = proveedores.find(p => p.id === worst.proveedorId);
+                        const unitCost = best.precioCostoUnitario || (best.cantidad > 0 ? Math.round(best.precioCostoTotal / best.cantidad) : best.precioCostoTotal);
+
+                        return (
+                          <tr key={cat} className="hover:bg-slate-800/50 transition-colors">
+                            <td className="py-3.5 px-3">
+                              <span className="font-bold text-amber-300 block">{cat}</span>
+                              <span className="text-[10px] text-slate-400">{inCat.length} ofertas de talleres</span>
+                            </td>
+
+                            <td className="py-3.5 px-3">
+                              <div className="flex items-center gap-1.5">
+                                <Award className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <div>
+                                  <strong className="text-emerald-400 block text-xs">{bestProv ? bestProv.nombreComercial : best.proveedorNombre}</strong>
+                                  <span className="text-[10px] text-slate-400 truncate max-w-[200px] block">{best.tituloProducto}</span>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-3 text-right font-black text-amber-400 text-sm">
+                              {formatCOP(best.precioCostoTotal)}
+                            </td>
+
+                            <td className="py-3.5 px-3 text-right text-slate-300">
+                              {formatCOP(unitCost)} / {best.unidadMedida || 'u'}
+                            </td>
+
+                            <td className="py-3.5 px-3">
+                              {sorted.length > 1 ? (
+                                <div>
+                                  <span className="text-slate-300 block">{worstProv ? worstProv.nombreComercial : worst.proveedorNombre}</span>
+                                  <span className="text-[10px] text-slate-400">{formatCOP(worst.precioCostoTotal)}</span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 italic">Único taller cotizante</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-3 text-right">
+                              {savings > 0 ? (
+                                <div className="space-y-0.5">
+                                  <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-600/50 rounded-lg text-[10px] font-black inline-block">
+                                    Ahorro: {formatCOP(savings)}
+                                  </span>
+                                  <span className="text-[10px] text-emerald-400 font-bold block">
+                                    ({savingsPct}% menos)
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-slate-500 text-[10px]">Tarifa única</span>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-3 text-center">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (bestProv) {
+                                    setOrderModalProv(bestProv);
+                                    setNewOrdDescripcion(`${best.tituloProducto} | ${best.medidasFormato || ''} | ${best.materialPapel || ''}`);
+                                    setNewOrdCantidad(best.cantidad);
+                                    setNewOrdCostoProv(best.precioCostoTotal);
+                                    setNewOrdCategoria(best.categoria);
+                                    setSaveStatus(`✓ Cotización de ${bestProv.nombreComercial} cargada para orden`);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black rounded-lg text-[10px] transition-all shadow inline-flex items-center gap-1 cursor-pointer"
+                              >
+                                <PlusCircle className="w-3 h-3" />
+                                <span>Asignar Orden</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* VISTA 2: LISTADO Y RANKING DE COTIZACIONES (TODAS, SOLO MEJORES O DESTACADAS) */}
+          {(() => {
+            let list = provCotizaciones.filter((cot) => {
+              const q = cotSearchTerm.toLowerCase();
+              const matchSearch =
+                !q ||
+                cot.tituloProducto.toLowerCase().includes(q) ||
+                (cot.proveedorNombre && cot.proveedorNombre.toLowerCase().includes(q)) ||
+                (cot.medidasFormato && cot.medidasFormato.toLowerCase().includes(q)) ||
+                (cot.materialPapel && cot.materialPapel.toLowerCase().includes(q)) ||
+                (cot.terminaciones && cot.terminaciones.toLowerCase().includes(q)) ||
+                (cot.descripcionDetallada && cot.descripcionDetallada.toLowerCase().includes(q));
+
+              const matchCat = cotCategoryFilter === 'all' || cot.categoria === cotCategoryFilter;
+              const matchProv = cotProviderFilter === 'all' || cot.proveedorId === cotProviderFilter;
+              const matchDestacada = cotDecisionMode !== "destacadas" || cot.destacadaAdmin;
+
+              return matchSearch && matchCat && matchProv && matchDestacada;
+            });
+
+            // If Decision Mode is "solo_mejores", filter to only the lowest price for each category / product title
+            if (cotDecisionMode === "solo_mejores") {
+              const bestMap = new Map<string, CotizacionProveedor>();
+              list.forEach((c) => {
+                const key = `${c.categoria}`;
+                const existing = bestMap.get(key);
+                if (!existing || c.precioCostoTotal < existing.precioCostoTotal) {
+                  bestMap.set(key, c);
+                }
+              });
+              list = Array.from(bestMap.values());
+            }
+
+            // Sorting
+            list = [...list].sort((a, b) => {
+              if (cotSortMode === 'menor_precio') {
+                return a.precioCostoTotal - b.precioCostoTotal;
+              }
+              if (cotSortMode === 'menor_unitario') {
+                const uA = a.precioCostoUnitario || (a.cantidad > 0 ? a.precioCostoTotal / a.cantidad : a.precioCostoTotal);
+                const uB = b.precioCostoUnitario || (b.cantidad > 0 ? b.precioCostoTotal / b.cantidad : b.precioCostoTotal);
+                return uA - uB;
+              }
+              if (cotSortMode === 'reciente') {
+                return new Date(b.fechaCreacion).getTime() - new Date(a.fechaCreacion).getTime();
+              }
+              if (cotSortMode === 'proveedor') {
+                return (a.proveedorNombre || '').localeCompare(b.proveedorNombre || '');
+              }
+              return 0;
+            });
+
+            // Find lowest price overall in filtered list
+            const lowestPrice = list.length > 0 ? Math.min(...list.map(c => c.precioCostoTotal)) : 0;
+
+            if (list.length === 0) {
+              return (
+                <div className="bg-slate-900/60 border-2 border-dashed border-slate-800 rounded-3xl p-12 text-center space-y-4">
+                  <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center mx-auto text-amber-400 border border-amber-500/20">
+                    <Tag className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-base font-bold font-mono text-slate-200">
+                      {provCotizaciones.length === 0
+                        ? 'Aún no hay cotizaciones publicadas por los talleres'
+                        : 'No se encontraron cotizaciones con los filtros actuales'}
+                    </h3>
+                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                      {provCotizaciones.length === 0
+                        ? 'Los proveedores pueden ingresar a su oficina virtual (/proveedores/index.html) y publicar sus tarifas y cotizaciones de 100 talonarios, almanaques, tarjetas, etc.'
+                        : 'Intenta restablecer los filtros o seleccionar el modo "Todas las Cotizaciones".'}
+                    </p>
+                  </div>
+                  {(provCotizaciones.length > 0 || cotCategoryFilter !== 'all' || cotProviderFilter !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => { setCotSearchTerm(''); setCotCategoryFilter('all'); setCotProviderFilter('all'); setCotDecisionMode('todas'); }}
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono text-xs font-bold rounded-xl border border-slate-700 cursor-pointer"
+                    >
+                      Limpiar Filtros & Ver Todo
+                    </button>
+                  )}
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono text-slate-400 px-1">
+                  <div className="flex items-center gap-2">
+                    <span>Mostrando <strong className="text-amber-400 font-bold">{list.length}</strong> cotizaciones</span>
+                    {cotDecisionMode === "solo_mejores" && (
+                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-full text-[10px] font-bold">
+                        🏆 Modo: Proveedores Ganadores por Categoría
+                      </span>
+                    )}
+                  </div>
+
+                  {lowestPrice > 0 && (
+                    <span className="text-emerald-400 flex items-center gap-1 font-bold">
+                      <Award className="w-3.5 h-3.5" /> Mejor Costo Absoluto: {formatCOP(lowestPrice)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-5">
+                  {list.map((cot, index) => {
+                    const isLowestOverall = cot.precioCostoTotal === lowestPrice && list.length > 1;
+                    const prov = proveedores.find(p => p.id === cot.proveedorId);
+                    const isExpanded = expandedCotId === cot.id;
+                    const unitCost = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
+                    const words = cot.descripcionDetallada ? cot.descripcionDetallada.trim().split(/\s+/).filter(Boolean).length : 0;
+
+                    // Calculate category comparison
+                    const inSameCategory = provCotizaciones.filter(c => c.categoria === cot.categoria);
+                    const sameCatPrices = inSameCategory.map(c => c.precioCostoTotal);
+                    const isBestInCategory = inSameCategory.length > 1 && cot.precioCostoTotal === Math.min(...sameCatPrices);
+                    const maxCatPrice = Math.max(...sameCatPrices);
+                    const categorySavings = maxCatPrice - cot.precioCostoTotal;
+                    const catSavingsPct = maxCatPrice > 0 ? Math.round((categorySavings / maxCatPrice) * 100) : 0;
+
+                    return (
+                      <div
+                        key={cot.id}
+                        className={`rounded-3xl p-5 sm:p-6 transition-all space-y-4 shadow-2xl relative overflow-hidden ${
+                          isBestInCategory || isLowestOverall
+                            ? 'bg-gradient-to-br from-amber-950/40 via-slate-900 to-slate-900 border-2 border-emerald-400/80 shadow-emerald-500/10'
+                            : cot.destacadaAdmin
+                            ? 'bg-gradient-to-br from-yellow-950/30 via-slate-900 to-slate-900 border-2 border-amber-500/50'
+                            : 'bg-slate-900/90 border border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {/* Best Price Ribbon */}
+                        {isBestInCategory && (
+                          <div className="absolute top-0 right-0 bg-gradient-to-l from-emerald-500 to-teal-500 text-slate-950 px-4 py-1 rounded-bl-2xl text-[10px] font-mono font-black uppercase tracking-wider flex items-center gap-1.5 shadow-md">
+                            <Award className="w-3.5 h-3.5" />
+                            <span>🏆 MEJOR PRECIO EN {cot.categoria.toUpperCase()} {categorySavings > 0 ? `(Ahorras ${formatCOP(categorySavings)} / ${catSavingsPct}%)` : ''}</span>
+                          </div>
+                        )}
+
+                        {/* Top Bar */}
+                        <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 border-b border-slate-800 pb-4 pt-1">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono font-bold uppercase">
+                                {cot.categoria}
+                              </span>
+                              <span className="px-2.5 py-0.5 bg-slate-800 text-slate-300 rounded-lg text-xs font-mono font-bold">
+                                Cantidad: {cot.cantidad} {cot.unidadMedida || 'unidades'}
+                              </span>
+                              <span className="text-xs font-mono text-slate-400">
+                                #{index + 1} en ranking
+                              </span>
+                              {inSameCategory.length > 1 && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 bg-slate-950 text-slate-400 rounded border border-slate-800">
+                                  {inSameCategory.length} talleres cotizando {cot.categoria}
+                                </span>
+                              )}
+                            </div>
+
+                            <h3 className="text-lg sm:text-xl font-bold font-mono text-white tracking-tight">
+                              {cot.tituloProducto}
+                            </h3>
+
+                            {/* Taller / Proveedor Details */}
+                            <div className="flex flex-wrap items-center gap-3 text-xs font-mono text-slate-300 pt-1">
+                              <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                                <Building2 className="w-4 h-4 text-amber-400" />
+                                <span>Taller: <strong className="text-white">{prov ? prov.nombreComercial : (cot.proveedorNombre || 'Taller')}</strong> ({prov ? prov.codigo : 'PRV'})</span>
+                              </div>
+
+                              {prov && prov.contactoNombre && (
+                                <span className="text-slate-400">Contacto: <strong className="text-slate-200">{prov.contactoNombre}</strong></span>
+                              )}
+
+                              {prov && prov.municipio && (
+                                <span className="text-slate-400">📍 {prov.municipio}</span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Precio de Costo Highlight */}
+                          <div className="bg-slate-950 border-2 border-amber-500/60 rounded-2xl p-4 text-right shrink-0 shadow-lg min-w-[240px]">
+                            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                              Precio de Costo Total Taller:
+                            </span>
+                            <span className="text-2xl sm:text-3xl font-black font-mono text-amber-400 block tracking-tight">
+                              {formatCOP(cot.precioCostoTotal)}
+                            </span>
+                            <div className="text-xs font-mono text-slate-400 pt-1 border-t border-slate-800 mt-1 flex items-center justify-between">
+                              <span>Costo Unitario:</span>
+                              <strong className="text-emerald-400 font-bold text-sm">{formatCOP(unitCost)} / {cot.unidadMedida ? cot.unidadMedida.replace(/s$/, '') : 'u'}</strong>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Specs Grid */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-slate-950/70 p-3.5 rounded-2xl border border-slate-800/80 text-xs font-mono">
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase text-slate-400 block font-bold">Formato / Medidas:</span>
+                            <span className="text-slate-200 font-bold">{cot.medidasFormato || 'Estándar'}</span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase text-slate-400 block font-bold">Papel / Sustrato:</span>
+                            <span className="text-slate-200">{cot.materialPapel || 'No especificado'}</span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase text-slate-400 block font-bold">Tintas / Impresión:</span>
+                            <span className="text-slate-200">{cot.tintasColores || '1x0 / 4x0'}</span>
+                          </div>
+
+                          <div className="space-y-1">
+                            <span className="text-[10px] uppercase text-slate-400 block font-bold">Tiempo de Entrega:</span>
+                            <span className="text-amber-300 font-bold flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-amber-400" />
+                              {cot.tiempoEntregaDias || '2 a 3 días hábiles'}
+                            </span>
+                          </div>
+                        </div>
+
+                        {cot.terminaciones && (
+                          <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800/60 text-xs font-mono flex items-start gap-2">
+                            <span className="text-amber-400 font-bold shrink-0">Terminaciones & Acabados:</span>
+                            <span className="text-slate-300">{cot.terminaciones}</span>
+                          </div>
+                        )}
+
+                        {/* Extended Description (supports 500-1000 words) */}
+                        {cot.descripcionDetallada && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] font-mono text-slate-400 uppercase font-bold flex items-center gap-1.5">
+                                <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                                Especificaciones Técnicas Detalladas ({words} palabras):
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedCotId(isExpanded ? null : cot.id)}
+                                className="text-[11px] font-mono text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                {isExpanded ? 'Ver menos' : 'Leer especificaciones completas'}
+                              </button>
+                            </div>
+
+                            <div className={`p-4 bg-slate-950/90 rounded-2xl border border-slate-800 text-xs font-sans leading-relaxed text-slate-300 whitespace-pre-line ${
+                              !isExpanded && cot.descripcionDetallada.length > 250 ? 'line-clamp-3' : ''
+                            }`}>
+                              {cot.descripcionDetallada}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Action Bar */}
+                        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800">
+                          <div className="text-[10px] font-mono text-slate-400 flex items-center gap-2">
+                            <span>Registrado: {new Date(cot.fechaCreacion).toLocaleDateString('es-CO', { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = provCotizaciones.map(c => c.id === cot.id ? { ...c, destacadaAdmin: !c.destacadaAdmin } : c);
+                                setProvCotizaciones(updated);
+                                setSaveStatus(cot.destacadaAdmin ? "Cotización removida de favoritas" : "✓ Cotización marcada como destacada");
+                              }}
+                              className={`px-2 py-0.5 rounded-lg border text-[10px] font-mono flex items-center gap-1 cursor-pointer transition-colors ${
+                                cot.destacadaAdmin
+                                  ? "bg-yellow-500/20 text-yellow-300 border-yellow-500/40 font-bold"
+                                  : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                              }`}
+                            >
+                              <Star className={`w-3 h-3 ${cot.destacadaAdmin ? "fill-yellow-400 text-yellow-400" : ""}`} />
+                              <span>{cot.destacadaAdmin ? "Destacada" : "Marcar Favorita"}</span>
+                            </button>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {prov && prov.telefonoWhatsapp && (
+                              <a
+                                href={`https://wa.me/${prov.telefonoWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hola ${prov.nombreComercial}, desde la administración de Atziluth Gráfic vimos tu cotización de "${cot.tituloProducto}" (${cot.cantidad} ${cot.unidadMedida}) por valor de ${formatCOP(cot.precioCostoTotal)}. Queremos coordinar esta producción.`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="px-3 py-1.5 bg-emerald-950/80 hover:bg-emerald-900 text-emerald-300 text-xs font-mono font-bold rounded-xl border border-emerald-600/50 transition-colors flex items-center gap-1.5 shadow cursor-pointer"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
+                                <span>Contactar por WhatsApp</span>
+                              </a>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetProv = proveedores.find(p => p.id === cot.proveedorId);
+                                if (targetProv) {
+                                  setOrderModalProv(targetProv);
+                                  setNewOrdDescripcion(`${cot.tituloProducto} | ${cot.medidasFormato || ''} | ${cot.materialPapel || ''} | ${cot.terminaciones || ''}`);
+                                  setNewOrdCantidad(cot.cantidad);
+                                  setNewOrdCostoProv(cot.precioCostoTotal);
+                                  setNewOrdCategoria(cot.categoria);
+                                  setSaveStatus(`✓ Cotización de ${targetProv.nombreComercial} cargada para orden`);
+                                }
+                              }}
+                              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-mono font-black rounded-xl transition-all shadow flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <PlusCircle className="w-3.5 h-3.5" />
+                              <span>Asignar Orden con este Costo</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`¿Eliminar esta cotización de "${cot.tituloProducto}"?`)) {
+                                  const updated = provCotizaciones.filter(c => c.id !== cot.id);
+                                  setProvCotizaciones(updated);
+                                  saveStoredCotizaciones(updated);
+                                  setSaveStatus('✓ Cotización eliminada');
+                                }
+                              }}
+                              className="p-1.5 bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-400 rounded-xl border border-slate-800 transition-colors cursor-pointer"
+                              title="Eliminar cotización"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -8025,21 +10428,25 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {/* Subida Obligatoria de Comprobante .JPG */}
-              <div className="space-y-2 p-3.5 bg-slate-950/80 rounded-2xl border border-dashed border-amber-500/40">
+              {/* Subida Obligatoria de Comprobante JPG / PDF */}
+              <div className="space-y-2 p-3.5 bg-slate-950/80 rounded-2xl border-2 border-dashed border-amber-500/50">
                 <label className="block text-[10px] font-mono uppercase text-amber-300 font-bold flex items-center justify-between">
-                  <span>Comprobante de Transferencia (.JPG) * Obligatorio</span>
-                  <span className="text-[9px] text-slate-400">JPG / PNG / JPEG</span>
+                  <span>Comprobante de Pago (JPG, PNG o PDF) * Obligatorio</span>
+                  <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[9px] rounded-md font-bold">
+                    JPG &bull; PNG &bull; PDF
+                  </span>
                 </label>
 
                 <input
                   type="file"
-                  accept="image/jpeg,image/png,image/jpg"
+                  accept="image/jpeg,image/png,image/jpg,application/pdf,.pdf,.jpg,.jpeg,.png"
                   required={!payComprobanteJpg}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       setPayComprobanteFileName(file.name);
+                      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+                      setPayComprobanteTipo(isPdf ? 'pdf' : 'jpg');
                       const reader = new FileReader();
                       reader.onload = (loadEv) => {
                         setPayComprobanteJpg(loadEv.target?.result as string);
@@ -8047,29 +10454,62 @@ export default function AdminDashboard() {
                       reader.readAsDataURL(file);
                     }
                   }}
-                  className="w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-mono file:font-bold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer"
+                  className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-mono file:font-bold file:bg-gradient-to-r file:from-amber-500 file:to-yellow-500 file:text-slate-950 hover:file:from-amber-400 hover:file:to-yellow-400 cursor-pointer"
                 />
 
                 {payComprobanteJpg && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex items-center justify-between text-[11px] font-mono text-emerald-400">
-                      <span>✓ Archivo cargado: {payComprobanteFileName || "comprobante.jpg"}</span>
+                  <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        {payComprobanteTipo === 'pdf' || payComprobanteJpg.startsWith('data:application/pdf') || payComprobanteFileName.toLowerCase().endsWith('.pdf') ? (
+                          <span className="text-rose-400 flex items-center gap-1">
+                            <FileText className="w-4 h-4" /> 📄 Documento PDF listo
+                          </span>
+                        ) : (
+                          <span className="text-emerald-400 flex items-center gap-1">
+                            <ImageIcon className="w-4 h-4" /> 🖼️ Imagen JPG/PNG lista
+                          </span>
+                        )}
+                        <span className="text-slate-300 truncate max-w-[200px]">
+                          ({payComprobanteFileName || "comprobante"})
+                        </span>
+                      </div>
                       <button
                         type="button"
                         onClick={() => {
                           setPayComprobanteJpg("");
                           setPayComprobanteFileName("");
+                          setPayComprobanteTipo("jpg");
                         }}
-                        className="text-rose-400 hover:underline"
+                        className="text-rose-400 hover:underline text-[11px]"
                       >
                         Quitar
                       </button>
                     </div>
-                    <img
-                      src={payComprobanteJpg}
-                      alt="Vista previa comprobante"
-                      className="max-h-32 rounded-lg border border-slate-800 object-contain mx-auto"
-                    />
+
+                    {payComprobanteTipo === 'pdf' || payComprobanteJpg.startsWith('data:application/pdf') || payComprobanteFileName.toLowerCase().endsWith('.pdf') ? (
+                      <div className="p-3 bg-rose-950/30 rounded-lg border border-rose-500/30 text-center space-y-2">
+                        <FileText className="w-8 h-8 text-rose-400 mx-auto" />
+                        <div className="text-xs font-mono text-slate-200 font-bold">{payComprobanteFileName}</div>
+                        <p className="text-[10px] text-slate-400 font-sans">
+                          El archivo PDF se enviará automáticamente a la Oficina Virtual del proveedor para que pueda visualizarlo o descargarlo.
+                        </p>
+                        <a
+                          href={payComprobanteJpg}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-mono font-bold"
+                        >
+                          <ExternalLink className="w-3 h-3" /> Previsualizar PDF
+                        </a>
+                      </div>
+                    ) : (
+                      <img
+                        src={payComprobanteJpg}
+                        alt="Vista previa comprobante"
+                        className="max-h-36 rounded-lg border border-slate-800 object-contain mx-auto shadow-sm"
+                      />
+                    )}
                   </div>
                 )}
               </div>
@@ -8156,19 +10596,58 @@ export default function AdminDashboard() {
                   <div className="text-2xl font-black font-mono text-emerald-800">{formatCOP(viewingProvReceipt.monto)}</div>
                 </div>
 
-                {/* Comprobante .JPG adjunto si existe */}
-                {viewingProvReceipt.comprobanteJpgUrl && (
-                  <div className="pt-2 space-y-1.5 border-t border-slate-200">
-                    <span className="text-[10px] font-mono uppercase text-slate-500 font-bold block">
-                      Comprobante Bancario .JPG Adjunto:
-                    </span>
-                    <img
-                      src={viewingProvReceipt.comprobanteJpgUrl}
-                      alt="Comprobante Bancario"
-                      className="max-h-48 rounded-lg border border-slate-300 mx-auto shadow-sm"
-                    />
-                  </div>
-                )}
+                {/* Comprobante Bancario Adjunto (JPG / PNG / PDF) */}
+                {viewingProvReceipt.comprobanteJpgUrl && (() => {
+                  const isPdf = viewingProvReceipt.comprobanteTipo === 'pdf' || 
+                    viewingProvReceipt.comprobanteJpgUrl.startsWith('data:application/pdf') || 
+                    (viewingProvReceipt.comprobanteNombre && viewingProvReceipt.comprobanteNombre.toLowerCase().endsWith('.pdf'));
+
+                  return (
+                    <div className="pt-3 space-y-2 border-t border-slate-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-mono uppercase text-slate-600 font-bold flex items-center gap-1.5">
+                          {isPdf ? <FileText className="w-3.5 h-3.5 text-rose-600" /> : <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />}
+                          <span>Comprobante de Pago Adjunto ({isPdf ? 'PDF' : 'JPG/PNG'}):</span>
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={viewingProvReceipt.comprobanteJpgUrl}
+                            download={viewingProvReceipt.comprobanteNombre || (isPdf ? `comprobante_${viewingProvReceipt.reciboConsecutivo}.pdf` : `comprobante_${viewingProvReceipt.reciboConsecutivo}.jpg`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-mono text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1"
+                          >
+                            <Download className="w-3 h-3" /> Descargar
+                          </a>
+                          <a
+                            href={viewingProvReceipt.comprobanteJpgUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[11px] font-mono text-emerald-600 hover:text-emerald-800 font-bold flex items-center gap-1"
+                          >
+                            <ExternalLink className="w-3 h-3" /> Abrir en Pestaña Nueva
+                          </a>
+                        </div>
+                      </div>
+
+                      {isPdf ? (
+                        <div className="border border-slate-300 rounded-xl overflow-hidden bg-slate-50">
+                          <iframe
+                            src={viewingProvReceipt.comprobanteJpgUrl}
+                            title="Comprobante PDF"
+                            className="w-full h-72 border-0"
+                          />
+                        </div>
+                      ) : (
+                        <img
+                          src={viewingProvReceipt.comprobanteJpgUrl}
+                          alt="Comprobante Bancario"
+                          className="max-h-56 rounded-lg border border-slate-300 mx-auto shadow-sm object-contain"
+                        />
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="pt-6 border-t border-slate-300 flex justify-between text-xs text-slate-500 font-mono">
                   <div className="text-center w-40 border-t border-slate-400 pt-1">Elaboró Contabilidad</div>
