@@ -96,6 +96,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [editingCostId, setEditingCostId] = useState<string | null>(null);
   const [tempCostValue, setTempCostValue] = useState<string>('');
 
+  // State for manual token entry if link is missing or expired
+  const [manualTokenInput, setManualTokenInput] = useState('');
+  const [manualTokenError, setManualTokenError] = useState(false);
+
   // Initial Data Load & URL parsing
   useEffect(() => {
     // Load from local storage
@@ -107,27 +111,32 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     setOrdenes(loadedOrdenes);
     setPagos(loadedPagos);
 
-    // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#oficina-proveedor?token=...) or props
+    // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
     let token = initialTokenOrId || '';
     if (!token && typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
-      token = urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('id') || '';
+      token = urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '';
       
       if (!token && window.location.hash.includes('?')) {
         const hashQuery = window.location.hash.split('?')[1];
         const hashParams = new URLSearchParams(hashQuery);
-        token = hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('id') || '';
+        token = hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '';
+      } else if (!token && window.location.hash.includes('/')) {
+        const parts = window.location.hash.split('/');
+        if (parts.length > 1 && parts[1]) {
+          token = parts[1];
+        }
       }
     }
 
-    // Default fallback to first provider if no token provided in demo environment
+    // Default fallback to first provider ONLY if no token was passed in URL and we have providers
     if (!token && loadedProveedores.length > 0) {
       token = loadedProveedores[0].tokenAcceso;
     }
 
     setActiveToken(token);
 
-    // Find matching provider
+    // Find matching provider strictly
     const found = loadedProveedores.find(
       (p) => p.tokenAcceso === token || p.id === token || p.codigo.toLowerCase() === token.toLowerCase()
     );
@@ -143,8 +152,44 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
         telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
         emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
       });
+    } else {
+      setCurrentProveedor(null);
     }
   }, [initialTokenOrId]);
+
+  // Handle manual token submission
+  const handleManualTokenSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const clean = manualTokenInput.trim();
+    if (!clean) return;
+
+    const loadedProveedores = getStoredProveedores();
+    const found = loadedProveedores.find(
+      (p) => p.tokenAcceso === clean || p.id === clean || p.codigo.toLowerCase() === clean.toLowerCase()
+    );
+
+    if (found) {
+      setCurrentProveedor(found);
+      setActiveToken(found.tokenAcceso);
+      setManualTokenError(false);
+      setBankForm({
+        banco: found.datosBancarios?.banco || 'Bancolombia',
+        tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
+        numeroCuenta: found.datosBancarios?.numeroCuenta || '',
+        titular: found.datosBancarios?.titular || found.contactoNombre,
+        documentoTitular: found.datosBancarios?.documentoTitular || '',
+        telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
+        emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
+      });
+      // Update URL query string
+      if (window.history.pushState) {
+        const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${found.tokenAcceso}#proveedor`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+      }
+    } else {
+      setManualTokenError(true);
+    }
+  };
 
   // Sync current provider orders
   const providerOrders = currentProveedor
@@ -174,26 +219,6 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       currency: 'COP',
       maximumFractionDigits: 0
     }).format(val);
-  };
-
-  // Quick switcher for demo/testing purposes
-  const handleSwitchProvider = (prov: ProveedorRecord) => {
-    setCurrentProveedor(prov);
-    setActiveToken(prov.tokenAcceso);
-    setBankForm({
-      banco: prov.datosBancarios?.banco || 'Bancolombia',
-      tipoCuenta: prov.datosBancarios?.tipoCuenta || 'Ahorros',
-      numeroCuenta: prov.datosBancarios?.numeroCuenta || '',
-      titular: prov.datosBancarios?.titular || prov.contactoNombre,
-      documentoTitular: prov.datosBancarios?.documentoTitular || '',
-      telefonoTransferencia: prov.datosBancarios?.telefonoTransferencia || prov.telefonoWhatsapp,
-      emailNotificaciones: prov.datosBancarios?.emailNotificaciones || prov.email || ''
-    });
-    // Update URL query string without reloading page
-    if (window.history.pushState) {
-      const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${prov.tokenAcceso}`;
-      window.history.pushState({ path: newUrl }, '', newUrl);
-    }
   };
 
   // Save Bank Details
@@ -331,43 +356,66 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-4">
         <div className="max-w-md w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 text-center shadow-2xl space-y-6">
           <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
-            <AlertCircle className="w-8 h-8" />
+            <ShieldCheck className="w-8 h-8" />
           </div>
           <div className="space-y-2">
-            <h2 className="text-xl font-bold font-mono text-white">Enlace de Proveedor No Válido</h2>
+            <h2 className="text-xl font-bold font-mono text-white">Oficina Virtual de Proveedor</h2>
             <p className="text-xs text-slate-400">
-              No se encontró un proveedor activo con el token o código proporcionado en el enlace.
+              Acceso privado y exclusivo para talleres aliados de Atziluth Gráfic Digital.
             </p>
           </div>
 
-          <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-2xl text-left space-y-2">
-            <p className="text-[11px] font-mono font-bold text-slate-400 uppercase">
-              Seleccionar Proveedor Registrado (Modo Demostración):
-            </p>
-            <div className="space-y-1.5">
-              {proveedores.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleSwitchProvider(p)}
-                  className="w-full text-left px-3 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-700 rounded-xl text-xs font-mono text-slate-200 transition-all flex items-center justify-between"
-                >
-                  <span className="font-bold">{p.nombreComercial}</span>
-                  <span className="text-[10px] text-amber-400 bg-amber-950/60 px-2 py-0.5 rounded border border-amber-800/60">
-                    {p.categoria}
-                  </span>
-                </button>
-              ))}
+          <form onSubmit={handleManualTokenSubmit} className="space-y-3">
+            <div className="text-left space-y-1.5">
+              <label className="text-[11px] font-mono font-bold text-slate-400 uppercase">
+                Ingresa tu Token de Acceso o Código de Taller:
+              </label>
+              <input
+                type="text"
+                value={manualTokenInput}
+                onChange={(e) => {
+                  setManualTokenInput(e.target.value);
+                  setManualTokenError(false);
+                }}
+                placeholder="Ej: PRV-ALM-101 o Token personal"
+                className="w-full bg-slate-950 border border-slate-700 focus:border-amber-500 text-amber-400 text-xs font-mono font-bold rounded-xl px-3.5 py-2.5 focus:outline-none placeholder:text-slate-600"
+              />
             </div>
-          </div>
 
-          {onNavigateHome && (
+            {manualTokenError && (
+              <p className="text-[11px] font-mono text-rose-400 text-left flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5" /> Código o Token no encontrado. Verifica con el Administrador.
+              </p>
+            )}
+
             <button
-              onClick={onNavigateHome}
-              className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono font-bold transition-all"
+              type="submit"
+              className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-xl text-xs font-mono font-bold transition-all shadow-lg shadow-amber-500/20 cursor-pointer"
             >
-              Volver al Inicio
+              Ingresar a mi Oficina Virtual
             </button>
-          )}
+          </form>
+
+          <div className="pt-3 border-t border-slate-800/80 space-y-2">
+            <a
+              href="https://wa.me/573001234567?text=Hola%20Estivenson,%20solicito%20mi%20enlace%20o%20token%20de%20acceso%20a%20mi%20Oficina%20Virtual%20de%20Proveedor%20en%20Atziluth%20Gr%C3%A1fic."
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full py-2 bg-slate-800/80 hover:bg-slate-800 text-slate-300 rounded-xl text-xs font-mono transition-colors flex items-center justify-center gap-2"
+            >
+              <Phone className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Solicitar mi Enlace por WhatsApp</span>
+            </a>
+
+            {onNavigateHome && (
+              <button
+                onClick={onNavigateHome}
+                className="w-full py-2 text-slate-500 hover:text-slate-400 text-xs font-mono transition-colors cursor-pointer"
+              >
+                Volver al Inicio
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -385,10 +433,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-bold tracking-tight text-white font-mono">
-                  ATZILUTH <span className="text-amber-400">TALLER &bull; PROVEEDORES</span>
+                  ATZILUTH <span className="text-amber-400">TALLER &bull; OFICINA VIRTUAL</span>
                 </span>
                 <span className="hidden sm:inline-flex text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full items-center gap-1">
-                  <ShieldCheck className="w-3 h-3" /> Oficina Virtual Activa
+                  <ShieldCheck className="w-3 h-3" /> Acceso Privado
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 font-mono">
@@ -397,43 +445,21 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
             </div>
           </div>
 
-          {/* Provider Quick Badge & Switcher for testing */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="hidden md:flex flex-col text-right">
-              <span className="text-xs font-bold text-slate-200">{currentProveedor.nombreComercial}</span>
+          {/* Provider Specific Identity & Logout */}
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col text-right">
+              <span className="text-xs font-bold text-white">{currentProveedor.nombreComercial}</span>
               <span className="text-[10px] font-mono text-slate-400">
-                Código: <strong className="text-amber-400">{currentProveedor.codigo}</strong> &bull;{' '}
-                {(Array.isArray(currentProveedor.categorias) && currentProveedor.categorias.length > 0
-                  ? currentProveedor.categorias.join(', ')
-                  : currentProveedor.categoria)}
+                Código: <strong className="text-amber-400">{currentProveedor.codigo}</strong>
               </span>
             </div>
-
-            {/* Test switcher for demo */}
-            {proveedores.length > 1 && (
-              <select
-                value={currentProveedor.id}
-                onChange={(e) => {
-                  const target = proveedores.find((p) => p.id === e.target.value);
-                  if (target) handleSwitchProvider(target);
-                }}
-                className="bg-slate-800 border border-slate-700 text-xs font-mono text-slate-300 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-amber-500"
-                title="Cambiar proveedor de prueba"
-              >
-                {proveedores.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo} — {p.nombreComercial.substring(0, 20)}...
-                  </option>
-                ))}
-              </select>
-            )}
 
             {onNavigateHome && (
               <button
                 onClick={onNavigateHome}
-                className="px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors"
+                className="px-3 py-1.5 bg-slate-800/90 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1 cursor-pointer"
               >
-                Salir
+                <span>Salir</span>
               </button>
             )}
           </div>

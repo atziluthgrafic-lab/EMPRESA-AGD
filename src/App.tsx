@@ -439,8 +439,25 @@ export default function App() {
   const isCustomerRegistrationRoute = currentHash === "#customer-registration" || currentHash === "#nuevo-cliente";
 
   if (isProveedorRoute) {
+    let provToken = "";
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      provToken = urlParams.get("token") || urlParams.get("proveedor") || urlParams.get("prv") || urlParams.get("id") || "";
+      if (!provToken && window.location.hash.includes("?")) {
+        const hashQuery = window.location.hash.split("?")[1];
+        const hashParams = new URLSearchParams(hashQuery);
+        provToken = hashParams.get("token") || hashParams.get("proveedor") || hashParams.get("prv") || hashParams.get("id") || "";
+      } else if (!provToken && window.location.hash.includes("/")) {
+        const parts = window.location.hash.split("/");
+        if (parts.length > 1 && parts[1]) {
+          provToken = parts[1];
+        }
+      }
+    }
+
     return (
       <ProveedorVirtualOffice
+        initialTokenOrId={provToken}
         onNavigateHome={() => {
           if (window.history.pushState) {
             window.history.pushState({}, "", window.location.pathname);

@@ -798,15 +798,20 @@ export default function AdminDashboard() {
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
+  const handleOpenProvPortal = (prov: ProveedorRecord) => {
+    const url = `${window.location.origin}/?token=${prov.tokenAcceso}#proveedor`;
+    window.open(url, '_blank');
+  };
+
   const handleCopyProvMagicLink = (token: string, code: string) => {
     const url = `${window.location.origin}/?token=${token}#proveedor`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
-        setSaveStatus(`✓ Enlace copiado para ${code}`);
+        setSaveStatus(`✓ Enlace privado copiado para ${code}`);
         setTimeout(() => setSaveStatus(null), 3000);
       });
     } else {
-      prompt("Copia este enlace de acceso a la Oficina Virtual del taller:", url);
+      prompt("Copia este enlace de acceso exclusivo a la Oficina Virtual del taller:", url);
     }
   };
 
@@ -814,7 +819,7 @@ export default function AdminDashboard() {
     const url = `${window.location.origin}/?token=${prov.tokenAcceso}#proveedor`;
     const cleanPhone = (prov.telefonoWhatsapp || "").replace(/[^0-9]/g, "");
     const msg = encodeURIComponent(
-      `Hola ${prov.contactoNombre} (${prov.nombreComercial}), te comparto tu enlace de acceso a tu Oficina Virtual en Atziluth Gráfic Digital:\n\n🔗 ${url}\n\nAquí podrás revisar trabajos asignados, descargar artes y confirmar entregas.`
+      `Hola ${prov.contactoNombre} (${prov.nombreComercial}), te comparto tu enlace de acceso a tu Oficina Virtual privada en Atziluth Gráfic Digital:\n\n🔗 ${url}\n\nAquí podrás revisar trabajos asignados, cotizar, descargar artes y confirmar entregas sin exponer datos de otros talleres.`
     );
     window.open(`https://wa.me/${cleanPhone}?text=${msg}`, '_blank');
   };
@@ -4300,12 +4305,22 @@ export default function AdminDashboard() {
                                 <div className="flex items-center gap-1.5">
                                   <button
                                     type="button"
+                                    onClick={() => handleOpenProvPortal(prov)}
+                                    title="Abrir y Ver Portal de este Proveedor"
+                                    className="p-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer font-bold shadow-sm"
+                                  >
+                                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Ver Portal</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
                                     onClick={() => handleCopyProvMagicLink(prov.tokenAcceso, prov.codigo)}
                                     title="Copiar Enlace Tokenizado"
-                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-amber-500/30 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer"
+                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 rounded-lg text-xs font-mono transition-colors flex items-center gap-1 cursor-pointer"
                                   >
-                                    <Copy className="w-3.5 h-3.5" />
-                                    <span>Magic Link</span>
+                                    <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Copiar Link</span>
                                   </button>
 
                                   <button
