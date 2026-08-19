@@ -58,11 +58,17 @@ import {
   getStoredOrdenes,
   saveStoredOrdenes,
   getStoredPagos,
+  saveStoredPagos,
   getStoredCotizaciones,
   saveStoredCotizaciones,
   getStoredCategorias,
   findProviderByAnyQuery,
-  fetchAndSyncProveedores
+  fetchAndSyncProveedores,
+  fetchAndSyncOrdenes,
+  fetchAndSyncPagos,
+  isOrderBelongingToProvider,
+  isPaymentBelongingToProvider,
+  INITIAL_PROVEEDORES
 } from '../data/proveedoresData';
 
 interface ProveedorVirtualOfficeProps {
@@ -147,12 +153,12 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [allRegisteredProveedores, setAllRegisteredProveedores] = useState<ProveedorRecord[]>([]);
   const [isSyncingWorkshops, setIsSyncingWorkshops] = useState(false);
 
-  const loginWithProvider = (found: ProveedorRecord) => {
-    const allOrders = getStoredOrdenes();
-    const allPayments = getStoredPagos();
+  const loginWithProvider = async (found: ProveedorRecord) => {
+    const localOrders = getStoredOrdenes();
+    const localPayments = getStoredPagos();
 
-    const exclusiveOrders = allOrders.filter((o) => o.proveedorId === found.id);
-    const exclusivePayments = allPayments.filter((p) => p.proveedorId === found.id);
+    const exclusiveOrders = localOrders.filter((o) => isOrderBelongingToProvider(o, found));
+    const exclusivePayments = localPayments.filter((p) => isPaymentBelongingToProvider(p, found));
 
     setCurrentProveedor(found);
     setOrdenes(exclusiveOrders);
@@ -160,7 +166,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     setManualTokenError(false);
     setAuthError(null);
     setBankForm({
-      codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
+      codigoAcceso: found.claveAcceso || found.slugAcceso || found.tokenAcceso || found.codigo,
       banco: found.datosBancarios?.banco || 'Bancolombia',
       tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
       numeroCuenta: found.datosBancarios?.numeroCuenta || '',
@@ -172,20 +178,40 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
     // Update URL query string
     if (typeof window !== 'undefined' && window.history.pushState) {
-      const accessParam = found.slugAcceso || found.tokenAcceso || found.codigo;
+      const accessParam = found.claveAcceso || found.slugAcceso || found.tokenAcceso || found.codigo;
       const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${encodeURIComponent(accessParam)}#proveedor`;
       window.history.pushState({ path: newUrl }, '', newUrl);
     }
     setIsValidating(false);
+
+    // Fetch latest orders and payments asynchronously from central backend
+    try {
+      const [syncedOrders, syncedPayments] = await Promise.all([
+        fetchAndSyncOrdenes(),
+        fetchAndSyncPagos()
+      ]);
+      setOrdenes(syncedOrders.filter((o) => isOrderBelongingToProvider(o, found)));
+      setPagos(syncedPayments.filter((p) => isPaymentBelongingToProvider(p, found)));
+    } catch (e) {
+      console.warn("Background sync error:", e);
+    }
   };
 
   const handleSyncWorkshops = async () => {
     setIsSyncingWorkshops(true);
     try {
-      const synced = await fetchAndSyncProveedores();
-      setAllRegisteredProveedores(synced);
+      const [syncedProvs, syncedOrds, syncedPags] = await Promise.all([
+        fetchAndSyncProveedores(),
+        fetchAndSyncOrdenes(),
+        fetchAndSyncPagos()
+      ]);
+      setAllRegisteredProveedores(syncedProvs);
+      if (currentProveedor) {
+        setOrdenes(syncedOrds.filter((o) => isOrderBelongingToProvider(o, currentProveedor)));
+        setPagos(syncedPags.filter((p) => isPaymentBelongingToProvider(p, currentProveedor)));
+      }
       setNotificationBanner({
-        msg: `✓ Se sincronizaron ${synced.length} talleres autorizados desde la base de datos central.`,
+        msg: `✓ Se sincronizaron ${syncedProvs.length} talleres y todas las órdenes de producción desde el servidor central.`,
         type: 'success'
       });
       setTimeout(() => setNotificationBanner(null), 4000);
@@ -204,6 +230,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       // 1. Load registered providers from local and sync from server
       const localProvs = getStoredProveedores();
       setAllRegisteredProveedores(localProvs);
+
+      // Also trigger initial sync of orders and payments
+      fetchAndSyncOrdenes().catch(() => {});
+      fetchAndSyncPagos().catch(() => {});
 
       // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
       let token = (initialTokenOrId || '').trim();
@@ -291,17 +321,21 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   // Sincronización en tiempo real con cambios emitidos desde el Administrador
   useEffect(() => {
     if (!currentProveedor) return;
-    const handleStorageUpdate = () => {
+    const handleStorageUpdate = async () => {
       const allOrders = getStoredOrdenes();
       const allPayments = getStoredPagos();
       const allCots = getStoredCotizaciones();
-      setOrdenes(allOrders.filter((o) => o.proveedorId === currentProveedor.id));
-      setPagos(allPayments.filter((p) => p.proveedorId === currentProveedor.id));
+      setOrdenes(allOrders.filter((o) => isOrderBelongingToProvider(o, currentProveedor)));
+      setPagos(allPayments.filter((p) => isPaymentBelongingToProvider(p, currentProveedor)));
       setAllCotizaciones(allCots);
     };
 
     window.addEventListener('storage', handleStorageUpdate);
-    return () => window.removeEventListener('storage', handleStorageUpdate);
+    window.addEventListener('atziluth_prov_data_change', handleStorageUpdate);
+    return () => {
+      window.removeEventListener('storage', handleStorageUpdate);
+      window.removeEventListener('atziluth_prov_data_change', handleStorageUpdate);
+    };
   }, [currentProveedor]);
 
   // Handle manual token submission with security check

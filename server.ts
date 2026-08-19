@@ -1776,25 +1776,182 @@ function saveProveedoresServer(data: any[]) {
   fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
 }
 
+function getDefaultProvOrdenesServer() {
+  return [
+    {
+      id: "ord_ser_102_1",
+      numeroOrden: "ORD-PRV-2026-0091",
+      pedidoClienteId: "PED-1001",
+      clienteNombre: "Distribuidora El Progreso S.A.S. — Medellín",
+      proveedorId: "prv_ser_102",
+      descripcionTrabajo: "500 Almanaques de Escritorio PyME Premium con Base Troquelada y Plastificado Mate",
+      categoria: "Servicios",
+      cantidad: 500,
+      especificaciones: {
+        medidas: "20 x 15 cm",
+        material: "Cartón Maule 350g + Anillado Doble O metálico negro",
+        tintas: "Policromía 4x4 + Reserva UV Brillante",
+        acabados: "Troquelado de base piramidal, armado con resorte y tacos mensuales",
+        notas: "Pedido de alta prioridad. Empacar en cajas de 50 unidades con protección."
+      },
+      precioVentaCliente: 1650000,
+      costoProveedor: 890000,
+      estado: "En_Produccion",
+      tipoEntrega: "Recoger_Taller",
+      direccionEnvio: "Calle 33 # 65-40, Barrio San Joaquín, Medellín",
+      fechaAsignacion: "2026-08-16T08:30:00",
+      fechaLimiteEntrega: "2026-08-25",
+      notificadoAdmin: false
+    },
+    {
+      id: "ord_ser_102_2",
+      numeroOrden: "ORD-PRV-2026-0092",
+      clienteNombre: "Inversiones & Eventos Antioquia S.A.S.",
+      proveedorId: "prv_ser_102",
+      descripcionTrabajo: "2000 Carpetas Corporativas con Bolsillo Troquelado y Portatarjeta",
+      categoria: "Litografía Comercial",
+      cantidad: 2000,
+      especificaciones: {
+        medidas: "Carta Abierta (46 x 31 cm)",
+        material: "Propalcote 300g",
+        tintas: "Policromía 4x0 + Plastificado Mate 1 Cara",
+        acabados: "Troquelado interior para dos bolsillos y corte para tarjeta de presentación",
+        notas: "Entrega programada para evento empresarial."
+      },
+      precioVentaCliente: 2400000,
+      costoProveedor: 1350000,
+      estado: "Pendiente_Cotizar",
+      tipoEntrega: "Envio_Direccion",
+      direccionEnvio: "Carrera 43A # 1-50, Poblado, Medellín",
+      fechaAsignacion: "2026-08-17T11:00:00",
+      fechaLimiteEntrega: "2026-08-28",
+      notificadoAdmin: false
+    },
+    {
+      id: "ord_alm_102_1",
+      numeroOrden: "ORD-PRV-2026-0095",
+      clienteNombre: "Comercializadora San Antonio — Rionegro",
+      proveedorId: "prv_alm_102",
+      descripcionTrabajo: "1000 Almanaques Tipo Gigante de Pared con Ojillete y Taco 2027",
+      categoria: "Almanaques",
+      cantidad: 1000,
+      especificaciones: {
+        medidas: "33 x 50 cm",
+        material: "Cartón Duplex 320g + Taco Papel Bond 75g",
+        tintas: "Policromía 4x0 + Barniz UV Total",
+        acabados: "Ojillete metálico superior reforzado, taco mensual con festivos colombianos",
+        notas: "Diseño listo aprobado por administración."
+      },
+      precioVentaCliente: 2100000,
+      costoProveedor: 1180000,
+      estado: "En_Produccion",
+      tipoEntrega: "Recoger_Taller",
+      direccionEnvio: "Carrera 45 # 50-20, Centro, Medellín",
+      fechaAsignacion: "2026-08-15T09:00:00",
+      fechaLimiteEntrega: "2026-08-24",
+      notificadoAdmin: false
+    },
+    {
+      id: "ord_p1",
+      numeroOrden: "ORD-PRV-2026-0081",
+      pedidoClienteId: "ORD-CLI-2026-0120",
+      clienteNombre: "Agroinsumos del Oriente — Rionegro",
+      proveedorId: "prv_1",
+      descripcionTrabajo: "500 Almanaques Modelo Gigante (33x50cm) con Taco Mensual grapado y ojillete reforzado",
+      categoria: "Almanaques",
+      cantidad: 500,
+      especificaciones: {
+        medidas: "33 x 50 cm",
+        material: "Cartón Duplex 320g + Taco Papel Bond 75g",
+        tintas: "Policromía 4x0 + Barniz UV Brillante",
+        acabados: "Ojillete metálico superior y taco grapado con 2 grapas industriales",
+        notas: "Diseño aprobado por cliente. Entregar empacado en paquetes de 50 unidades."
+      },
+      precioVentaCliente: 1250000,
+      costoProveedor: 680000,
+      estado: "En_Produccion",
+      tipoEntrega: "Recoger_Taller",
+      direccionEnvio: "Sede Principal Atziluth — Medellín",
+      fechaAsignacion: "2026-08-14T09:30:00",
+      fechaLimiteEntrega: "2026-08-22",
+      notificadoAdmin: false
+    },
+    {
+      id: "ord_p2",
+      numeroOrden: "ORD-PRV-2026-0082",
+      clienteNombre: "Supermercado La Colmena — Marinilla",
+      proveedorId: "prv_2",
+      descripcionTrabajo: "100 Talonarios Media Carta (14x21.5cm) Químico Autocopiante 2 Copias",
+      categoria: "Talonarios",
+      cantidad: 100,
+      especificaciones: {
+        medidas: "14 x 21.5 cm",
+        material: "Papel químico 70g (Blanco/Rosado) 50 juegos",
+        tintas: "1x0 Tinta negra + Numeración roja consecutiva",
+        acabados: "Prepicado, grapado y tapa en cartulina kraft",
+        notas: "Numerar desde 0001 a 5000."
+      },
+      precioVentaCliente: 780000,
+      costoProveedor: 480000,
+      estado: "En_Produccion",
+      tipoEntrega: "Envio_Direccion",
+      direccionEnvio: "Carrera 50 # 38-20, Guayabal, Medellín",
+      fechaAsignacion: "2026-08-16T14:00:00",
+      fechaLimiteEntrega: "2026-08-25",
+      notificadoAdmin: false
+    },
+    {
+      id: "ord_p3",
+      numeroOrden: "ORD-PRV-2026-0083",
+      clienteNombre: "Deportes & Confecciones del Valle",
+      proveedorId: "prv_3",
+      descripcionTrabajo: "200 Gorras Estructuradas 6 Paneles con Bordado Frontal 3D Alta Densidad",
+      categoria: "Bordados",
+      cantidad: 200,
+      especificaciones: {
+        medidas: "Talla Única con cierre metálico",
+        material: "Dril 100% algodón peinado",
+        tintas: "Bordado hilo poliéster 4 colores",
+        acabados: "Bordado frontal en relieve 3D y logo posterior plano",
+        notas: "Muestra física aprobada."
+      },
+      precioVentaCliente: 2800000,
+      costoProveedor: 1600000,
+      estado: "En_Produccion",
+      tipoEntrega: "Recoger_Taller",
+      direccionEnvio: "Calle 6 Sur # 43A-50, Itagüí",
+      fechaAsignacion: "2026-08-15T16:00:00",
+      fechaLimiteEntrega: "2026-08-26",
+      notificadoAdmin: false
+    }
+  ];
+}
+
 function loadProvOrdenesServer() {
   try {
     if (fs.existsSync(PROV_ORDENES_FILE)) {
-      return JSON.parse(fs.readFileSync(PROV_ORDENES_FILE, "utf-8"));
+      const data = JSON.parse(fs.readFileSync(PROV_ORDENES_FILE, "utf-8"));
+      if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (e) {
     console.error("Error reading proveedores_ordenes.json:", e);
   }
-  return [];
+  const initial = getDefaultProvOrdenesServer();
+  saveProvOrdenesServer(initial);
+  return initial;
 }
 
 function saveProvOrdenesServer(data: any[]) {
   fs.writeFileSync(PROV_ORDENES_FILE, JSON.stringify(data, null, 2), "utf-8");
+  const pub = path.join(process.cwd(), "public", "proveedores_ordenes.json");
+  fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
 }
 
 function loadProvPagosServer() {
   try {
     if (fs.existsSync(PROV_PAGOS_FILE)) {
-      return JSON.parse(fs.readFileSync(PROV_PAGOS_FILE, "utf-8"));
+      const data = JSON.parse(fs.readFileSync(PROV_PAGOS_FILE, "utf-8"));
+      if (Array.isArray(data) && data.length > 0) return data;
     }
   } catch (e) {
     console.error("Error reading proveedores_pagos.json:", e);
@@ -1804,6 +1961,8 @@ function loadProvPagosServer() {
 
 function saveProvPagosServer(data: any[]) {
   fs.writeFileSync(PROV_PAGOS_FILE, JSON.stringify(data, null, 2), "utf-8");
+  const pub = path.join(process.cwd(), "public", "proveedores_pagos.json");
+  fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
 }
 
 // 1. API: List and Create Proveedores
@@ -1980,23 +2139,12 @@ app.post("/api/proveedores/banco", (req, res) => {
   }
 });
 
-// 4. API: Strict JPG Payment Voucher Upload
-app.post("/api/proveedores/upload-comprobante-jpg", allowUpload, (req, res) => {
+// 4. API: Multi-format Payment Voucher Upload (JPG, JPEG, PNG, WEBP and PDF)
+const handleComprobanteUpload = (req: any, res: any) => {
   try {
-    const { fileName, base64Data } = req.body;
+    const { fileName, base64Data, format } = req.body;
     if (!base64Data) {
-      return res.status(400).json({ success: false, error: "No se enviaron datos de imagen." });
-    }
-
-    // Strict validation: check for JPG header or filename extension
-    const isJpgExtension = /\.(jpg|jpeg)$/i.test(fileName || "");
-    const isJpgMime = base64Data.startsWith("data:image/jpeg") || base64Data.startsWith("data:image/jpg");
-
-    if (!isJpgExtension && !isJpgMime) {
-      return res.status(400).json({
-        success: false,
-        error: "Formato no permitido. Los comprobantes de transferencia a proveedores deben estar estrictamente en formato .JPG (.jpeg)."
-      });
+      return res.status(400).json({ success: false, error: "No se enviaron datos del comprobante." });
     }
 
     let cleanBase64 = base64Data;
@@ -2007,7 +2155,17 @@ app.post("/api/proveedores/upload-comprobante-jpg", allowUpload, (req, res) => {
     cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, "");
 
     const buffer = Buffer.from(cleanBase64, "base64");
-    const uniqueName = `comprobante_${Date.now()}_${(fileName || "transferencia.jpg").replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    if (buffer.length === 0) {
+      return res.status(400).json({ success: false, error: "El archivo del comprobante está vacío o corrupto." });
+    }
+
+    const rawName = String(fileName || "comprobante_pago").toLowerCase();
+    const isPdf = rawName.endsWith(".pdf") || (buffer.length >= 4 && buffer[0] === 0x25 && buffer[1] === 0x50 && buffer[2] === 0x44 && buffer[3] === 0x46);
+    const ext = isPdf ? "pdf" : (rawName.endsWith(".png") ? "png" : "jpg");
+    const mime = isPdf ? "application/pdf" : (ext === "png" ? "image/png" : "image/jpeg");
+
+    const sanitizedBase = (fileName || `comprobante_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^/.]+$/, "");
+    const uniqueName = `comprobante_${Date.now()}_${sanitizedBase}.${ext}`;
     const fileUrl = `/uploads/${uniqueName}`;
 
     [UPLOADS_DIR, PUBLIC_UPLOADS_DIR, IMAGENES_DIR, PUBLIC_IMAGENES_DIR].forEach(dir => {
@@ -2015,25 +2173,172 @@ app.post("/api/proveedores/upload-comprobante-jpg", allowUpload, (req, res) => {
       fs.writeFileSync(path.join(dir, uniqueName), buffer);
     });
 
-    res.json({ success: true, url: fileUrl, fileName: uniqueName, format: "JPG" });
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      [path.join(distPath, "uploads"), path.join(distPath, "imagenes")].forEach(dir => {
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, uniqueName), buffer);
+      });
+    }
+
+    res.json({
+      success: true,
+      url: fileUrl,
+      fileName: uniqueName,
+      originalName: fileName || uniqueName,
+      format: ext.toUpperCase(),
+      tipo: ext,
+      mimeType: mime
+    });
   } catch (err: any) {
-    console.error("Error al subir comprobante JPG:", err);
-    res.status(500).json({ success: false, error: "Error al procesar el comprobante JPG." });
+    console.error("Error al subir comprobante de pago:", err);
+    res.status(500).json({ success: false, error: "Error al procesar el comprobante de pago en el servidor." });
+  }
+};
+
+app.post("/api/proveedores/upload-comprobante", allowUpload, handleComprobanteUpload);
+app.post("/api/proveedores/upload-comprobante-jpg", allowUpload, handleComprobanteUpload);
+
+// 5. API: Proveedor Órdenes de Producción (List, Create, Update)
+app.get("/api/proveedores/ordenes", (req, res) => {
+  const ordenes = loadProvOrdenesServer();
+  res.json({ success: true, ordenes });
+});
+
+app.post("/api/proveedores/ordenes", allowUpload, (req, res) => {
+  try {
+    const {
+      id,
+      numeroOrden,
+      pedidoClienteId,
+      clienteNombre,
+      proveedorId,
+      descripcionTrabajo,
+      categoria,
+      cantidad,
+      precioVentaCliente,
+      costoProveedor,
+      estado,
+      tipoEntrega,
+      direccionEnvio,
+      especificaciones,
+      archivosAdjuntos,
+      fechaAsignacion,
+      fechaLimiteEntrega,
+      notificadoAdmin
+    } = req.body;
+
+    if (!proveedorId || !descripcionTrabajo) {
+      return res.status(400).json({ success: false, error: "Taller asignado y descripción del trabajo son requeridos." });
+    }
+
+    const ordenes = loadProvOrdenesServer();
+    const currentYear = new Date().getFullYear();
+    const ordNum = numeroOrden || `ORD-PRV-${currentYear}-${(100 + ordenes.length + 1).toString().padStart(4, "0")}`;
+
+    let updatedOrder: any;
+    if (id) {
+      const idx = ordenes.findIndex((o: any) => o.id === id);
+      if (idx !== -1) {
+        ordenes[idx] = {
+          ...ordenes[idx],
+          ...req.body,
+          updatedAt: new Date().toISOString()
+        };
+        updatedOrder = ordenes[idx];
+      }
+    }
+
+    if (!updatedOrder) {
+      updatedOrder = {
+        id: id || `ord_${Date.now()}`,
+        numeroOrden: ordNum,
+        pedidoClienteId: pedidoClienteId || null,
+        clienteNombre: clienteNombre || "Cliente Atziluth",
+        proveedorId,
+        descripcionTrabajo,
+        categoria: categoria || "Servicios",
+        cantidad: Number(cantidad) || 100,
+        precioVentaCliente: Number(precioVentaCliente) || 0,
+        costoProveedor: Number(costoProveedor) || 0,
+        estado: estado || "En_Produccion",
+        tipoEntrega: tipoEntrega || "Recoger_Taller",
+        direccionEnvio: direccionEnvio || "",
+        especificaciones: especificaciones || {},
+        archivosAdjuntos: archivosAdjuntos || [],
+        fechaAsignacion: fechaAsignacion || new Date().toISOString().split("T")[0],
+        fechaLimiteEntrega: fechaLimiteEntrega || "",
+        notificadoAdmin: notificadoAdmin || false,
+        createdAt: new Date().toISOString()
+      };
+      ordenes.unshift(updatedOrder);
+    }
+
+    saveProvOrdenesServer(ordenes);
+    res.json({ success: true, orden: updatedOrder, ordenes });
+  } catch (err: any) {
+    console.error("Error al guardar orden de producción:", err);
+    res.status(500).json({ success: false, error: "Error al guardar orden de producción." });
   }
 });
 
-// 5. API: Register Payment & Automatic Receipt Generation
+app.put("/api/proveedores/ordenes/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const ordenes = loadProvOrdenesServer();
+    const idx = ordenes.findIndex((o: any) => o.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Orden de producción no encontrada." });
+    }
+
+    ordenes[idx] = {
+      ...ordenes[idx],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+
+    saveProvOrdenesServer(ordenes);
+    res.json({ success: true, orden: ordenes[idx], ordenes });
+  } catch (err: any) {
+    console.error("Error al actualizar orden de producción:", err);
+    res.status(500).json({ success: false, error: "Error al actualizar orden." });
+  }
+});
+
+// 6. API: Proveedor Pagos (List and Register Payment & Automatic Receipt Generation)
+app.get("/api/proveedores/pagos", (req, res) => {
+  const pagos = loadProvPagosServer();
+  res.json({ success: true, pagos });
+});
+
 app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
   try {
-    const { proveedorId, ordenProduccionId, monto, metodoPago, referenciaBancaria, comprobanteJpgUrl, observaciones } = req.body;
+    const {
+      proveedorId,
+      ordenProduccionId,
+      monto,
+      metodoPago,
+      referenciaBancaria,
+      comprobanteJpgUrl,
+      comprobanteUrl,
+      comprobanteTipo,
+      comprobanteNombre,
+      observaciones
+    } = req.body;
+
     const amountNum = Number(monto);
-    if (!proveedorId || !amountNum || amountNum <= 0 || !comprobanteJpgUrl) {
-      return res.status(400).json({ success: false, error: "Proveedor, monto válido y comprobante JPG son obligatorios." });
+    const finalVoucherUrl = comprobanteUrl || comprobanteJpgUrl;
+
+    if (!proveedorId || !amountNum || amountNum <= 0 || !finalVoucherUrl) {
+      return res.status(400).json({ success: false, error: "Proveedor, monto válido y archivo de comprobante (JPG o PDF) son obligatorios." });
     }
 
     const pagos = loadProvPagosServer();
     const currentYear = new Date().getFullYear();
     const receiptNum = `REC-PRV-${currentYear}-${(1000 + pagos.length + 1).toString().padStart(4, "0")}`;
+
+    const isPdf = (finalVoucherUrl && finalVoucherUrl.toLowerCase().endsWith(".pdf")) || comprobanteTipo === "pdf";
+    const detectedType = isPdf ? "pdf" : (comprobanteTipo || "jpg");
 
     const newPayment = {
       id: `pag_${Date.now()}`,
@@ -2043,7 +2348,10 @@ app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
       monto: amountNum,
       metodoPago: metodoPago || "Transferencia Bancolombia",
       referenciaBancaria: referenciaBancaria || `TRF-${Math.floor(100000000 + Math.random() * 900000000)}`,
-      comprobanteJpgUrl,
+      comprobanteJpgUrl: finalVoucherUrl,
+      comprobanteUrl: finalVoucherUrl,
+      comprobanteTipo: detectedType,
+      comprobanteNombre: comprobanteNombre || (isPdf ? "comprobante_pago.pdf" : "comprobante_pago.jpg"),
       fechaPago: new Date().toISOString().split("T")[0],
       registradoPor: "Estivenson Navarro (Administrador General)",
       observaciones: observaciones || "Comprobante de transferencia validado",

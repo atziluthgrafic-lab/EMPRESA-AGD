@@ -1036,6 +1036,18 @@ export default function AdminDashboard() {
     setProvOrdenes(updated);
     saveStoredOrdenes(updated);
 
+    // Sincronizar inmediatamente con backend API
+    fetch('/api/proveedores/ordenes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrd)
+    }).catch((e) => console.warn('Error syncing order to server:', e));
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+    }
+
     setOrderModalProv(null);
     setNewOrdCliente("");
     setNewOrdDescripcion("");
@@ -1043,20 +1055,36 @@ export default function AdminDashboard() {
     setNewOrdPrecioVenta(0);
     setNewOrdCostoProv(0);
 
-    setSaveStatus(`✓ Orden ${ordNum} asignada al taller.`);
+    setSaveStatus(`✓ Orden ${ordNum} asignada al taller y sincronizada.`);
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
   const handleToggleOrderStatus = (orderId: string) => {
+    let orderToSync: any = null;
     const updated = provOrdenes.map(o => {
       if (o.id === orderId) {
         const nextState = o.estado === "Terminado" ? "En_Produccion" : "Terminado";
-        return { ...o, estado: nextState as any };
+        const modified = { ...o, estado: nextState as any };
+        orderToSync = modified;
+        return modified;
       }
       return o;
     });
     setProvOrdenes(updated);
     saveStoredOrdenes(updated);
+
+    if (orderToSync) {
+      fetch('/api/proveedores/ordenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderToSync)
+      }).catch(() => {});
+    }
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+    }
   };
 
   const handleCreateProvPayment = (e: React.FormEvent) => {
@@ -1093,9 +1121,17 @@ export default function AdminDashboard() {
     setProvPagos(updated);
     saveStoredPagos(updated);
 
-    // Disparar evento de storage para sincronizar oficinas virtuales abiertas
+    // Sincronizar pago con backend API
+    fetch('/api/proveedores/pagos', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPayment)
+    }).catch((e) => console.warn('Error syncing payment to server:', e));
+
+    // Disparar eventos de storage y sincronización en vivo para oficinas virtuales
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('storage'));
+      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
     }
 
     setPaymentModalProv(null);
@@ -1110,14 +1146,14 @@ export default function AdminDashboard() {
   };
 
   const handleOpenProvPortal = (prov: ProveedorRecord) => {
-    const accessKey = prov.slugAcceso || prov.tokenAcceso;
-    const url = `${window.location.origin}/?token=${accessKey}#proveedor`;
+    const accessKey = prov.claveAcceso || prov.slugAcceso || prov.tokenAcceso || prov.codigo;
+    const url = `${window.location.origin}/?token=${encodeURIComponent(accessKey)}#proveedor`;
     window.open(url, '_blank');
   };
 
   const handleCopyProvMagicLink = (prov: ProveedorRecord) => {
-    const accessKey = prov.slugAcceso || prov.tokenAcceso;
-    const url = `${window.location.origin}/?token=${accessKey}#proveedor`;
+    const accessKey = prov.claveAcceso || prov.slugAcceso || prov.tokenAcceso || prov.codigo;
+    const url = `${window.location.origin}/?token=${encodeURIComponent(accessKey)}#proveedor`;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(() => {
         setSaveStatus(`✓ Enlace privado copiado (${accessKey})`);
