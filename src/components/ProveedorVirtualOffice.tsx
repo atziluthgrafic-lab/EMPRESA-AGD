@@ -249,6 +249,24 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
         found = findProviderByAnyQuery(synced, token);
       }
 
+      // 3. Fallback search in initial default seeds
+      if (!found) {
+        found = findProviderByAnyQuery(INITIAL_PROVEEDORES, token);
+      }
+
+      // 4. Fallback search via direct API call
+      if (!found) {
+        try {
+          const directRes = await fetch(`/api/proveedores/${encodeURIComponent(token)}`);
+          if (directRes.ok) {
+            const directJson = await directRes.json();
+            if (directJson && directJson.proveedor) {
+              found = directJson.proveedor;
+            }
+          }
+        } catch (_) {}
+      }
+
       if (isCancelled) return;
 
       if (found) {
@@ -295,16 +313,29 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     setIsValidating(true);
     setValidationStep('Verificando credencial de acceso ingresada...');
 
-    // 1. Local match
-    const loadedProveedores = getStoredProveedores();
-    let found = findProviderByAnyQuery(loadedProveedores, raw);
+    // 1. Sync and fetch all providers
+    const synced = await fetchAndSyncProveedores();
+    setAllRegisteredProveedores(synced);
 
-    // 2. Server match & sync if not found
+    // 2. Search in synced list
+    let found = findProviderByAnyQuery(synced, raw);
+
+    // 3. Fallback search in initial seeds
     if (!found) {
-      setValidationStep('Consultando base de datos de talleres...');
-      const synced = await fetchAndSyncProveedores();
-      setAllRegisteredProveedores(synced);
-      found = findProviderByAnyQuery(synced, raw);
+      found = findProviderByAnyQuery(INITIAL_PROVEEDORES, raw);
+    }
+
+    // 4. Fallback search via direct API call
+    if (!found) {
+      try {
+        const directRes = await fetch(`/api/proveedores/${encodeURIComponent(raw)}`);
+        if (directRes.ok) {
+          const directJson = await directRes.json();
+          if (directJson && directJson.proveedor) {
+            found = directJson.proveedor;
+          }
+        }
+      } catch (_) {}
     }
 
     if (found) {
@@ -862,7 +893,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
                 <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
                   {allRegisteredProveedores.map((p) => {
-                    const displayCode = p.slugAcceso || p.tokenAcceso || p.codigo;
+                    const displayCode = p.claveAcceso || p.slugAcceso || p.tokenAcceso || p.codigo;
                     return (
                       <div
                         key={p.id}

@@ -377,22 +377,49 @@ export function saveStoredCategorias(list: string[]): void {
 export function getStoredProveedores(): ProveedorRecord[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PROVEEDORES);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.PROVEEDORES, JSON.stringify(INITIAL_PROVEEDORES));
-      return INITIAL_PROVEEDORES;
-    }
-    const list: ProveedorRecord[] = JSON.parse(raw);
-    // Normalize providers so all have valid categorias array
-    return list.map(p => {
+    const map = new Map<string, ProveedorRecord>();
+
+    // Seed defaults first so default providers (like prv_ser_102, prv_alm_102) always exist
+    INITIAL_PROVEEDORES.forEach((p) => {
       const cats = Array.isArray(p.categorias) && p.categorias.length > 0
         ? p.categorias
         : (p.categoria ? [p.categoria] : ['Servicios']);
-      return {
+      const key = p.claveAcceso || p.slugAcceso || p.tokenAcceso || p.codigo.toLowerCase();
+      map.set(p.id, {
         ...p,
+        claveAcceso: key,
+        tokenAcceso: key,
+        slugAcceso: key,
         categorias: cats,
         categoria: cats[0] || 'Servicios'
-      };
+      });
     });
+
+    if (raw) {
+      const list: ProveedorRecord[] = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        list.forEach((p) => {
+          const existing = map.get(p.id);
+          const cats = Array.isArray(p.categorias) && p.categorias.length > 0
+            ? p.categorias
+            : (p.categoria ? [p.categoria] : existing?.categorias || ['Servicios']);
+          const key = p.claveAcceso || p.slugAcceso || p.tokenAcceso || p.codigo?.toLowerCase() || existing?.claveAcceso || 'taller';
+          map.set(p.id, {
+            ...(existing || {}),
+            ...p,
+            claveAcceso: key,
+            tokenAcceso: p.tokenAcceso || key,
+            slugAcceso: p.slugAcceso || key,
+            categorias: cats,
+            categoria: cats[0] || 'Servicios'
+          });
+        });
+      }
+    }
+
+    const merged = Array.from(map.values());
+    localStorage.setItem(STORAGE_KEYS.PROVEEDORES, JSON.stringify(merged));
+    return merged;
   } catch (e) {
     console.error("Error loading proveedores from localStorage:", e);
     return INITIAL_PROVEEDORES;
@@ -605,24 +632,26 @@ export function findProviderByAnyQuery(
  */
 export async function fetchAndSyncProveedores(): Promise<ProveedorRecord[]> {
   try {
+    const localList = getStoredProveedores();
+    const map = new Map<string, ProveedorRecord>();
+
+    // Incorporar primero los predeterminados/locales
+    localList.forEach((p) => map.set(p.id, p));
+
     const res = await fetch('/api/proveedores');
     if (res.ok) {
       const json = await res.json();
       if (json && Array.isArray(json.proveedores) && json.proveedores.length > 0) {
-        const localList = getStoredProveedores();
-        const map = new Map<string, ProveedorRecord>();
-
-        // Incorporar primero los predeterminados/locales
-        localList.forEach((p) => map.set(p.id, p));
-
         // Actualizar/agregar desde el servidor
         json.proveedores.forEach((serverP: ProveedorRecord) => {
           const existing = map.get(serverP.id);
+          const key = serverP.claveAcceso || serverP.slugAcceso || serverP.tokenAcceso || serverP.codigo?.toLowerCase() || existing?.claveAcceso || existing?.tokenAcceso || serverP.codigo.toLowerCase();
           map.set(serverP.id, {
             ...existing,
             ...serverP,
-            tokenAcceso: serverP.tokenAcceso || serverP.slugAcceso || existing?.tokenAcceso || serverP.codigo.toLowerCase(),
-            slugAcceso: serverP.slugAcceso || serverP.tokenAcceso || existing?.slugAcceso || serverP.codigo.toLowerCase()
+            claveAcceso: key,
+            tokenAcceso: serverP.tokenAcceso || key,
+            slugAcceso: serverP.slugAcceso || key
           });
         });
 
