@@ -81,7 +81,8 @@ import {
   saveStoredCotizaciones,
   getStoredCategorias,
   saveStoredCategorias,
-  INITIAL_COTIZACIONES
+  INITIAL_COTIZACIONES,
+  fetchAndSyncProveedores
 } from "../data/proveedoresData";
 import CustomerRegistrationForm from "./CustomerRegistrationForm";
 import CustomerList from "./CustomerList";
@@ -378,6 +379,13 @@ export default function AdminDashboard() {
 
   // Live real-time sync with ProveedorVirtualOffice submissions across tabs/windows
   useEffect(() => {
+    // Sincronización inicial con base de datos del servidor
+    fetchAndSyncProveedores().then((synced) => {
+      if (synced && synced.length > 0) {
+        setProveedores(synced);
+      }
+    }).catch(() => {});
+
     const handleSync = () => {
       setProveedores(getStoredProveedores());
       setProvOrdenes(getStoredOrdenes());

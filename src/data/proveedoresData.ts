@@ -72,6 +72,31 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
     },
     notasInternas: "Bordado computarizado alta densidad y gorras 6 paneles estructuradas.",
     createdAt: "2026-08-10"
+  },
+  {
+    id: "prv_ser_102",
+    codigo: "PRV-SER-102",
+    nombreComercial: "Servicios Gráficos, Litografía & Acabados Medellín",
+    contactoNombre: "Mauricio Gómez / Producción",
+    telefonoWhatsapp: "+57 310 987 6543",
+    email: "taller.servicios102@atziluth.com",
+    categoria: "Servicios",
+    categorias: ["Servicios", "Litografía Comercial", "Empaques & Cajas", "Tarjetas", "Almanaques"],
+    tokenAcceso: "prv-ser-102",
+    slugAcceso: "prv-ser-102",
+    activo: true,
+    direccionTaller: "Calle 33 # 65-40, Barrio San Joaquín / Conquistadores, Medellín",
+    municipio: "Medellín",
+    datosBancarios: {
+      banco: "Bancolombia",
+      tipoCuenta: "Ahorros",
+      numeroCuenta: "551-002934-88",
+      titular: "Servicios Gráficos & Acabados S.A.S.",
+      documentoTitular: "NIT 900.871.442-3",
+      telefonoTransferencia: "+57 310 987 6543"
+    },
+    notasInternas: "Taller integral de litografía, plastificado térmico mate/brillo, reserva UV y troquelados especiales.",
+    createdAt: "2026-08-12"
   }
 ];
 
@@ -415,4 +440,163 @@ export function saveStoredCotizaciones(list: CotizacionProveedor[]): void {
     console.error("Error saving cotizaciones to localStorage:", e);
   }
 }
+
+/**
+ * Normaliza y busca de forma ultra flexible cualquier taller / proveedor
+ * por Token, Slug, Código oficial, ID, Teléfono, WhatsApp o Nombre Comercial.
+ */
+export function findProviderByAnyQuery(
+  providers: ProveedorRecord[],
+  rawQuery: string
+): ProveedorRecord | undefined {
+  if (!rawQuery || typeof rawQuery !== "string") return undefined;
+
+  let query = rawQuery.trim();
+
+  // Si pegaron una URL completa (ej: http://.../?token=prv-ser-102#proveedor), extraer el valor
+  if (query.includes("?") || query.includes("#") || query.includes("http")) {
+    try {
+      const parsedUrl = new URL(query.startsWith("http") ? query : `https://temp.local/${query}`);
+      const tokenFromQuery = parsedUrl.searchParams.get("token") || parsedUrl.searchParams.get("proveedor") || parsedUrl.searchParams.get("prv");
+      if (tokenFromQuery) query = tokenFromQuery;
+      else if (parsedUrl.hash) {
+        const hashClean = parsedUrl.hash.replace("#", "");
+        if (hashClean.includes("token=")) {
+          const match = hashClean.match(/token=([^&]+)/);
+          if (match && match[1]) query = match[1];
+        }
+      }
+    } catch (_) {
+      // Fallback regex extraction
+      const match = query.match(/[?&#]token=([^&#]+)/);
+      if (match && match[1]) query = decodeURIComponent(match[1]);
+    }
+  }
+
+  const cleanLower = query.toLowerCase().trim();
+  if (!cleanLower) return undefined;
+
+  // Versión sin guiones, puntos, espacios ni subrayados (para matching tolerante)
+  const strippedQuery = cleanLower.replace(/[^a-z0-9]/g, "");
+
+  // 1. Coincidencia exacta (case-insensitive) con Token, Slug, Código o ID
+  const directMatch = providers.find((p) => {
+    const token = (p.tokenAcceso || "").toLowerCase().trim();
+    const slug = (p.slugAcceso || "").toLowerCase().trim();
+    const code = (p.codigo || "").toLowerCase().trim();
+    const id = (p.id || "").toLowerCase().trim();
+    return (
+      token === cleanLower ||
+      slug === cleanLower ||
+      code === cleanLower ||
+      id === cleanLower
+    );
+  });
+  if (directMatch) return directMatch;
+
+  // 2. Coincidencia con historial de tokens anteriores
+  const historyMatch = providers.find((p) => {
+    if (!Array.isArray(p.historialCodigosAcceso)) return false;
+    return p.historialCodigosAcceso.some((h) => {
+      const prev = (h.codigoAnterior || "").toLowerCase().trim();
+      const next = (h.codigoNuevo || "").toLowerCase().trim();
+      return prev === cleanLower || next === cleanLower;
+    });
+  });
+  if (historyMatch) return historyMatch;
+
+  // 3. Coincidencia normalizada sin caracteres especiales
+  // ej: 'prv-ser-102', 'prv_ser_102', 'PRV SER 102' -> 'prvser102'
+  if (strippedQuery.length >= 3) {
+    const strippedMatch = providers.find((p) => {
+      const sToken = (p.tokenAcceso || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const sSlug = (p.slugAcceso || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const sCode = (p.codigo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      const sId = (p.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return (
+        sToken === strippedQuery ||
+        sSlug === strippedQuery ||
+        sCode === strippedQuery ||
+        sId === strippedQuery ||
+        (sToken.length > 5 && sToken.includes(strippedQuery)) ||
+        (sCode.length > 5 && (sCode.includes(strippedQuery) || strippedQuery.includes(sCode)))
+      );
+    });
+    if (strippedMatch) return strippedMatch;
+  }
+
+  // 4. Coincidencia por Número de WhatsApp / Teléfono (sólo dígitos)
+  const queryDigits = cleanLower.replace(/\D/g, "");
+  if (queryDigits.length >= 7) {
+    const phoneMatch = providers.find((p) => {
+      const pPhone = (p.telefonoWhatsapp || "").replace(/\D/g, "");
+      const bPhone = (p.datosBancarios?.telefonoTransferencia || "").replace(/\D/g, "");
+      return (
+        (pPhone && (pPhone.includes(queryDigits) || queryDigits.includes(pPhone))) ||
+        (bPhone && (bPhone.includes(queryDigits) || queryDigits.includes(bPhone)))
+      );
+    });
+    if (phoneMatch) return phoneMatch;
+  }
+
+  // 5. Coincidencia por Email
+  if (cleanLower.includes("@")) {
+    const emailMatch = providers.find((p) => {
+      const pEmail = (p.email || "").toLowerCase().trim();
+      const bEmail = (p.datosBancarios?.emailNotificaciones || "").toLowerCase().trim();
+      return pEmail === cleanLower || bEmail === cleanLower;
+    });
+    if (emailMatch) return emailMatch;
+  }
+
+  // 6. Coincidencia parcial por Nombre Comercial (mínimo 4 caracteres)
+  if (cleanLower.length >= 4) {
+    const nameMatch = providers.find((p) => {
+      const name = (p.nombreComercial || "").toLowerCase();
+      const contact = (p.contactoNombre || "").toLowerCase();
+      return name.includes(cleanLower) || contact.includes(cleanLower);
+    });
+    if (nameMatch) return nameMatch;
+  }
+
+  return undefined;
+}
+
+/**
+ * Sincroniza en tiempo real los proveedores guardados localmente con el backend API
+ */
+export async function fetchAndSyncProveedores(): Promise<ProveedorRecord[]> {
+  try {
+    const res = await fetch('/api/proveedores');
+    if (res.ok) {
+      const json = await res.json();
+      if (json && Array.isArray(json.proveedores) && json.proveedores.length > 0) {
+        const localList = getStoredProveedores();
+        const map = new Map<string, ProveedorRecord>();
+
+        // Incorporar primero los predeterminados/locales
+        localList.forEach((p) => map.set(p.id, p));
+
+        // Actualizar/agregar desde el servidor
+        json.proveedores.forEach((serverP: ProveedorRecord) => {
+          const existing = map.get(serverP.id);
+          map.set(serverP.id, {
+            ...existing,
+            ...serverP,
+            tokenAcceso: serverP.tokenAcceso || serverP.slugAcceso || existing?.tokenAcceso || serverP.codigo.toLowerCase(),
+            slugAcceso: serverP.slugAcceso || serverP.tokenAcceso || existing?.slugAcceso || serverP.codigo.toLowerCase()
+          });
+        });
+
+        const merged = Array.from(map.values());
+        saveStoredProveedores(merged);
+        return merged;
+      }
+    }
+  } catch (e) {
+    console.warn("fetchAndSyncProveedores offline fallback:", e);
+  }
+  return getStoredProveedores();
+}
+
 

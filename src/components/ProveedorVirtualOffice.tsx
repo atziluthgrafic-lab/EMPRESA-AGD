@@ -60,7 +60,9 @@ import {
   getStoredPagos,
   getStoredCotizaciones,
   saveStoredCotizaciones,
-  getStoredCategorias
+  getStoredCategorias,
+  findProviderByAnyQuery,
+  fetchAndSyncProveedores
 } from '../data/proveedoresData';
 
 interface ProveedorVirtualOfficeProps {
@@ -143,96 +145,129 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const [showManualPassword, setShowManualPassword] = useState(false);
   const [showAdminHelper, setShowAdminHelper] = useState(false);
   const [allRegisteredProveedores, setAllRegisteredProveedores] = useState<ProveedorRecord[]>([]);
+  const [isSyncingWorkshops, setIsSyncingWorkshops] = useState(false);
+
+  const loginWithProvider = (found: ProveedorRecord) => {
+    const allOrders = getStoredOrdenes();
+    const allPayments = getStoredPagos();
+
+    const exclusiveOrders = allOrders.filter((o) => o.proveedorId === found.id);
+    const exclusivePayments = allPayments.filter((p) => p.proveedorId === found.id);
+
+    setCurrentProveedor(found);
+    setOrdenes(exclusiveOrders);
+    setPagos(exclusivePayments);
+    setManualTokenError(false);
+    setAuthError(null);
+    setBankForm({
+      codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
+      banco: found.datosBancarios?.banco || 'Bancolombia',
+      tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
+      numeroCuenta: found.datosBancarios?.numeroCuenta || '',
+      titular: found.datosBancarios?.titular || found.contactoNombre,
+      documentoTitular: found.datosBancarios?.documentoTitular || '',
+      telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
+      emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
+    });
+
+    // Update URL query string
+    if (typeof window !== 'undefined' && window.history.pushState) {
+      const accessParam = found.slugAcceso || found.tokenAcceso || found.codigo;
+      const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${encodeURIComponent(accessParam)}#proveedor`;
+      window.history.pushState({ path: newUrl }, '', newUrl);
+    }
+    setIsValidating(false);
+  };
+
+  const handleSyncWorkshops = async () => {
+    setIsSyncingWorkshops(true);
+    try {
+      const synced = await fetchAndSyncProveedores();
+      setAllRegisteredProveedores(synced);
+      setNotificationBanner({
+        msg: `✓ Se sincronizaron ${synced.length} talleres autorizados desde la base de datos central.`,
+        type: 'success'
+      });
+      setTimeout(() => setNotificationBanner(null), 4000);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSyncingWorkshops(false);
+    }
+  };
 
   // Initial Data Load, Token Security Verification & Exclusive Data Extraction
   useEffect(() => {
-    // Load registered providers for helper if needed
-    const allProvs = getStoredProveedores();
-    setAllRegisteredProveedores(allProvs);
+    let isCancelled = false;
 
-    setIsValidating(true);
-    setValidationStep('Extrayendo credencial de seguridad del enlace...');
+    const initAuth = async () => {
+      // 1. Load registered providers from local and sync from server
+      const localProvs = getStoredProveedores();
+      setAllRegisteredProveedores(localProvs);
 
-    // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
-    let token = (initialTokenOrId || '').trim();
-    if (!token && typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      token = (urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '').trim();
-      
-      if (!token && window.location.hash.includes('?')) {
-        const hashQuery = window.location.hash.split('?')[1];
-        const hashParams = new URLSearchParams(hashQuery);
-        token = (hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '').trim();
-      } else if (!token && window.location.hash.includes('/')) {
-        const parts = window.location.hash.split('/');
-        if (parts.length > 1 && parts[1]) {
-          token = parts[1].trim();
+      // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
+      let token = (initialTokenOrId || '').trim();
+      if (!token && typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = (urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '').trim();
+        
+        if (!token && window.location.hash.includes('?')) {
+          const hashQuery = window.location.hash.split('?')[1];
+          const hashParams = new URLSearchParams(hashQuery);
+          token = (hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '').trim();
+        } else if (!token && window.location.hash.includes('/')) {
+          const parts = window.location.hash.split('/');
+          if (parts.length > 1 && parts[1]) {
+            token = parts[1].trim();
+          }
         }
       }
-    }
 
-    const timer1 = setTimeout(() => {
-      setValidationStep('Validando autorización y consultando registros exclusivos...');
+      if (!token) {
+        // No token provided in URL or parameters -> show login form immediately
+        fetchAndSyncProveedores().then((synced) => {
+          if (!isCancelled) setAllRegisteredProveedores(synced);
+        });
+        setCurrentProveedor(null);
+        setOrdenes([]);
+        setPagos([]);
+        setIsValidating(false);
+        return;
+      }
 
-      const timer2 = setTimeout(() => {
-        if (!token) {
-          // No token provided in URL or parameters
-          setCurrentProveedor(null);
-          setOrdenes([]);
-          setPagos([]);
-          setAuthError('No se detectó ningún token o identificador en el enlace de acceso.');
-          setIsValidating(false);
-          return;
-        }
+      setIsValidating(true);
+      setValidationStep('Verificando autorización y credencial de acceso...');
 
-        // Query storage strictly for this single provider (tolerant matching)
-        const loadedProveedores = getStoredProveedores();
-        const searchNormalized = token.trim().toLowerCase();
-        const found = loadedProveedores.find(
-          (p) =>
-            (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === searchNormalized) ||
-            (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === searchNormalized) ||
-            (p.id && p.id.trim().toLowerCase() === searchNormalized) ||
-            (p.codigo && p.codigo.trim().toLowerCase() === searchNormalized)
-        );
+      // 1. Query storage strictly for this single provider (tolerant matching)
+      let found = findProviderByAnyQuery(localProvs, token);
 
-        if (found) {
-          // Extract EXCLUSIVELY this provider's data (no other entities exist in state)
-          const allOrders = getStoredOrdenes();
-          const allPayments = getStoredPagos();
+      // 2. If not found locally, query backend API
+      if (!found) {
+        setValidationStep('Sincronizando con base de datos central de talleres...');
+        const synced = await fetchAndSyncProveedores();
+        if (!isCancelled) setAllRegisteredProveedores(synced);
+        found = findProviderByAnyQuery(synced, token);
+      }
 
-          const exclusiveOrders = allOrders.filter((o) => o.proveedorId === found.id);
-          const exclusivePayments = allPayments.filter((p) => p.proveedorId === found.id);
+      if (isCancelled) return;
 
-          setCurrentProveedor(found);
-          setOrdenes(exclusiveOrders);
-          setPagos(exclusivePayments);
-          setBankForm({
-            codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
-            banco: found.datosBancarios?.banco || 'Bancolombia',
-            tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
-            numeroCuenta: found.datosBancarios?.numeroCuenta || '',
-            titular: found.datosBancarios?.titular || found.contactoNombre,
-            documentoTitular: found.datosBancarios?.documentoTitular || '',
-            telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
-            emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
-          });
-          setAuthError(null);
-          setIsValidating(false);
-        } else {
-          // Token is invalid / does not match any provider
-          setCurrentProveedor(null);
-          setOrdenes([]);
-          setPagos([]);
-          setAuthError('El token de acceso, dirección o código de taller no es válido, ha caducado o no está autorizado.');
-          setIsValidating(false);
-        }
-      }, 350);
+      if (found) {
+        loginWithProvider(found);
+      } else {
+        // Token is invalid / does not match any provider
+        setCurrentProveedor(null);
+        setOrdenes([]);
+        setPagos([]);
+        setAuthError(`No se encontró ningún taller con la clave o código "${token}". Escribe tu clave de acceso o selecciona tu taller a continuación.`);
+        setIsValidating(false);
+      }
+    };
 
-      return () => clearTimeout(timer2);
-    }, 250);
+    initAuth();
 
-    return () => clearTimeout(timer1);
+    return () => {
+      isCancelled = true;
+    };
   }, [initialTokenOrId]);
 
   // Sincronización en tiempo real con cambios emitidos desde el Administrador
@@ -252,57 +287,33 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   }, [currentProveedor]);
 
   // Handle manual token submission with security check
-  const handleManualTokenSubmit = (e?: React.FormEvent, directCode?: string) => {
+  const handleManualTokenSubmit = async (e?: React.FormEvent, directCode?: string) => {
     if (e) e.preventDefault();
-    const clean = (directCode || manualTokenInput).trim().toLowerCase();
-    if (!clean) return;
+    const raw = (directCode || manualTokenInput).trim();
+    if (!raw) return;
 
     setIsValidating(true);
     setValidationStep('Verificando credencial de acceso ingresada...');
 
-    setTimeout(() => {
-      const loadedProveedores = getStoredProveedores();
-      const found = loadedProveedores.find(
-        (p) =>
-          (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === clean) ||
-          (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === clean) ||
-          (p.id && p.id.trim().toLowerCase() === clean) ||
-          (p.codigo && p.codigo.trim().toLowerCase() === clean)
-      );
+    // 1. Local match
+    const loadedProveedores = getStoredProveedores();
+    let found = findProviderByAnyQuery(loadedProveedores, raw);
 
-      if (found) {
-        const allOrders = getStoredOrdenes();
-        const allPayments = getStoredPagos();
+    // 2. Server match & sync if not found
+    if (!found) {
+      setValidationStep('Consultando base de datos de talleres...');
+      const synced = await fetchAndSyncProveedores();
+      setAllRegisteredProveedores(synced);
+      found = findProviderByAnyQuery(synced, raw);
+    }
 
-        setCurrentProveedor(found);
-        setOrdenes(allOrders.filter((o) => o.proveedorId === found.id));
-        setPagos(allPayments.filter((p) => p.proveedorId === found.id));
-        setManualTokenError(false);
-        setAuthError(null);
-        setBankForm({
-          codigoAcceso: found.slugAcceso || found.tokenAcceso || found.codigo,
-          banco: found.datosBancarios?.banco || 'Bancolombia',
-          tipoCuenta: found.datosBancarios?.tipoCuenta || 'Ahorros',
-          numeroCuenta: found.datosBancarios?.numeroCuenta || '',
-          titular: found.datosBancarios?.titular || found.contactoNombre,
-          documentoTitular: found.datosBancarios?.documentoTitular || '',
-          telefonoTransferencia: found.datosBancarios?.telefonoTransferencia || found.telefonoWhatsapp,
-          emailNotificaciones: found.datosBancarios?.emailNotificaciones || found.email || ''
-        });
-
-        // Update URL query string
-        if (window.history.pushState) {
-          const accessParam = found.slugAcceso || found.tokenAcceso || found.codigo;
-          const newUrl = `${window.location.protocol}//${window.location.host}${window.location.pathname}?token=${accessParam}#proveedor`;
-          window.history.pushState({ path: newUrl }, '', newUrl);
-        }
-        setIsValidating(false);
-      } else {
-        setManualTokenError(true);
-        setAuthError('El token, dirección o código ingresado no existe en los registros autorizados.');
-        setIsValidating(false);
-      }
-    }, 350);
+    if (found) {
+      loginWithProvider(found);
+    } else {
+      setManualTokenError(true);
+      setAuthError(`El código o clave "${raw}" no corresponde a ningún taller registrado. Revisa el código o selecciona tu taller de la lista.`);
+      setIsValidating(false);
+    }
   };
 
   // Filtered orders (guaranteed to belong only to this provider)
@@ -815,6 +826,80 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
               <span>INGRESAR A MI OFICINA VIRTUAL</span>
             </button>
           </form>
+
+          {/* Quick Access / Workshop Selector Drawer */}
+          <div className="pt-2 border-t border-slate-800/80 space-y-3">
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowAdminHelper(!showAdminHelper)}
+                className="text-xs font-mono text-amber-400 hover:text-amber-300 font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Building2 className="w-3.5 h-3.5" />
+                <span>{showAdminHelper ? '▲ Ocultar Talleres Autorizados' : '▼ Ver Talleres Autorizados & Accesos Directos'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleSyncWorkshops}
+                disabled={isSyncingWorkshops}
+                className="text-[11px] font-mono text-slate-400 hover:text-white flex items-center gap-1 bg-slate-800/80 hover:bg-slate-700 px-2 py-1 rounded-lg border border-slate-700 transition-all cursor-pointer"
+                title="Sincronizar claves de acceso con el servidor"
+              >
+                <RefreshCw className={`w-3 h-3 text-amber-400 ${isSyncingWorkshops ? 'animate-spin' : ''}`} />
+                <span>{isSyncingWorkshops ? 'Sincronizando...' : 'Sincronizar'}</span>
+              </button>
+            </div>
+
+            {showAdminHelper && (
+              <div className="bg-slate-950/90 border border-amber-500/30 rounded-2xl p-3.5 space-y-2.5 text-left animate-fadeIn">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <span className="text-[11px] font-mono font-bold text-slate-300 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    Talleres Registrados en el Sistema ({allRegisteredProveedores.length}):
+                  </span>
+                  <span className="text-[10px] font-mono text-amber-400">Clic para autocompletar</span>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scrollbar">
+                  {allRegisteredProveedores.map((p) => {
+                    const displayCode = p.slugAcceso || p.tokenAcceso || p.codigo;
+                    return (
+                      <div
+                        key={p.id}
+                        className="p-2.5 bg-slate-900/90 hover:bg-slate-850 border border-slate-800 hover:border-amber-500/50 rounded-xl transition-all flex items-center justify-between gap-2 text-xs font-mono"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="font-bold text-slate-200 truncate flex items-center gap-1.5">
+                            <span>{p.nombreComercial}</span>
+                            <span className="px-1.5 py-0.5 bg-slate-800 text-amber-400 rounded text-[9px] font-mono shrink-0">
+                              {p.codigo}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-400 truncate flex items-center gap-2 mt-0.5">
+                            <span>Línea: {p.categoria || p.categorias?.[0]}</span>
+                            <span>•</span>
+                            <span className="text-amber-300/80 font-mono">Clave: {displayCode}</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setManualTokenInput(displayCode);
+                            handleManualTokenSubmit(undefined, displayCode);
+                          }}
+                          className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 rounded-lg text-[10px] font-bold font-mono transition-all shrink-0 cursor-pointer flex items-center gap-1"
+                        >
+                          <span>Ingresar</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Links de Ayuda y Retorno */}
           <div className="pt-2 border-t border-slate-800/80 space-y-2">

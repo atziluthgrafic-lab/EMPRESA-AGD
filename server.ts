@@ -1679,6 +1679,7 @@ function getDefaultProveedoresServer() {
       email: "talleres@textilesdelsur.com",
       categoria: "Bordados",
       tokenAcceso: "token_bordados_sur_1145c",
+      slugAcceso: "token_bordados_sur_1145c",
       activo: true,
       direccionTaller: "Calle 6 Sur # 43A-50, Itagüí, Antioquia",
       municipio: "Itagüí",
@@ -1692,6 +1693,31 @@ function getDefaultProveedoresServer() {
       },
       notasInternas: "Bordado computarizado alta densidad y gorras 6 paneles estructuradas.",
       createdAt: "2026-08-10"
+    },
+    {
+      id: "prv_ser_102",
+      codigo: "PRV-SER-102",
+      nombreComercial: "Servicios Gráficos, Litografía & Acabados Medellín",
+      contactoNombre: "Mauricio Gómez / Producción",
+      telefonoWhatsapp: "+57 310 987 6543",
+      email: "taller.servicios102@atziluth.com",
+      categoria: "Servicios",
+      categorias: ["Servicios", "Litografía Comercial", "Empaques & Cajas", "Tarjetas", "Almanaques"],
+      tokenAcceso: "prv-ser-102",
+      slugAcceso: "prv-ser-102",
+      activo: true,
+      direccionTaller: "Calle 33 # 65-40, Barrio San Joaquín / Conquistadores, Medellín",
+      municipio: "Medellín",
+      datosBancarios: {
+        banco: "Bancolombia",
+        tipoCuenta: "Ahorros",
+        numeroCuenta: "551-002934-88",
+        titular: "Servicios Gráficos & Acabados S.A.S.",
+        documentoTitular: "NIT 900.871.442-3",
+        telefonoTransferencia: "+57 310 987 6543"
+      },
+      notasInternas: "Taller integral de litografía, plastificado térmico mate/brillo, reserva UV y troquelados especiales.",
+      createdAt: "2026-08-12"
     }
   ];
 }
@@ -1753,13 +1779,15 @@ app.get("/api/proveedores", (req, res) => {
 
 app.post("/api/proveedores", (req, res) => {
   try {
-    const { id, codigo, nombreComercial, contactoNombre, telefonoWhatsapp, email, categoria, direccionTaller, municipio, datosBancarios, notasInternas } = req.body;
-    if (!nombreComercial || !categoria) {
-      return res.status(400).json({ success: false, error: "Nombre comercial y categoría son obligatorios." });
+    const { id, codigo, nombreComercial, contactoNombre, telefonoWhatsapp, email, categoria, categorias, tokenAcceso, slugAcceso, direccionTaller, municipio, datosBancarios, notasInternas, historialCodigosAcceso } = req.body;
+    if (!nombreComercial) {
+      return res.status(400).json({ success: false, error: "Nombre comercial es obligatorio." });
     }
 
     const proveedores = loadProveedoresServer();
     let updated: any;
+
+    const accessVal = (slugAcceso || tokenAcceso || codigo || "").trim().toLowerCase();
 
     if (id) {
       const idx = proveedores.findIndex((p: any) => p.id === id);
@@ -1770,11 +1798,15 @@ app.post("/api/proveedores", (req, res) => {
           contactoNombre: contactoNombre || proveedores[idx].contactoNombre,
           telefonoWhatsapp: telefonoWhatsapp || proveedores[idx].telefonoWhatsapp,
           email: email || proveedores[idx].email,
-          categoria,
+          categoria: categoria || proveedores[idx].categoria,
+          categorias: categorias || proveedores[idx].categorias || (categoria ? [categoria] : ["Servicios"]),
+          tokenAcceso: accessVal || proveedores[idx].tokenAcceso,
+          slugAcceso: accessVal || proveedores[idx].slugAcceso,
           direccionTaller: direccionTaller || proveedores[idx].direccionTaller,
           municipio: municipio || proveedores[idx].municipio,
           datosBancarios: datosBancarios || proveedores[idx].datosBancarios,
           notasInternas: notasInternas || proveedores[idx].notasInternas,
+          historialCodigosAcceso: historialCodigosAcceso || proveedores[idx].historialCodigosAcceso,
           updatedAt: new Date().toISOString()
         };
         updated = proveedores[idx];
@@ -1782,10 +1814,9 @@ app.post("/api/proveedores", (req, res) => {
     }
 
     if (!updated) {
-      const randomSuffix = Math.random().toString(36).substring(2, 10);
-      const catCode = categoria.substring(0, 3).toUpperCase();
+      const catCode = (categoria || "SER").substring(0, 3).toUpperCase();
       const codeStr = codigo || `PRV-${catCode}-${100 + proveedores.length + 1}`;
-      const token = `token_${catCode.toLowerCase()}_${Date.now()}_${randomSuffix}`;
+      const token = accessVal || codeStr.toLowerCase();
 
       updated = {
         id: id || `prv_${Date.now()}`,
@@ -1794,8 +1825,10 @@ app.post("/api/proveedores", (req, res) => {
         contactoNombre: contactoNombre || "Contacto Taller",
         telefonoWhatsapp: telefonoWhatsapp || "+57 300 000 0000",
         email: email || "",
-        categoria,
+        categoria: categoria || "Servicios",
+        categorias: categorias || (categoria ? [categoria] : ["Servicios"]),
         tokenAcceso: token,
+        slugAcceso: token,
         activo: true,
         direccionTaller: direccionTaller || "Medellín, Antioquia",
         municipio: municipio || "Medellín",
@@ -1820,13 +1853,26 @@ app.post("/api/proveedores", (req, res) => {
   }
 });
 
-// 2. API: Resolve Provider by Unique Token or ID
+// 2. API: Resolve Provider by Unique Token, Slug, or ID with Flexible Matching
 app.get("/api/proveedores/:idOrToken", (req, res) => {
   const { idOrToken } = req.params;
   const proveedores = loadProveedoresServer();
-  const found = proveedores.find(
-    (p: any) => p.tokenAcceso === idOrToken || p.id === idOrToken || p.codigo.toLowerCase() === idOrToken.toLowerCase()
-  );
+  const clean = (idOrToken || "").trim().toLowerCase();
+  const cleanDigits = clean.replace(/\D/g, "");
+  const stripped = clean.replace(/[^a-z0-9]/g, "");
+
+  const found = proveedores.find((p: any) => {
+    const t = (p.tokenAcceso || "").toLowerCase().trim();
+    const s = (p.slugAcceso || "").toLowerCase().trim();
+    const c = (p.codigo || "").toLowerCase().trim();
+    const id = (p.id || "").toLowerCase().trim();
+    const phone = (p.telefonoWhatsapp || "").replace(/\D/g, "");
+
+    if (t === clean || s === clean || c === clean || id === clean) return true;
+    if (stripped.length >= 3 && (t.replace(/[^a-z0-9]/g, "") === stripped || c.replace(/[^a-z0-9]/g, "") === stripped)) return true;
+    if (cleanDigits.length >= 7 && phone && (phone.includes(cleanDigits) || cleanDigits.includes(phone))) return true;
+    return false;
+  });
 
   if (!found) {
     return res.status(404).json({ success: false, error: "Oficina virtual de proveedor no encontrada o enlace inactivo." });
