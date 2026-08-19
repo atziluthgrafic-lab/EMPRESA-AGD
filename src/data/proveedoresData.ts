@@ -4,13 +4,15 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
     id: "prv_1",
     codigo: "PRV-ALM-001",
+    claveAcceso: "prv-alm-001",
     nombreComercial: "Talleres Gráficos & Troquelados del Valle",
     contactoNombre: "Carlos Mario Jaramillo",
     telefonoWhatsapp: "+57 312 456 7890",
     email: "produccion@troqueladosvalle.com",
     categoria: "Almanaques",
     categorias: ["Almanaques", "Litografía Comercial", "Empaques & Cajas"],
-    tokenAcceso: "token_almanaques_valle_9921a",
+    tokenAcceso: "prv-alm-001",
+    slugAcceso: "prv-alm-001",
     activo: true,
     direccionTaller: "Calle 44 # 52-18, Sector Alpujarra, Medellín",
     municipio: "Medellín",
@@ -28,13 +30,15 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
     id: "prv_2",
     codigo: "PRV-TAL-002",
+    claveAcceso: "prv-tal-002",
     nombreComercial: "Litografía & Formas Continuas Antioquia",
     contactoNombre: "Marta Lucía Restrepo",
     telefonoWhatsapp: "+57 300 789 1234",
     email: "pedidos@formascontinuasantioquia.com",
     categoria: "Talonarios",
     categorias: ["Talonarios", "Tarjetas", "Adhesivos"],
-    tokenAcceso: "token_talonarios_antioquia_7734b",
+    tokenAcceso: "prv-tal-002",
+    slugAcceso: "prv-tal-002",
     activo: true,
     direccionTaller: "Carrera 50 # 38-20, Guayabal, Medellín",
     municipio: "Medellín",
@@ -52,13 +56,15 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
     id: "prv_3",
     codigo: "PRV-BOR-003",
+    claveAcceso: "prv-bor-003",
     nombreComercial: "Bordados & Estampados Textiles del Sur",
     contactoNombre: "Jorge Iván Bedoya",
     telefonoWhatsapp: "+57 315 654 3210",
     email: "talleres@textilesdelsur.com",
     categoria: "Bordados",
     categorias: ["Bordados", "Estampados", "Gorras", "Souvenirs"],
-    tokenAcceso: "token_bordados_sur_1145c",
+    tokenAcceso: "prv-bor-003",
+    slugAcceso: "prv-bor-003",
     activo: true,
     direccionTaller: "Calle 6 Sur # 43A-50, Itagüí, Antioquia",
     municipio: "Itagüí",
@@ -76,6 +82,7 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
     id: "prv_ser_102",
     codigo: "PRV-SER-102",
+    claveAcceso: "prv-ser-102",
     nombreComercial: "Servicios Gráficos, Litografía & Acabados Medellín",
     contactoNombre: "Mauricio Gómez / Producción",
     telefonoWhatsapp: "+57 310 987 6543",
@@ -97,6 +104,32 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
     },
     notasInternas: "Taller integral de litografía, plastificado térmico mate/brillo, reserva UV y troquelados especiales.",
     createdAt: "2026-08-12"
+  },
+  {
+    id: "prv_alm_102",
+    codigo: "PRV-ALM-102",
+    claveAcceso: "prv-alm-102",
+    nombreComercial: "Almanaques & Calendarios de Colombia 2026",
+    contactoNombre: "Estivenson / Producción Almanaques",
+    telefonoWhatsapp: "+57 300 123 4567",
+    email: "almanaques102@atziluth.com",
+    categoria: "Almanaques",
+    categorias: ["Almanaques", "Litografía Comercial", "Empaques & Cajas"],
+    tokenAcceso: "prv-alm-102",
+    slugAcceso: "prv-alm-102",
+    activo: true,
+    direccionTaller: "Carrera 45 # 50-20, Centro / San Antonio, Medellín",
+    municipio: "Medellín",
+    datosBancarios: {
+      banco: "Bancolombia",
+      tipoCuenta: "Ahorros",
+      numeroCuenta: "770-001928-34",
+      titular: "Almanaques & Calendarios de Colombia S.A.S.",
+      documentoTitular: "NIT 901.884.221-9",
+      telefonoTransferencia: "+57 300 123 4567"
+    },
+    notasInternas: "Taller especializado en almanaques de pared, escritorio, tacos mensuales y repujados.",
+    createdAt: "2026-08-14"
   }
 ];
 
@@ -479,13 +512,15 @@ export function findProviderByAnyQuery(
   // Versión sin guiones, puntos, espacios ni subrayados (para matching tolerante)
   const strippedQuery = cleanLower.replace(/[^a-z0-9]/g, "");
 
-  // 1. Coincidencia exacta (case-insensitive) con Token, Slug, Código o ID
+  // 1. Coincidencia exacta (case-insensitive) con Clave de Acceso, Token, Slug, Código o ID
   const directMatch = providers.find((p) => {
+    const clave = (p.claveAcceso || "").toLowerCase().trim();
     const token = (p.tokenAcceso || "").toLowerCase().trim();
     const slug = (p.slugAcceso || "").toLowerCase().trim();
     const code = (p.codigo || "").toLowerCase().trim();
     const id = (p.id || "").toLowerCase().trim();
     return (
+      clave === cleanLower ||
       token === cleanLower ||
       slug === cleanLower ||
       code === cleanLower ||
@@ -494,7 +529,7 @@ export function findProviderByAnyQuery(
   });
   if (directMatch) return directMatch;
 
-  // 2. Coincidencia con historial de tokens anteriores
+  // 2. Coincidencia con historial de claves anteriores
   const historyMatch = providers.find((p) => {
     if (!Array.isArray(p.historialCodigosAcceso)) return false;
     return p.historialCodigosAcceso.some((h) => {
@@ -506,20 +541,23 @@ export function findProviderByAnyQuery(
   if (historyMatch) return historyMatch;
 
   // 3. Coincidencia normalizada sin caracteres especiales
-  // ej: 'prv-ser-102', 'prv_ser_102', 'PRV SER 102' -> 'prvser102'
+  // ej: 'prv-alm-102', 'prv_alm_102', 'PRV ALM 102' -> 'prvalm102'
   if (strippedQuery.length >= 3) {
     const strippedMatch = providers.find((p) => {
+      const sClave = (p.claveAcceso || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const sToken = (p.tokenAcceso || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const sSlug = (p.slugAcceso || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const sCode = (p.codigo || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       const sId = (p.id || "").toLowerCase().replace(/[^a-z0-9]/g, "");
       return (
+        sClave === strippedQuery ||
         sToken === strippedQuery ||
         sSlug === strippedQuery ||
         sCode === strippedQuery ||
         sId === strippedQuery ||
+        (sClave.length > 3 && (sClave.includes(strippedQuery) || strippedQuery.includes(sClave))) ||
         (sToken.length > 5 && sToken.includes(strippedQuery)) ||
-        (sCode.length > 5 && (sCode.includes(strippedQuery) || strippedQuery.includes(sCode)))
+        (sCode.length > 3 && (sCode.includes(strippedQuery) || strippedQuery.includes(sCode)))
       );
     });
     if (strippedMatch) return strippedMatch;

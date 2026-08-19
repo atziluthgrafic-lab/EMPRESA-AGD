@@ -675,6 +675,7 @@ export default function AdminDashboard() {
       email: newProvEmail.trim() || undefined,
       categoria: primaryCat,
       categorias: finalCategories,
+      claveAcceso: chosenAccess,
       tokenAcceso: chosenAccess,
       slugAcceso: chosenAccess,
       activo: true,
@@ -792,6 +793,7 @@ export default function AdminDashboard() {
       email: editProvEmail.trim() || undefined,
       direccionTaller: editProvDireccion.trim(),
       municipio: editProvMunicipio.trim(),
+      claveAcceso: finalAccess,
       tokenAcceso: finalAccess,
       slugAcceso: finalAccess,
       historialCodigosAcceso: currentHistory,
@@ -868,6 +870,7 @@ export default function AdminDashboard() {
 
     const updatedProv: ProveedorRecord = {
       ...customizingAccessProv,
+      claveAcceso: cleanKey,
       slugAcceso: cleanKey,
       tokenAcceso: cleanKey,
       historialCodigosAcceso: currentHistory,
@@ -885,17 +888,17 @@ export default function AdminDashboard() {
     }).catch(() => {});
 
     setCustomizingAccessProv(null);
-    setSaveStatus(`✓ Dirección de ingreso para "${updatedProv.nombreComercial}" actualizada exitosamente.`);
+    setSaveStatus(`✓ Clave de acceso para "${updatedProv.nombreComercial}" guardada: ${cleanKey}`);
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
-  // Inicializar taller seleccionado en el Generador de Tokens
+  // Inicializar taller seleccionado en el Panel de Claves de Acceso
   useEffect(() => {
     if (proveedores.length > 0) {
       if (!selectedTokenProvId || !proveedores.some(p => p.id === selectedTokenProvId)) {
         const first = proveedores[0];
         setSelectedTokenProvId(first.id);
-        setQuickTokenInput(first.slugAcceso || first.tokenAcceso || first.codigo);
+        setQuickTokenInput(first.claveAcceso || first.slugAcceso || first.tokenAcceso || first.codigo);
       }
     }
   }, [proveedores, selectedTokenProvId]);
@@ -905,22 +908,23 @@ export default function AdminDashboard() {
     if (!prov) return;
     const cleanToken = newToken.trim().replace(/\s+/g, '-').toLowerCase();
     if (!cleanToken) {
-      alert("Por favor ingrese un código o token válido.");
+      alert("Por favor ingrese una clave de acceso válida.");
       return;
     }
 
     // Verificación de colisión con otros talleres
     const collidingOther = proveedores.find(p => p.id !== prov.id && (
+      (p.claveAcceso && p.claveAcceso.trim().toLowerCase() === cleanToken) ||
       (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === cleanToken) ||
       (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === cleanToken) ||
       (p.codigo && p.codigo.trim().toLowerCase() === cleanToken)
     ));
     if (collidingOther) {
-      alert(`¡Colisión de Código detectada!\n\nEl código de acceso "${cleanToken}" ya está asignado al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor elija un código o token diferente.`);
+      alert(`¡Colisión de Código detectada!\n\nLa clave de acceso "${cleanToken}" ya está asignada al taller "${collidingOther.nombreComercial}" (${collidingOther.codigo}).\n\nPor favor elija una clave diferente.`);
       return;
     }
 
-    const previousCode = prov.slugAcceso || prov.tokenAcceso || prov.codigo;
+    const previousCode = prov.claveAcceso || prov.slugAcceso || prov.tokenAcceso || prov.codigo;
     const isCodeChanged = cleanToken !== previousCode;
 
     let currentHistory = prov.historialCodigosAcceso ? [...prov.historialCodigosAcceso] : [];
@@ -932,7 +936,7 @@ export default function AdminDashboard() {
           codigoNuevo: cleanToken,
           fecha: new Date().toISOString(),
           modificadoPor: "Administrador (atziluthgrafic@gmail.com)",
-          motivo: "Actualización desde Editor Rápido de Tokens"
+          motivo: "Asignación manual de clave de acceso"
         },
         ...currentHistory
       ].slice(0, 10);
@@ -940,6 +944,7 @@ export default function AdminDashboard() {
 
     const updatedProv: ProveedorRecord = {
       ...prov,
+      claveAcceso: cleanToken,
       tokenAcceso: cleanToken,
       slugAcceso: cleanToken,
       historialCodigosAcceso: currentHistory,
@@ -956,7 +961,7 @@ export default function AdminDashboard() {
       body: JSON.stringify(updatedProv)
     }).catch(() => {});
 
-    setSaveStatus(`✓ Código de acceso asignado y guardado para ${prov.nombreComercial}: ${cleanToken}`);
+    setSaveStatus(`✓ Clave de acceso asignada y guardada para ${prov.nombreComercial}: ${cleanToken}`);
     setTimeout(() => setSaveStatus(null), 4000);
   };
 
@@ -4707,7 +4712,7 @@ export default function AdminDashboard() {
                 <span>➕ Registrar Nuevo Taller</span>
               </button>
 
-              {/* BOTÓN SUB-PANEL: GENERADOR TOKENS */}
+              {/* BOTÓN SUB-PANEL: ASIGNAR CLAVES MANUALES */}
               <button
                 type="button"
                 onClick={() => setProvActiveSubPanel('tokens')}
@@ -4718,7 +4723,7 @@ export default function AdminDashboard() {
                 }`}
               >
                 <Key className="w-4 h-4 text-amber-400" />
-                <span>🔑 Códigos & Tokens</span>
+                <span>🔑 Asignar Claves de Acceso</span>
               </button>
             </div>
 
@@ -5393,9 +5398,9 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* SUB-PANEL: GENERADOR DE CÓDIGOS Y TOKENS (CUANDO ESTÁ SELECCIONADO O EN TAB TALLERES) */}
+          {/* SUB-PANEL: ASIGNACIÓN Y CONTROL MANUAL DE CLAVES DE ACCESO A OFICINAS VIRTUALES */}
           {(provActiveSubPanel === 'tokens' || activeAdminTab === 'talleres') && proveedores.length > 0 && (
-            <div id="generador-tokens-proveedores" className="bg-gradient-to-br from-slate-900 via-slate-950 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 space-y-5 shadow-2xl relative overflow-hidden">
+            <div id="panel-claves-manuales-proveedores" className="bg-gradient-to-br from-slate-900 via-slate-950 to-amber-950/40 border-2 border-amber-500/50 rounded-3xl p-6 space-y-6 shadow-2xl relative overflow-hidden">
               <div className="absolute -right-16 -top-16 w-56 h-56 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
               
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
@@ -5406,14 +5411,14 @@ export default function AdminDashboard() {
                   <div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base font-black font-mono uppercase tracking-wide text-white">
-                        Editor & Generador de Tokens / Códigos de Acceso
+                        Panel de Asignación Manual de Claves de Acceso
                       </h3>
                       <span className="px-2.5 py-0.5 bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold rounded-md border border-amber-500/40">
-                        ⚡ Panel Administrativo
+                        🔑 Control de Acceso Manual
                       </span>
                     </div>
-                    <p className="text-xs text-slate-400 font-sans mt-0.5">
-                      Genera tokens criptográficos seguros, edita claves personalizadas y comparte el enlace de ingreso con los talleres aliados
+                    <p className="text-xs text-slate-300 font-sans mt-0.5">
+                      Escribe y asigna manualmente la clave de acceso a cada taller proveedor para que pueda ingresar a su Oficina Virtual de forma rápida y segura.
                     </p>
                   </div>
                 </div>
@@ -5430,16 +5435,16 @@ export default function AdminDashboard() {
                       setSelectedTokenProvId(id);
                       const target = proveedores.find(p => p.id === id);
                       if (target) {
-                        setQuickTokenInput(target.slugAcceso || target.tokenAcceso || target.codigo);
+                        setQuickTokenInput(target.claveAcceso || target.slugAcceso || target.tokenAcceso || target.codigo);
                       }
                     }}
                     className="bg-slate-900 border border-slate-700 rounded-xl px-3 py-1.5 text-xs text-amber-300 font-mono font-bold focus:outline-none focus:border-amber-400 cursor-pointer min-w-[240px]"
                   >
                     {proveedores.map(p => {
-                      const hasCode = (p.slugAcceso && p.slugAcceso.trim() !== '') || (p.tokenAcceso && p.tokenAcceso.trim() !== '');
+                      const currentKey = p.claveAcceso || p.slugAcceso || p.tokenAcceso || p.codigo;
                       return (
                         <option key={p.id} value={p.id}>
-                          {hasCode ? '🟢' : '⚠️'} {p.codigo} — {p.nombreComercial} {hasCode ? '(Acceso Activo)' : '(Sin Código)'}
+                          {p.codigo} — {p.nombreComercial} (Clave: {currentKey})
                         </option>
                       );
                     })}
@@ -5455,179 +5460,262 @@ export default function AdminDashboard() {
                 const currentInputCode = quickTokenInput.trim().toLowerCase();
                 const collidingOther = currentInputCode
                   ? proveedores.find(p => p.id !== currentProv.id && (
+                      (p.claveAcceso && p.claveAcceso.trim().toLowerCase() === currentInputCode) ||
                       (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentInputCode) ||
                       (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentInputCode) ||
                       (p.codigo && p.codigo.trim().toLowerCase() === currentInputCode)
                     ))
                   : null;
-                const isOriginalCode = currentInputCode === (currentProv.slugAcceso || currentProv.tokenAcceso || currentProv.codigo)?.toLowerCase();
-                const fullAccessUrl = `${window.location.origin}/?token=${currentInputCode || currentProv.tokenAcceso}#proveedor`;
+                const isOriginalCode = currentInputCode === (currentProv.claveAcceso || currentProv.slugAcceso || currentProv.tokenAcceso || currentProv.codigo)?.toLowerCase();
+                const fullAccessUrl = `${window.location.origin}/?token=${currentInputCode || currentProv.claveAcceso || currentProv.tokenAcceso}#proveedor`;
 
                 return (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    {/* Columna Izquierda: Input de Edición y Generadores */}
-                    <div className="lg:col-span-7 space-y-4">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <label className="block text-xs font-mono uppercase text-slate-300 font-bold">
-                            Código / Token de Ingreso para <span className="text-amber-300 font-bold">"{currentProv.nombreComercial}"</span>:
-                          </label>
-                          {collidingOther ? (
-                            <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
-                              <AlertTriangle className="w-3 h-3 text-rose-400" />
-                              ⚠️ Código en uso por "{collidingOther.nombreComercial}"
-                            </span>
-                          ) : currentInputCode ? (
-                            <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              {isOriginalCode ? "Código actual del taller" : "✓ Código único disponible para asignar"}
-                            </span>
-                          ) : null}
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 bg-slate-950/70 p-5 rounded-2xl border border-amber-500/30">
+                      {/* Columna Izquierda: Input de Clave Manual */}
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2 flex-wrap">
+                            <label className="block text-xs font-mono uppercase text-slate-200 font-extrabold flex items-center gap-1.5">
+                              <Key className="w-4 h-4 text-amber-400" />
+                              <span>Escribe la Clave Manual de Acceso para: <strong className="text-amber-300">"{currentProv.nombreComercial}"</strong>:</span>
+                            </label>
+                            {collidingOther ? (
+                              <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 text-rose-400" />
+                                ⚠️ Clave ya en uso por "{collidingOther.nombreComercial}"
+                              </span>
+                            ) : currentInputCode ? (
+                              <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                {isOriginalCode ? "Clave actual de este taller" : "✓ Clave disponible para asignar"}
+                              </span>
+                            ) : null}
+                          </div>
+
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={quickTokenInput}
+                              onChange={(e) => setQuickTokenInput(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+                              placeholder={`Escribe aquí la clave manual (ej: ${currentProv.codigo.toLowerCase()} o prv-alm-102)`}
+                              className={`w-full bg-slate-900 border-2 rounded-2xl px-4 py-3.5 text-sm font-mono font-black focus:outline-none transition-all shadow-inner ${
+                                collidingOther
+                                  ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
+                                  : 'border-amber-400 text-amber-300 focus:border-amber-300 focus:ring-2 focus:ring-amber-500/40'
+                              }`}
+                            />
+                            <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (navigator.clipboard) {
+                                    navigator.clipboard.writeText(quickTokenInput || currentProv.claveAcceso || currentProv.tokenAcceso);
+                                    setSaveStatus(`✓ Clave copiada: ${quickTokenInput || currentProv.claveAcceso || currentProv.tokenAcceso}`);
+                                    setTimeout(() => setSaveStatus(null), 3000);
+                                  }
+                                }}
+                                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
+                                title="Copiar clave al portapapeles"
+                              >
+                                <Copy className="w-3.5 h-3.5 text-amber-400" />
+                                <span>Copiar</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {collidingOther && (
+                            <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg">
+                              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                              <div>
+                                <p className="font-bold font-mono text-rose-300">¡Colisión de Clave Detectada!</p>
+                                <p className="text-[11px] text-rose-200/90">
+                                  Esta clave ya está asignada al taller <strong>"{collidingOther.nombreComercial}"</strong> ({collidingOther.codigo}). Elige otra clave única.
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={quickTokenInput}
-                            onChange={(e) => setQuickTokenInput(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                            placeholder={`Ej: ${currentProv.codigo} o token_seguro_...`}
-                            className={`w-full bg-slate-950 border-2 rounded-2xl px-4 py-3 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
-                              collidingOther
-                                ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
-                                : 'border-amber-500 text-amber-300 focus:border-amber-400 focus:ring-2 focus:ring-amber-500/40'
-                            }`}
-                          />
-                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                        {/* Atajos rápidos para rellenar clave manual */}
+                        <div className="space-y-1.5 pt-1">
+                          <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                            💡 Sugerencias Rápidas de Claves:
+                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setQuickTokenInput(currentProv.codigo.toLowerCase())}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                              <span>Usar Código ({currentProv.codigo.toLowerCase()})</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cleanName = `taller-${currentProv.nombreComercial.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+                                setQuickTokenInput(cleanName);
+                              }}
+                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <span>Usar Nombre (taller-...)</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Columna Derecha: Vista previa de Enlace y Guardado */}
+                      <div className="lg:col-span-5 bg-slate-900/90 p-4 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between shadow-inner">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
+                              Enlace Directo de Oficina Virtual:
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                              Acceso Activo
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-slate-950 rounded-xl border border-slate-800 text-[11px] font-mono text-amber-300 break-all select-all font-bold">
+                            {fullAccessUrl}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                          <div className="grid grid-cols-2 gap-2">
                             <button
                               type="button"
                               onClick={() => {
                                 if (navigator.clipboard) {
-                                  navigator.clipboard.writeText(quickTokenInput || currentProv.tokenAcceso);
-                                  setSaveStatus(`✓ Código copiado: ${quickTokenInput || currentProv.tokenAcceso}`);
+                                  navigator.clipboard.writeText(fullAccessUrl);
+                                  setSaveStatus(`✓ Enlace copiado al portapapeles`);
                                   setTimeout(() => setSaveStatus(null), 3000);
                                 }
                               }}
-                              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-xl text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
-                              title="Copiar código"
+                              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                             >
                               <Copy className="w-3.5 h-3.5 text-amber-400" />
-                              <span>Copiar</span>
+                              <span>Copiar Link</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenProvPortal(currentProv)}
+                              className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                            >
+                              <Eye className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Ver Oficina</span>
                             </button>
                           </div>
-                        </div>
-
-                        {collidingOther && (
-                          <div className="p-3 bg-rose-950/90 border border-rose-500/60 rounded-xl text-xs text-rose-200 flex items-start gap-2.5 shadow-lg">
-                            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                            <div>
-                              <p className="font-bold font-mono text-rose-300">¡Colisión de Código Detectada!</p>
-                              <p className="text-[11px] text-rose-200/90">
-                                Este código ya está asignado a <strong>"{collidingOther.nombreComercial}"</strong> ({collidingOther.codigo}). Elige otro valor o presiona Generar Token.
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Generadores Rápidos de Código */}
-                      <div className="space-y-1.5 pt-1">
-                        <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
-                          ⚡ Generadores Rápidos con 1 Clic:
-                        </span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const catPrefix = (currentProv.categoria || "PRV").substring(0, 3).toLowerCase();
-                              const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
-                              setQuickTokenInput(randomToken);
-                            }}
-                            className="px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/40 text-xs font-mono font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <Key className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Generar Token Seguro</span>
-                          </button>
 
                           <button
                             type="button"
-                            onClick={() => setQuickTokenInput(currentProv.codigo.toLowerCase())}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            onClick={() => handleQuickSaveToken(currentProv.id, quickTokenInput)}
+                            disabled={Boolean(collidingOther) || !quickTokenInput.trim()}
+                            className={`w-full py-3 px-4 rounded-xl text-xs font-mono font-black flex items-center justify-center gap-2 shadow-lg transition-all ${
+                              collidingOther || !quickTokenInput.trim()
+                                ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 cursor-pointer shadow-amber-500/25 border border-amber-300'
+                            }`}
                           >
-                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Usar Código Oficial ({currentProv.codigo})</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              const cleanName = `taller-${currentProv.nombreComercial.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-                              setQuickTokenInput(cleanName);
-                            }}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Usar Nombre Taller</span>
+                            <Save className="w-4 h-4 text-slate-950" />
+                            <span>💾 GUARDAR CLAVE MANUAL PARA "{currentProv.nombreComercial.toUpperCase()}"</span>
                           </button>
                         </div>
                       </div>
                     </div>
 
-                    {/* Columna Derecha: Vista previa de Enlace y Acciones de Envío / Guardado */}
-                    <div className="lg:col-span-5 bg-slate-950/90 p-4 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between shadow-inner">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] font-mono uppercase text-slate-400 font-bold block">
-                            Enlace Directo de Oficina Virtual:
-                          </span>
-                          <span className="text-[10px] font-mono text-amber-400 flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3 text-amber-400" />
-                            Aislamiento Total
-                          </span>
-                        </div>
-                        <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-[11px] font-mono text-amber-300 break-all select-all font-bold">
-                          {fullAccessUrl}
-                        </div>
+                    {/* TABLA RESUMEN DE TODAS LAS CLAVES MANUALES DE LOS TALLERES */}
+                    <div className="space-y-3 pt-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-mono uppercase font-bold text-amber-300 flex items-center gap-2">
+                          <Building2 className="w-4 h-4 text-amber-400" />
+                          Listado y Edición Rápida de Claves de Acceso de Todos los Talleres ({proveedores.length}):
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          Puedes modificar la clave de cada taller directamente aquí
+                        </span>
                       </div>
 
-                      <div className="space-y-2 pt-2 border-t border-slate-800/80">
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (navigator.clipboard) {
-                                navigator.clipboard.writeText(fullAccessUrl);
-                                setSaveStatus(`✓ Enlace copiado al portapapeles`);
-                                setTimeout(() => setSaveStatus(null), 3000);
-                              }
-                            }}
-                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                          >
-                            <Copy className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Copiar Link</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleOpenProvPortal(currentProv)}
-                            className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-mono font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
-                          >
-                            <Eye className="w-3.5 h-3.5 text-amber-400" />
-                            <span>Ver Oficina</span>
-                          </button>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => handleQuickSaveToken(currentProv.id, quickTokenInput)}
-                          disabled={Boolean(collidingOther) || !quickTokenInput.trim()}
-                          className={`w-full py-2.5 px-4 rounded-xl text-xs font-mono font-black flex items-center justify-center gap-2 shadow-lg transition-all ${
-                            collidingOther || !quickTokenInput.trim()
-                              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                              : 'bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 cursor-pointer shadow-amber-500/20'
-                          }`}
-                        >
-                          <Save className="w-4 h-4 text-slate-950" />
-                          <span>Guardar Código de Acceso para "{currentProv.nombreComercial}"</span>
-                        </button>
+                      <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+                        <table className="w-full text-left text-xs font-mono">
+                          <thead className="bg-slate-900 border-b border-slate-800 text-[10px] uppercase text-slate-400">
+                            <tr>
+                              <th className="p-3">Código</th>
+                              <th className="p-3">Taller / Proveedor</th>
+                              <th className="p-3">Categoría / Línea</th>
+                              <th className="p-3">Clave de Acceso Manual</th>
+                              <th className="p-3 text-right">Acciones Rápidas</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {proveedores.map(p => {
+                              const isSelected = p.id === currentProv.id;
+                              const currentKey = p.claveAcceso || p.slugAcceso || p.tokenAcceso || p.codigo;
+                              return (
+                                <tr key={p.id} className={`hover:bg-slate-900/50 transition-colors ${isSelected ? 'bg-amber-950/20' : ''}`}>
+                                  <td className="p-3 font-bold text-amber-400">
+                                    {p.codigo}
+                                  </td>
+                                  <td className="p-3">
+                                    <span className="font-bold text-slate-200 block">{p.nombreComercial}</span>
+                                    <span className="text-[10px] text-slate-400 font-sans">{p.contactoNombre} • Tel: {p.telefonoWhatsapp}</span>
+                                  </td>
+                                  <td className="p-3 text-slate-300">
+                                    <span className="px-2 py-0.5 bg-slate-900 border border-slate-700 rounded text-[10px]">
+                                      {p.categoria || p.categorias?.[0]}
+                                    </span>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <code className="px-2.5 py-1 bg-slate-900 border border-amber-500/40 rounded-lg text-amber-300 font-bold text-xs">
+                                        {currentKey}
+                                      </code>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          if (navigator.clipboard) {
+                                            navigator.clipboard.writeText(currentKey);
+                                            setSaveStatus(`✓ Clave de ${p.nombreComercial} copiada: ${currentKey}`);
+                                            setTimeout(() => setSaveStatus(null), 3000);
+                                          }
+                                        }}
+                                        className="p-1 text-slate-400 hover:text-amber-300 transition-colors"
+                                        title="Copiar clave"
+                                      >
+                                        <Copy className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td className="p-3 text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedTokenProvId(p.id);
+                                          setQuickTokenInput(currentKey);
+                                        }}
+                                        className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500 text-amber-300 hover:text-slate-950 border border-amber-500/40 rounded-lg text-[11px] font-bold font-mono transition-all cursor-pointer"
+                                      >
+                                        Editar Clave
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenProvPortal(p)}
+                                        className="p-1 bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 rounded-lg transition-colors cursor-pointer"
+                                        title="Abrir oficina virtual de este taller"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </button>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </div>
@@ -5915,12 +6003,13 @@ export default function AdminDashboard() {
               </div>
 
               {/* ========================================================================= */}
-              {/* SECCIÓN DESTACADA: ESPACIO DE TOKEN & ACCESO A OFICINA VIRTUAL AL REGISTRAR */}
+              {/* SECCIÓN DESTACADA: ASIGNACIÓN MANUAL DE CLAVE DE ACCESO AL REGISTRAR */}
               {/* ========================================================================= */}
               {(() => {
                 const currentNewSlug = newProvSlug.trim().toLowerCase();
                 const collidingProv = currentNewSlug 
                   ? proveedores.find(p => (
+                      (p.claveAcceso && p.claveAcceso.trim().toLowerCase() === currentNewSlug) ||
                       (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentNewSlug) ||
                       (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentNewSlug) ||
                       (p.codigo && p.codigo.trim().toLowerCase() === currentNewSlug)
@@ -5937,14 +6026,14 @@ export default function AdminDashboard() {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-mono uppercase text-amber-300 font-black block">
-                              🔑 Código de Acceso / Token del Taller * (OBLIGATORIO)
+                              🔑 Clave de Acceso Manual para el Taller * (OBLIGATORIO)
                             </span>
                             <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[9px] font-mono font-bold">
-                              Exclusivo Admin
+                              Asignación Manual
                             </span>
                           </div>
-                          <span className="text-[11px] text-slate-400 font-sans">
-                            Clave confidencial con la que el taller ingresará a su Oficina Virtual. Visible únicamente en este panel administrativo.
+                          <span className="text-[11px] text-slate-300 font-sans">
+                            Escribe manualmente la clave de acceso que le darás a este taller para que ingrese a su Oficina Virtual.
                           </span>
                         </div>
                       </div>
@@ -5957,24 +6046,9 @@ export default function AdminDashboard() {
                             setNewProvSlug(cleanName);
                           }}
                           className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                          title="Usar nombre comercial como slug"
+                          title="Usar nombre comercial como clave"
                         >
                           <span>Usar Nombre</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const primaryCat = newProvCategorias[0] || "PRV";
-                            const catPrefix = primaryCat.substring(0, 3).toLowerCase();
-                            const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
-                            setNewProvSlug(randomToken);
-                          }}
-                          className="px-2.5 py-1 bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/50 text-[10px] font-mono font-black rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
-                          title="Generar un nuevo token criptográfico seguro"
-                        >
-                          <Zap className="w-3 h-3 text-amber-400" />
-                          <span>⚡ Generar Token Seguro</span>
                         </button>
                       </div>
                     </div>
@@ -5984,7 +6058,7 @@ export default function AdminDashboard() {
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <label className="block text-[11px] font-mono uppercase text-slate-200 font-bold">
-                            Token o Clave de Acceso Asignada al Taller *:
+                            Escribe la Clave de Acceso Manual *:
                           </label>
                           {collidingProv ? (
                             <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
@@ -5994,11 +6068,11 @@ export default function AdminDashboard() {
                           ) : currentNewSlug ? (
                             <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              ✓ Código único listo para guardar
+                              ✓ Clave única disponible
                             </span>
                           ) : (
                             <span className="text-[10px] font-mono font-bold text-amber-400">
-                              * Campo obligatorio (escribe o genera un token)
+                              * Escribe la clave que prefieras (ej: prv-alm-102 o mitaller2026)
                             </span>
                           )}
                         </div>
@@ -6009,7 +6083,7 @@ export default function AdminDashboard() {
                             required
                             value={newProvSlug}
                             onChange={(e) => setNewProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                            placeholder="Ej: taller-almanaques o token_alm_12345..."
+                            placeholder="Ej: prv-alm-102, mitaller123, etc."
                             className={`w-full bg-slate-950 border-2 rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
                               collidingProv
                                 ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
@@ -6023,13 +6097,13 @@ export default function AdminDashboard() {
                                 onClick={() => {
                                   if (navigator.clipboard && navigator.clipboard.writeText) {
                                     navigator.clipboard.writeText(newProvSlug).then(() => {
-                                      setSaveStatus(`✓ Código copiado: ${newProvSlug}`);
+                                      setSaveStatus(`✓ Clave copiada: ${newProvSlug}`);
                                       setTimeout(() => setSaveStatus(null), 3000);
                                     });
                                   }
                                 }}
                                 className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
-                                title="Copiar token al portapapeles"
+                                title="Copiar clave al portapapeles"
                               >
                                 <Copy className="w-3.5 h-3.5 text-amber-400" />
                                 <span>Copiar</span>
@@ -6044,13 +6118,13 @@ export default function AdminDashboard() {
                             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                             <div className="space-y-0.5">
                               <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
-                                <span>¡Colisión de Código Detectada!</span>
+                                <span>¡Colisión de Clave Detectada!</span>
                               </p>
                               <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
-                                El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentNewSlug}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
+                                La clave <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentNewSlug}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
                               </p>
                               <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
-                                ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
+                                ➔ Modifica la clave para evitar cruces entre talleres.
                               </p>
                             </div>
                           </div>
@@ -9768,7 +9842,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* ========================================================================= */}
-              {/* SECCIÓN DESTACADA: ESPACIO DE TOKEN & ACCESO A OFICINA VIRTUAL DEL PROVEEDOR */}
+              {/* SECCIÓN DESTACADA: ASIGNACIÓN MANUAL DE CLAVE DE ACCESO DEL PROVEEDOR */}
               {/* ========================================================================= */}
               <div className="p-4 bg-gradient-to-br from-amber-950/40 via-slate-950 to-slate-900 rounded-2xl border-2 border-amber-500/60 space-y-4 shadow-xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-amber-500/20 pb-3">
@@ -9779,14 +9853,14 @@ export default function AdminDashboard() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono uppercase text-amber-300 font-black block">
-                          Crear / Editar Código de Acceso & Token para el Proveedor *
+                          🔑 Clave de Acceso Manual para el Proveedor *
                         </span>
                         <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 rounded text-[9px] font-mono font-bold">
                           Acceso Exclusivo
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 font-sans">
-                        Este es el token con el que el taller ingresa a su Oficina Virtual para ver sus órdenes asignadas
+                      <span className="text-[11px] text-slate-300 font-sans">
+                        Escribe la clave de acceso con la que este taller ingresará a su Oficina Virtual
                       </span>
                     </div>
                   </div>
@@ -9809,23 +9883,9 @@ export default function AdminDashboard() {
                         setEditProvSlug(cleanName);
                       }}
                       className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-mono font-bold rounded-lg border border-slate-700 transition-colors cursor-pointer"
-                      title="Usar nombre comercial como slug"
+                      title="Usar nombre comercial como clave"
                     >
                       <span>Usar Nombre</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const catPrefix = (editProvCategorias[0] || editingProv.categoria || "PRV").substring(0, 3).toLowerCase();
-                        const randomToken = `token_${catPrefix}_${Date.now().toString().slice(-6)}_${Math.random().toString(36).substring(2, 6)}`;
-                        setEditProvSlug(randomToken);
-                      }}
-                      className="px-2.5 py-1 bg-amber-500/25 hover:bg-amber-500/35 text-amber-200 border border-amber-500/50 text-[10px] font-mono font-black rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-sm"
-                      title="Generar un nuevo token criptográfico seguro"
-                    >
-                      <Key className="w-3 h-3 text-amber-400" />
-                      <span>Generar Token Seguro</span>
                     </button>
                   </div>
                 </div>
@@ -9835,20 +9895,21 @@ export default function AdminDashboard() {
                   const currentInputCode = editProvSlug.trim().toLowerCase();
                   const collidingProv = currentInputCode 
                     ? proveedores.find(p => p.id !== editingProv.id && (
+                        (p.claveAcceso && p.claveAcceso.trim().toLowerCase() === currentInputCode) ||
                         (p.slugAcceso && p.slugAcceso.trim().toLowerCase() === currentInputCode) ||
                         (p.tokenAcceso && p.tokenAcceso.trim().toLowerCase() === currentInputCode) ||
                         (p.codigo && p.codigo.trim().toLowerCase() === currentInputCode)
                       ))
                     : null;
-                  const isOriginalCode = currentInputCode === (editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo)?.toLowerCase();
-                  const directUrl = `${window.location.origin}/?token=${currentInputCode || editingProv.tokenAcceso}#proveedor`;
+                  const isOriginalCode = currentInputCode === (editingProv.claveAcceso || editingProv.slugAcceso || editingProv.tokenAcceso || editingProv.codigo)?.toLowerCase();
+                  const directUrl = `${window.location.origin}/?token=${currentInputCode || editingProv.claveAcceso || editingProv.tokenAcceso}#proveedor`;
 
                   return (
                     <div className="space-y-3">
                       <div className="space-y-1.5">
                         <div className="flex items-center justify-between gap-2 flex-wrap">
                           <label className="block text-[11px] font-mono uppercase text-slate-200 font-bold">
-                            Token o Clave de Acceso Asignada al Taller:
+                            Escribe la Clave de Acceso Manual *:
                           </label>
                           {collidingProv ? (
                             <span className="text-[10px] font-mono font-bold text-rose-400 bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-500/50 flex items-center gap-1">
@@ -9858,7 +9919,7 @@ export default function AdminDashboard() {
                           ) : currentInputCode ? (
                             <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-500/40 flex items-center gap-1">
                               <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              {isOriginalCode ? "Código actual de este taller" : "✓ Código único listo para guardar"}
+                              {isOriginalCode ? "Clave actual de este taller" : "✓ Clave lista para guardar"}
                             </span>
                           ) : null}
                         </div>
@@ -9869,7 +9930,7 @@ export default function AdminDashboard() {
                             required
                             value={editProvSlug}
                             onChange={(e) => setEditProvSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                            placeholder={`Ej: ${editingProv.codigo.toLowerCase()} o token_seguro_...`}
+                            placeholder={`Ej: ${editingProv.codigo.toLowerCase()} o prv-alm-102`}
                             className={`w-full bg-slate-950 border-2 rounded-xl px-4 py-2.5 text-sm font-mono font-bold focus:outline-none transition-all shadow-inner ${
                               collidingProv
                                 ? 'border-rose-500 text-rose-300 focus:border-rose-400 focus:ring-2 focus:ring-rose-500/40 bg-rose-950/20'
@@ -9881,14 +9942,14 @@ export default function AdminDashboard() {
                               type="button"
                               onClick={() => {
                                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                                  navigator.clipboard.writeText(editProvSlug || editingProv.tokenAcceso).then(() => {
-                                    setSaveStatus(`✓ Código copiado: ${editProvSlug || editingProv.tokenAcceso}`);
+                                  navigator.clipboard.writeText(editProvSlug || editingProv.claveAcceso || editingProv.tokenAcceso).then(() => {
+                                    setSaveStatus(`✓ Clave copiada: ${editProvSlug || editingProv.claveAcceso || editingProv.tokenAcceso}`);
                                     setTimeout(() => setSaveStatus(null), 3000);
                                   });
                                 }
                               }}
                               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white rounded-lg text-xs font-mono border border-slate-700 flex items-center gap-1 cursor-pointer font-bold transition-colors"
-                              title="Copiar token al portapapeles"
+                              title="Copiar clave al portapapeles"
                             >
                               <Copy className="w-3.5 h-3.5 text-amber-400" />
                               <span>Copiar</span>
@@ -9902,13 +9963,13 @@ export default function AdminDashboard() {
                             <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                             <div className="space-y-0.5">
                               <p className="font-bold font-mono text-rose-300 flex items-center gap-1.5">
-                                <span>¡Colisión de Código Detectada!</span>
+                                <span>¡Colisión de Clave Detectada!</span>
                               </p>
                               <p className="text-[11px] text-rose-200/90 font-sans leading-relaxed">
-                                El código <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentInputCode}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
+                                La clave <code className="bg-slate-900 px-1.5 py-0.5 rounded border border-rose-500/40 text-amber-300 font-mono font-bold">"{currentInputCode}"</code> ya pertenece al taller <strong className="text-white">"{collidingProv.nombreComercial}"</strong> (Código: <span className="font-mono text-amber-300">{collidingProv.codigo}</span>).
                               </p>
                               <p className="text-[10px] text-rose-300/80 font-mono pt-0.5">
-                                ➔ Modifica el texto o genera un nuevo token criptográfico para evitar cruces de órdenes.
+                                ➔ Modifica la clave para evitar cruces entre talleres.
                               </p>
                             </div>
                           </div>

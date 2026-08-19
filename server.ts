@@ -1627,12 +1627,15 @@ function getDefaultProveedoresServer() {
     {
       id: "prv_1",
       codigo: "PRV-ALM-001",
+      claveAcceso: "prv-alm-001",
       nombreComercial: "Talleres Gráficos & Troquelados del Valle",
       contactoNombre: "Carlos Mario Jaramillo",
       telefonoWhatsapp: "+57 312 456 7890",
       email: "produccion@troqueladosvalle.com",
       categoria: "Almanaques",
-      tokenAcceso: "token_almanaques_valle_9921a",
+      categorias: ["Almanaques", "Litografía Comercial", "Empaques & Cajas"],
+      tokenAcceso: "prv-alm-001",
+      slugAcceso: "prv-alm-001",
       activo: true,
       direccionTaller: "Calle 44 # 52-18, Sector Alpujarra, Medellín",
       municipio: "Medellín",
@@ -1650,12 +1653,15 @@ function getDefaultProveedoresServer() {
     {
       id: "prv_2",
       codigo: "PRV-TAL-002",
+      claveAcceso: "prv-tal-002",
       nombreComercial: "Litografía & Formas Continuas Antioquia",
       contactoNombre: "Marta Lucía Restrepo",
       telefonoWhatsapp: "+57 300 789 1234",
       email: "pedidos@formascontinuasantioquia.com",
       categoria: "Talonarios",
-      tokenAcceso: "token_talonarios_antioquia_7734b",
+      categorias: ["Talonarios", "Tarjetas", "Adhesivos"],
+      tokenAcceso: "prv-tal-002",
+      slugAcceso: "prv-tal-002",
       activo: true,
       direccionTaller: "Carrera 50 # 38-20, Guayabal, Medellín",
       municipio: "Medellín",
@@ -1673,13 +1679,15 @@ function getDefaultProveedoresServer() {
     {
       id: "prv_3",
       codigo: "PRV-BOR-003",
+      claveAcceso: "prv-bor-003",
       nombreComercial: "Bordados & Estampados Textiles del Sur",
       contactoNombre: "Jorge Iván Bedoya",
       telefonoWhatsapp: "+57 315 654 3210",
       email: "talleres@textilesdelsur.com",
       categoria: "Bordados",
-      tokenAcceso: "token_bordados_sur_1145c",
-      slugAcceso: "token_bordados_sur_1145c",
+      categorias: ["Bordados", "Estampados", "Gorras", "Souvenirs"],
+      tokenAcceso: "prv-bor-003",
+      slugAcceso: "prv-bor-003",
       activo: true,
       direccionTaller: "Calle 6 Sur # 43A-50, Itagüí, Antioquia",
       municipio: "Itagüí",
@@ -1697,6 +1705,7 @@ function getDefaultProveedoresServer() {
     {
       id: "prv_ser_102",
       codigo: "PRV-SER-102",
+      claveAcceso: "prv-ser-102",
       nombreComercial: "Servicios Gráficos, Litografía & Acabados Medellín",
       contactoNombre: "Mauricio Gómez / Producción",
       telefonoWhatsapp: "+57 310 987 6543",
@@ -1718,6 +1727,32 @@ function getDefaultProveedoresServer() {
       },
       notasInternas: "Taller integral de litografía, plastificado térmico mate/brillo, reserva UV y troquelados especiales.",
       createdAt: "2026-08-12"
+    },
+    {
+      id: "prv_alm_102",
+      codigo: "PRV-ALM-102",
+      claveAcceso: "prv-alm-102",
+      nombreComercial: "Almanaques & Calendarios de Colombia 2026",
+      contactoNombre: "Estivenson / Producción Almanaques",
+      telefonoWhatsapp: "+57 300 123 4567",
+      email: "almanaques102@atziluth.com",
+      categoria: "Almanaques",
+      categorias: ["Almanaques", "Litografía Comercial", "Empaques & Cajas"],
+      tokenAcceso: "prv-alm-102",
+      slugAcceso: "prv-alm-102",
+      activo: true,
+      direccionTaller: "Carrera 45 # 50-20, Centro / San Antonio, Medellín",
+      municipio: "Medellín",
+      datosBancarios: {
+        banco: "Bancolombia",
+        tipoCuenta: "Ahorros",
+        numeroCuenta: "770-001928-34",
+        titular: "Almanaques & Calendarios de Colombia S.A.S.",
+        documentoTitular: "NIT 901.884.221-9",
+        telefonoTransferencia: "+57 300 123 4567"
+      },
+      notasInternas: "Taller especializado en almanaques de pared, escritorio, tacos mensuales y repujados.",
+      createdAt: "2026-08-14"
     }
   ];
 }
@@ -1779,7 +1814,7 @@ app.get("/api/proveedores", (req, res) => {
 
 app.post("/api/proveedores", (req, res) => {
   try {
-    const { id, codigo, nombreComercial, contactoNombre, telefonoWhatsapp, email, categoria, categorias, tokenAcceso, slugAcceso, direccionTaller, municipio, datosBancarios, notasInternas, historialCodigosAcceso } = req.body;
+    const { id, codigo, claveAcceso, nombreComercial, contactoNombre, telefonoWhatsapp, email, categoria, categorias, tokenAcceso, slugAcceso, direccionTaller, municipio, datosBancarios, notasInternas, historialCodigosAcceso } = req.body;
     if (!nombreComercial) {
       return res.status(400).json({ success: false, error: "Nombre comercial es obligatorio." });
     }
@@ -1787,13 +1822,15 @@ app.post("/api/proveedores", (req, res) => {
     const proveedores = loadProveedoresServer();
     let updated: any;
 
-    const accessVal = (slugAcceso || tokenAcceso || codigo || "").trim().toLowerCase();
+    const keyVal = (claveAcceso || slugAcceso || tokenAcceso || codigo || "").trim();
+    const accessVal = keyVal.toLowerCase();
 
     if (id) {
       const idx = proveedores.findIndex((p: any) => p.id === id);
       if (idx !== -1) {
         proveedores[idx] = {
           ...proveedores[idx],
+          claveAcceso: keyVal || proveedores[idx].claveAcceso || proveedores[idx].codigo.toLowerCase(),
           nombreComercial,
           contactoNombre: contactoNombre || proveedores[idx].contactoNombre,
           telefonoWhatsapp: telefonoWhatsapp || proveedores[idx].telefonoWhatsapp,
@@ -1816,11 +1853,13 @@ app.post("/api/proveedores", (req, res) => {
     if (!updated) {
       const catCode = (categoria || "SER").substring(0, 3).toUpperCase();
       const codeStr = codigo || `PRV-${catCode}-${100 + proveedores.length + 1}`;
-      const token = accessVal || codeStr.toLowerCase();
+      const chosenKey = keyVal || codeStr.toLowerCase();
+      const token = chosenKey.toLowerCase();
 
       updated = {
         id: id || `prv_${Date.now()}`,
         codigo: codeStr,
+        claveAcceso: chosenKey,
         nombreComercial,
         contactoNombre: contactoNombre || "Contacto Taller",
         telefonoWhatsapp: telefonoWhatsapp || "+57 300 000 0000",
@@ -1853,7 +1892,37 @@ app.post("/api/proveedores", (req, res) => {
   }
 });
 
-// 2. API: Resolve Provider by Unique Token, Slug, or ID with Flexible Matching
+// Endpoint rápido para asignar o actualizar la clave de acceso de un taller
+app.post("/api/proveedores/clave", (req, res) => {
+  try {
+    const { proveedorId, nuevaClave } = req.body;
+    if (!proveedorId || !nuevaClave) {
+      return res.status(400).json({ success: false, error: "ID de proveedor y nueva clave son requeridos." });
+    }
+
+    const proveedores = loadProveedoresServer();
+    const idx = proveedores.findIndex((p: any) => p.id === proveedorId);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Proveedor no encontrado." });
+    }
+
+    const cleanKey = nuevaClave.trim();
+    const cleanLower = cleanKey.toLowerCase();
+    
+    proveedores[idx].claveAcceso = cleanKey;
+    proveedores[idx].tokenAcceso = cleanLower;
+    proveedores[idx].slugAcceso = cleanLower;
+    proveedores[idx].updatedAt = new Date().toISOString();
+
+    saveProveedoresServer(proveedores);
+    res.json({ success: true, proveedor: proveedores[idx], proveedores });
+  } catch (err: any) {
+    console.error("Error al actualizar clave de acceso:", err);
+    res.status(500).json({ success: false, error: "Error al actualizar clave de acceso." });
+  }
+});
+
+// 2. API: Resolve Provider by Unique Clave, Token, Slug, or ID with Flexible Matching
 app.get("/api/proveedores/:idOrToken", (req, res) => {
   const { idOrToken } = req.params;
   const proveedores = loadProveedoresServer();
@@ -1862,20 +1931,26 @@ app.get("/api/proveedores/:idOrToken", (req, res) => {
   const stripped = clean.replace(/[^a-z0-9]/g, "");
 
   const found = proveedores.find((p: any) => {
+    const clave = (p.claveAcceso || "").toLowerCase().trim();
     const t = (p.tokenAcceso || "").toLowerCase().trim();
     const s = (p.slugAcceso || "").toLowerCase().trim();
     const c = (p.codigo || "").toLowerCase().trim();
     const id = (p.id || "").toLowerCase().trim();
     const phone = (p.telefonoWhatsapp || "").replace(/\D/g, "");
 
-    if (t === clean || s === clean || c === clean || id === clean) return true;
-    if (stripped.length >= 3 && (t.replace(/[^a-z0-9]/g, "") === stripped || c.replace(/[^a-z0-9]/g, "") === stripped)) return true;
+    if (clave === clean || t === clean || s === clean || c === clean || id === clean) return true;
+    if (stripped.length >= 3 && (
+      clave.replace(/[^a-z0-9]/g, "") === stripped ||
+      t.replace(/[^a-z0-9]/g, "") === stripped || 
+      c.replace(/[^a-z0-9]/g, "") === stripped ||
+      s.replace(/[^a-z0-9]/g, "") === stripped
+    )) return true;
     if (cleanDigits.length >= 7 && phone && (phone.includes(cleanDigits) || cleanDigits.includes(phone))) return true;
     return false;
   });
 
   if (!found) {
-    return res.status(404).json({ success: false, error: "Oficina virtual de proveedor no encontrada o enlace inactivo." });
+    return res.status(404).json({ success: false, error: "Oficina virtual de proveedor no encontrada o clave inactiva." });
   }
 
   res.json({ success: true, proveedor: found });

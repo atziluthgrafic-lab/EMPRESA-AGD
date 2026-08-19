@@ -40,20 +40,21 @@ export interface HistorialCodigoAcceso {
 export interface ProveedorRecord {
   id: string;
   codigo: string; // Ej: PRV-ALM-001
+  claveAcceso?: string; // Clave manual asignada por el admin (ej: prv-alm-102)
   nombreComercial: string;
   contactoNombre: string;
   telefonoWhatsapp: string;
   email?: string;
   categoria?: string; // Compatibilidad legacy (primera categoría)
   categorias: string[]; // Varias categorías o líneas de producción asignadas al taller
-  tokenAcceso: string; // Token único o ID para oficina virtual
-  slugAcceso?: string; // Slug o dirección personalizada configurable por el admin (ej: taller-almohadas-medellin)
+  tokenAcceso: string; // Clave/Token único o ID para oficina virtual
+  slugAcceso?: string; // Dirección o clave personalizada configurable por el admin
   activo: boolean;
   datosBancarios: ProveedorBankDetails;
   direccionTaller?: string;
   municipio?: string;
   notasInternas?: string;
-  historialCodigosAcceso?: HistorialCodigoAcceso[]; // Historial de cambios de código de acceso
+  historialCodigosAcceso?: HistorialCodigoAcceso[]; // Historial de cambios de clave de acceso
   createdAt: string;
   updatedAt?: string;
 }
