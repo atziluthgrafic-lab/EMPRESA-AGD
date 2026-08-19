@@ -82,7 +82,13 @@ import {
   getStoredCategorias,
   saveStoredCategorias,
   INITIAL_COTIZACIONES,
-  fetchAndSyncProveedores
+  fetchAndSyncProveedores,
+  fetchAndSyncCotizaciones,
+  fetchAndSyncOrdenes,
+  fetchAndSyncPagos,
+  isQuotationBelongingToProvider,
+  isOrderBelongingToProvider,
+  isPaymentBelongingToProvider
 } from "../data/proveedoresData";
 import CustomerRegistrationForm from "./CustomerRegistrationForm";
 import CustomerList from "./CustomerList";
@@ -198,6 +204,10 @@ export interface OrderReceiptRecord {
   balance: number;
   paymentMethod: string;
   status: 'pendiente' | 'completado' | 'entregado';
+  proveedorId?: string;
+  proveedorNombre?: string;
+  proveedorCodigo?: string;
+  costoProveedor?: number;
   notes: string;
   createdAt: string;
 }
@@ -383,6 +393,24 @@ export default function AdminDashboard() {
     fetchAndSyncProveedores().then((synced) => {
       if (synced && synced.length > 0) {
         setProveedores(synced);
+      }
+    }).catch(() => {});
+
+    fetchAndSyncCotizaciones().then((synced) => {
+      if (synced && synced.length > 0) {
+        setProvCotizaciones(synced);
+      }
+    }).catch(() => {});
+
+    fetchAndSyncOrdenes().then((synced) => {
+      if (synced && synced.length > 0) {
+        setProvOrdenes(synced);
+      }
+    }).catch(() => {});
+
+    fetchAndSyncPagos().then((synced) => {
+      if (synced && synced.length > 0) {
+        setProvPagos(synced);
       }
     }).catch(() => {});
 
@@ -1856,6 +1884,8 @@ export default function AdminDashboard() {
   const [ordUnitPrice, setOrdUnitPrice] = useState<number>(4500);
   const [ordPaidAmount, setOrdPaidAmount] = useState<number>(200000);
   const [ordPaymentMethod, setOrdPaymentMethod] = useState("Transferencia Bancaria (Bancolombia/Nequi)");
+  const [ordProviderId, setOrdProviderId] = useState<string>("");
+  const [ordCostoProveedor, setOrdCostoProveedor] = useState<number>(0);
   const [ordNotes, setOrdNotes] = useState("");
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
 
@@ -1893,6 +1923,8 @@ export default function AdminDashboard() {
 
     const nextNumber = "PED-2026-" + String(orders.length + 1).padStart(3, "0");
 
+    const provAssigned = ordProviderId ? proveedores.find(p => p.id === ordProviderId || p.codigo === ordProviderId) : undefined;
+
     const newOrder: OrderReceiptRecord = {
       id: "ord_" + Date.now(),
       orderNumber: nextNumber,
@@ -1917,12 +1949,50 @@ export default function AdminDashboard() {
       balance: bal,
       paymentMethod: ordPaymentMethod,
       status: bal === 0 ? "completado" : "pendiente",
+      proveedorId: provAssigned ? provAssigned.id : undefined,
+      proveedorNombre: provAssigned ? provAssigned.nombreComercial : undefined,
+      proveedorCodigo: provAssigned ? provAssigned.codigo : undefined,
+      costoProveedor: Number(ordCostoProveedor) || 0,
       notes: ordNotes.trim() || (ordDocumentType === 'abono' ? `Abono de $${paid.toLocaleString("es-CO")} COP recibido. Saldo de $${bal.toLocaleString("es-CO")} COP contra entrega.` : 'Factura cancelada en su totalidad.'),
       createdAt: new Date().toISOString()
     };
 
     const updated = [newOrder, ...orders];
     setOrders(updated);
+
+    // If an external workshop / provider was selected, also create the production order for their virtual office
+    if (provAssigned) {
+      const newProvOrder: OrdenProduccion = {
+        id: `ord_prod_${Date.now()}`,
+        numeroOrden: nextNumber,
+        proveedorId: provAssigned.id,
+        clienteNombre: ordClientName.trim(),
+        descripcionTrabajo: ordProductDescription.trim(),
+        cantidad: qty,
+        categoria: ordProductCategory,
+        precioVentaCliente: total,
+        costoProveedor: Number(ordCostoProveedor) || 0,
+        estado: 'Pendiente',
+        fechaCreacion: new Date().toISOString(),
+        tipoEntrega: 'Recoger_Taller',
+        proveedorNombre: provAssigned.nombreComercial,
+        proveedorCodigo: provAssigned.codigo
+      } as any;
+
+      const updatedProvOrders = [newProvOrder, ...provOrdenes];
+      setProvOrdenes(updatedProvOrders);
+      saveStoredOrdenes(updatedProvOrders);
+
+      fetch('/api/proveedores/ordenes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newProvOrder)
+      }).catch(() => {});
+
+      window.dispatchEvent(new Event("atziluth_prov_data_change"));
+      setSaveStatus(`✓ Pedido ${nextNumber} registrado y orden enviada al taller ${provAssigned.nombreComercial}`);
+      setTimeout(() => setSaveStatus(null), 4000);
+    }
 
     // Auto open receipt / invoice preview
     setViewingReceiptOrder(newOrder);
@@ -1934,6 +2004,8 @@ export default function AdminDashboard() {
     setOrdClientPhone("");
     setOrdClientAddress("");
     setOrdProductDescription("");
+    setOrdProviderId("");
+    setOrdCostoProveedor(0);
     setOrdNotes("");
   };
 
@@ -5108,16 +5180,17 @@ export default function AdminDashboard() {
                 });
 
                 // 2. Filter list
+                const selectedProvObj = cotProviderFilter !== 'all' ? proveedores.find(p => p.id === cotProviderFilter || p.codigo === cotProviderFilter) : null;
                 let list = provCotizaciones.filter((cot) => {
                   const matchCat = cotCategoryFilter === 'all' || cot.categoria === cotCategoryFilter;
-                  const matchProv = cotProviderFilter === 'all' || cot.proveedorId === cotProviderFilter;
+                  const matchProv = cotProviderFilter === 'all' || (selectedProvObj ? isQuotationBelongingToProvider(cot, selectedProvObj) : (cot.proveedorId === cotProviderFilter || cot.proveedorCodigo === cotProviderFilter));
                   const matchDestacada = cotDecisionMode !== "destacadas" || cot.destacadaAdmin;
 
                   if (!matchCat || !matchProv || !matchDestacada) return false;
 
                   if (cotSearchTerm.trim()) {
                     const term = cotSearchTerm.toLowerCase();
-                    const prov = proveedores.find(p => p.id === cot.proveedorId);
+                    const prov = proveedores.find(p => isQuotationBelongingToProvider(cot, p));
                     const matchText = (
                       cot.tituloProducto?.toLowerCase().includes(term) ||
                       cot.categoria?.toLowerCase().includes(term) ||
@@ -5193,7 +5266,7 @@ export default function AdminDashboard() {
                       </thead>
                       <tbody className="divide-y divide-slate-800/80">
                         {list.map((cot) => {
-                          const prov = proveedores.find(p => p.id === cot.proveedorId);
+                          const prov = proveedores.find(p => isQuotationBelongingToProvider(cot, p));
                           const provNombre = prov ? prov.nombreComercial : (cot.proveedorNombre || "Taller Aliado");
                           const provCodigo = prov ? prov.codigo : (cot.proveedorCodigo || "PRV");
                           const provTelefono = prov ? prov.telefonoWhatsapp : cot.proveedorTelefono;
@@ -7779,6 +7852,7 @@ export default function AdminDashboard() {
 
           {/* VISTA 2: LISTADO Y RANKING DE COTIZACIONES (TODAS, SOLO MEJORES O DESTACADAS) */}
           {(() => {
+            const selectedProvObj = cotProviderFilter !== 'all' ? proveedores.find(p => p.id === cotProviderFilter || p.codigo === cotProviderFilter) : null;
             let list = provCotizaciones.filter((cot) => {
               const q = cotSearchTerm.toLowerCase();
               const matchSearch =
@@ -7791,7 +7865,7 @@ export default function AdminDashboard() {
                 (cot.descripcionDetallada && cot.descripcionDetallada.toLowerCase().includes(q));
 
               const matchCat = cotCategoryFilter === 'all' || cot.categoria === cotCategoryFilter;
-              const matchProv = cotProviderFilter === 'all' || cot.proveedorId === cotProviderFilter;
+              const matchProv = cotProviderFilter === 'all' || (selectedProvObj ? isQuotationBelongingToProvider(cot, selectedProvObj) : (cot.proveedorId === cotProviderFilter || cot.proveedorCodigo === cotProviderFilter));
               const matchDestacada = cotDecisionMode !== "destacadas" || cot.destacadaAdmin;
 
               return matchSearch && matchCat && matchProv && matchDestacada;
@@ -7885,7 +7959,7 @@ export default function AdminDashboard() {
                 <div className="grid grid-cols-1 gap-5">
                   {list.map((cot, index) => {
                     const isLowestOverall = cot.precioCostoTotal === lowestPrice && list.length > 1;
-                    const prov = proveedores.find(p => p.id === cot.proveedorId);
+                    const prov = proveedores.find(p => isQuotationBelongingToProvider(cot, p));
                     const isExpanded = expandedCotId === cot.id;
                     const unitCost = cot.precioCostoUnitario || (cot.cantidad > 0 ? Math.round(cot.precioCostoTotal / cot.cantidad) : cot.precioCostoTotal);
                     const words = cot.descripcionDetallada ? cot.descripcionDetallada.trim().split(/\s+/).filter(Boolean).length : 0;
@@ -8303,6 +8377,71 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* ASIGNACIÓN DE TALLER / PROVEEDOR ALIADO */}
+          <div className="pt-3 border-t border-slate-900 bg-amber-950/20 p-3.5 rounded-2xl border border-amber-500/30 space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <label className="text-xs font-mono uppercase text-amber-300 font-bold flex items-center gap-1.5">
+                <Building2 className="w-4 h-4 text-amber-400" />
+                <span>Asignar Orden a Taller / Proveedor Aliado (Gestión de Proveedores)</span>
+              </label>
+              <span className="text-[10px] font-mono text-slate-400">
+                La orden llegará inmediatamente a la Oficina Virtual del taller seleccionado
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-300 mb-1 font-bold">
+                  Seleccionar Taller / Proveedor Registrado:
+                </label>
+                <select
+                  value={ordProviderId}
+                  onChange={(e) => {
+                    const chosenId = e.target.value;
+                    setOrdProviderId(chosenId);
+                    if (chosenId) {
+                      const prov = proveedores.find(p => p.id === chosenId || p.codigo === chosenId);
+                      if (prov) {
+                        const matchingCot = provCotizaciones.find(c => isQuotationBelongingToProvider(c, prov) && c.categoria === ordProductCategory);
+                        if (matchingCot && matchingCot.precioCostoTotal > 0) {
+                          setOrdCostoProveedor(matchingCot.precioCostoTotal);
+                        }
+                      }
+                    }
+                  }}
+                  className="w-full bg-slate-900 border border-amber-500/40 rounded-xl px-3.5 py-2 text-xs text-amber-200 font-bold focus:outline-none focus:border-amber-400 cursor-pointer"
+                >
+                  <option value="">-- Sin asignar taller externo (Producción Interna Atziluth) --</option>
+                  {proveedores.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      🏭 {p.codigo} — {p.nombreComercial} ({p.municipio || "Medellín"}) [{p.categoria}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-300 mb-1 font-bold">
+                  Costo de Producción Cobrado por el Taller ($ COP):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000"
+                  value={ordCostoProveedor || ""}
+                  onChange={(e) => setOrdCostoProveedor(parseFloat(e.target.value) || 0)}
+                  placeholder="Ej: 250000"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-emerald-400 font-mono font-bold focus:outline-none focus:border-amber-400"
+                />
+              </div>
+            </div>
+            {ordProviderId && (
+              <p className="text-[10px] text-amber-300/80 font-mono flex items-center gap-1">
+                ✓ Al guardar este pedido, se creará automáticamente la Orden de Producción en el buzón del taller seleccionado.
+              </p>
+            )}
+          </div>
+
           {/* CANTIDAD, VALOR UNITARIO, ABONO, MÉTODO DE PAGO */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
@@ -8477,6 +8616,12 @@ export default function AdminDashboard() {
                           <span className="text-[10px] text-indigo-400 font-mono block">
                             {ord.quantity} un. x ${ord.unitPrice.toLocaleString("es-CO")} COP
                           </span>
+                          {(ord.proveedorNombre || ord.proveedorCodigo) && (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-500/10 border border-amber-500/30 rounded text-[9px] font-mono text-amber-300 mt-1 font-bold">
+                              🏭 {ord.proveedorCodigo ? `[${ord.proveedorCodigo}] ` : ''}{ord.proveedorNombre || 'Taller Asignado'}
+                              {ord.costoProveedor ? ` • Costo: $${ord.costoProveedor.toLocaleString("es-CO")}` : ''}
+                            </span>
+                          )}
                         </td>
 
                         <td className="px-4 py-3 text-right font-mono font-bold text-white">

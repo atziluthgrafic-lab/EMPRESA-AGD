@@ -1621,6 +1621,7 @@ app.post("/api/upload-file", allowUpload, handleUploadFileRequest);
 const PROVEEDORES_FILE = path.join(process.cwd(), "proveedores_data.json");
 const PROV_ORDENES_FILE = path.join(process.cwd(), "proveedores_ordenes.json");
 const PROV_PAGOS_FILE = path.join(process.cwd(), "proveedores_pagos.json");
+const PROV_COTIZACIONES_FILE = path.join(process.cwd(), "proveedores_cotizaciones.json");
 
 function getDefaultProveedoresServer() {
   return [
@@ -1962,6 +1963,126 @@ function loadProvPagosServer() {
 function saveProvPagosServer(data: any[]) {
   fs.writeFileSync(PROV_PAGOS_FILE, JSON.stringify(data, null, 2), "utf-8");
   const pub = path.join(process.cwd(), "public", "proveedores_pagos.json");
+  fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
+}
+
+function getDefaultProvCotizacionesServer() {
+  return [
+    {
+      id: "cot_tal_01",
+      proveedorId: "prv_2",
+      proveedorCodigo: "PRV-TAL-002",
+      proveedorNombre: "Litografía & Formas Continuas Antioquia",
+      proveedorTelefono: "+57 300 789 1234",
+      proveedorMunicipio: "Medellín",
+      tituloProducto: "100 Talonarios Media Carta (14x21.5cm) — Químico Autocopiante 2 Copias",
+      categoria: "Talonarios",
+      cantidad: 100,
+      unidadMedida: "Talonarios",
+      medidasFormato: "Media carta (14 x 21.5 cm)",
+      materialPapel: "Papel químico autocopiante 70g (Original blanco + 1 Copia rosada o amarilla). 50 juegos por talonario (100 hojas en total).",
+      tintasColores: "1x0 Tinta negra estándar o azul reflex",
+      terminaciones: "Numeración consecutiva en tinta roja tipográfica, perforado con prepicado para desprendimiento fácil, engrapado con 2 grapas de alambre y tapa en cartón Kraft 240g envolvente.",
+      tiempoEntregaDias: "2 a 3 días hábiles",
+      descripcionDetallada: "Cotización de producción litográfica para 100 talonarios tamaño media carta. Cada talonario contiene 50 juegos (Original en papel químico blanco de 70 gramos y 1 copia en papel químico autocopiante color a elección). Incluye diseño tipográfico base, numerado consecutivo en tinta roja de 6 dígitos sin costo extra, perforado longitudinal de máxima precisión, cosido o engrapado al lomo con refuerzo de cinta lito de encuadernación y cartón de respaldo con solapa protectora separadora.",
+      precioCostoTotal: 480000,
+      precioCostoUnitario: 4800,
+      fechaCreacion: "2026-08-15T10:00:00",
+      activo: true,
+      destacadaAdmin: true,
+      notasAdmin: "Excelente precio y acabado de numerado limpio. Opción prioritaria para pedidos medianos."
+    },
+    {
+      id: "cot_tal_02",
+      proveedorId: "prv_1",
+      proveedorCodigo: "PRV-ALM-001",
+      proveedorNombre: "Talleres Gráficos & Troquelados del Valle",
+      proveedorTelefono: "+57 312 456 7890",
+      proveedorMunicipio: "Medellín",
+      tituloProducto: "100 Talonarios Cuarto de Carta (10.7x14cm) — Químico Autocopiante 2 Copias",
+      categoria: "Talonarios",
+      cantidad: 100,
+      unidadMedida: "Talonarios",
+      medidasFormato: "Cuarto de carta (10.7 x 14 cm)",
+      materialPapel: "Papel químico 70g (Original blanco + 1 copia color). 50 juegos / 100 hojas por talonario.",
+      tintasColores: "1x0 Tinta negra",
+      terminaciones: "Numerado rojo consecutivo, prepicado de alta precisión, lomo engrapado con cinta protectora.",
+      tiempoEntregaDias: "3 días hábiles",
+      descripcionDetallada: "Oferta directa de taller para 100 talonarios cuarto de carta. Ideal para recibos de caja menor, comandas de restaurantes o comprobantes rápidos de entrega. Cada talonario incluye 50 juegos con papel químico de alta transferencia (blanco/amarillo).",
+      precioCostoTotal: 340000,
+      precioCostoUnitario: 3400,
+      fechaCreacion: "2026-08-16T11:30:00",
+      activo: true,
+      destacadaAdmin: true,
+      notasAdmin: "Tarifa muy competitiva para cuarto de carta."
+    },
+    {
+      id: "cot_alm_01",
+      proveedorId: "prv_1",
+      proveedorCodigo: "PRV-ALM-001",
+      proveedorNombre: "Talleres Gráficos & Troquelados del Valle",
+      proveedorTelefono: "+57 312 456 7890",
+      proveedorMunicipio: "Medellín",
+      tituloProducto: "500 Almanaques Modelo Gigante (33x50cm) con Ojillete y Taco Mensual",
+      categoria: "Almanaques",
+      cantidad: 500,
+      unidadMedida: "Unidades",
+      medidasFormato: "Respaldo 33 x 50 cm — Taco 33 x 15 cm",
+      materialPapel: "Cartón Duplex 320g plastificado brillante + Taco en papel Bond 75g de 12 hojas",
+      tintasColores: "Policromía 4x0 tintas en respaldo con barniz UV brillante",
+      terminaciones: "Ojillete metálico superior reforzado, taco mensual con festivos colombianos engrapado.",
+      tiempoEntregaDias: "4 a 5 días hábiles",
+      descripcionDetallada: "Cotización de temporada para 500 almanaques de pared tamaño gigante. Respaldo impreso en cartón duplex de 320 gramos con recubrimiento brillante UV total para máxima durabilidad y realce fotográfico.",
+      precioCostoTotal: 680000,
+      precioCostoUnitario: 1360,
+      fechaCreacion: "2026-08-14T09:00:00",
+      activo: true,
+      destacadaAdmin: true,
+      notasAdmin: "Calidad de ojillete y laca UV insuperable."
+    },
+    {
+      id: "cot_tar_01",
+      proveedorId: "prv_2",
+      proveedorCodigo: "PRV-TAL-002",
+      proveedorNombre: "Litografía & Formas Continuas Antioquia",
+      proveedorTelefono: "+57 300 789 1234",
+      proveedorMunicipio: "Medellín",
+      tituloProducto: "1000 Tarjetas de Presentación — Propalcote 300g Mate + Brillo UV Parcial 2 Caras",
+      categoria: "Tarjetas",
+      cantidad: 1000,
+      unidadMedida: "Unidades",
+      medidasFormato: "9 x 5.5 cm",
+      materialPapel: "Propalcote importado de 300 gramos calibre alto",
+      tintasColores: "Policromía 4x4 (Full color ambas caras)",
+      terminaciones: "Laminado mate aterciopelado en ambas caras + reserva de brillo parcial UV en logos.",
+      tiempoEntregaDias: "3 días hábiles",
+      descripcionDetallada: "Tarjetas premium de presentación corporativa por millar. Impresión offset de alta resolución a 2400 DPI en propalcote de 300 gramos.",
+      precioCostoTotal: 75000,
+      precioCostoUnitario: 75,
+      fechaCreacion: "2026-08-17T08:30:00",
+      activo: true,
+      destacadaAdmin: false
+    }
+  ];
+}
+
+function loadProvCotizacionesServer() {
+  try {
+    if (fs.existsSync(PROV_COTIZACIONES_FILE)) {
+      const data = JSON.parse(fs.readFileSync(PROV_COTIZACIONES_FILE, "utf-8"));
+      if (Array.isArray(data) && data.length > 0) return data;
+    }
+  } catch (e) {
+    console.error("Error reading proveedores_cotizaciones.json:", e);
+  }
+  const initial = getDefaultProvCotizacionesServer();
+  saveProvCotizacionesServer(initial);
+  return initial;
+}
+
+function saveProvCotizacionesServer(data: any[]) {
+  fs.writeFileSync(PROV_COTIZACIONES_FILE, JSON.stringify(data, null, 2), "utf-8");
+  const pub = path.join(process.cwd(), "public", "proveedores_cotizaciones.json");
   fs.writeFileSync(pub, JSON.stringify(data, null, 2), "utf-8");
 }
 
@@ -2365,6 +2486,120 @@ app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
   } catch (err: any) {
     console.error("Error al registrar pago a proveedor:", err);
     res.status(500).json({ success: false, error: "Error al registrar pago." });
+  }
+});
+
+// 7. API: Proveedor Cotizaciones y Tarifas (List, Create/Update, Delete)
+app.get("/api/proveedores/cotizaciones", (req, res) => {
+  const { proveedorId } = req.query;
+  let cotizaciones = loadProvCotizacionesServer();
+  if (proveedorId) {
+    const cleanP = String(proveedorId).trim().toLowerCase();
+    cotizaciones = cotizaciones.filter((c: any) => {
+      const pId = (c.proveedorId || "").toLowerCase();
+      const pCode = (c.proveedorCodigo || "").toLowerCase();
+      return pId === cleanP || pCode === cleanP || pId.includes(cleanP) || cleanP.includes(pId);
+    });
+  }
+  res.json({ success: true, cotizaciones });
+});
+
+app.post("/api/proveedores/cotizaciones", (req, res) => {
+  try {
+    const {
+      id,
+      proveedorId,
+      proveedorCodigo,
+      proveedorNombre,
+      proveedorTelefono,
+      proveedorMunicipio,
+      tituloProducto,
+      categoria,
+      cantidad,
+      unidadMedida,
+      medidasFormato,
+      materialPapel,
+      tintasColores,
+      terminaciones,
+      tiempoEntregaDias,
+      descripcionDetallada,
+      precioCostoTotal,
+      precioCostoUnitario,
+      activo,
+      destacadaAdmin,
+      notasAdmin
+    } = req.body;
+
+    if (!tituloProducto || !proveedorId) {
+      return res.status(400).json({ success: false, error: "Título descriptivo y taller/proveedor son obligatorios." });
+    }
+
+    const cotizaciones = loadProvCotizacionesServer();
+    const costTotalNum = Number(precioCostoTotal) || 0;
+    const qtyNum = Number(cantidad) || 1;
+    const unitPriceNum = Number(precioCostoUnitario) || (qtyNum > 0 ? Math.round(costTotalNum / qtyNum) : costTotalNum);
+
+    let updatedCot: any;
+    if (id) {
+      const idx = cotizaciones.findIndex((c: any) => c.id === id);
+      if (idx !== -1) {
+        cotizaciones[idx] = {
+          ...cotizaciones[idx],
+          ...req.body,
+          precioCostoTotal: costTotalNum,
+          precioCostoUnitario: unitPriceNum,
+          fechaActualizacion: new Date().toISOString()
+        };
+        updatedCot = cotizaciones[idx];
+      }
+    }
+
+    if (!updatedCot) {
+      updatedCot = {
+        id: id || `cot_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        proveedorId,
+        proveedorCodigo: proveedorCodigo || "",
+        proveedorNombre: proveedorNombre || "Taller Gráfico Registrado",
+        proveedorTelefono: proveedorTelefono || "",
+        proveedorMunicipio: proveedorMunicipio || "Medellín",
+        tituloProducto: tituloProducto.trim(),
+        categoria: categoria || "Servicios",
+        cantidad: qtyNum,
+        unidadMedida: unidadMedida || "Unidades",
+        medidasFormato: medidasFormato || "",
+        materialPapel: materialPapel || "",
+        tintasColores: tintasColores || "",
+        terminaciones: terminaciones || "",
+        tiempoEntregaDias: tiempoEntregaDias || "2 a 3 días hábiles",
+        descripcionDetallada: descripcionDetallada || "",
+        precioCostoTotal: costTotalNum,
+        precioCostoUnitario: unitPriceNum,
+        activo: activo !== false,
+        destacadaAdmin: !!destacadaAdmin,
+        notasAdmin: notasAdmin || "",
+        fechaCreacion: new Date().toISOString()
+      };
+      cotizaciones.unshift(updatedCot);
+    }
+
+    saveProvCotizacionesServer(cotizaciones);
+    res.json({ success: true, cotizacion: updatedCot, cotizaciones });
+  } catch (err: any) {
+    console.error("Error al guardar cotización de proveedor:", err);
+    res.status(500).json({ success: false, error: "Error al guardar cotización." });
+  }
+});
+
+app.delete("/api/proveedores/cotizaciones/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let cotizaciones = loadProvCotizacionesServer();
+    cotizaciones = cotizaciones.filter((c: any) => c.id !== id);
+    saveProvCotizacionesServer(cotizaciones);
+    res.json({ success: true, cotizaciones });
+  } catch (err: any) {
+    console.error("Error al eliminar cotización:", err);
+    res.status(500).json({ success: false, error: "Error al eliminar cotización." });
   }
 });
 // ==================== FIN MÓDULO PROVEEDORES ====================

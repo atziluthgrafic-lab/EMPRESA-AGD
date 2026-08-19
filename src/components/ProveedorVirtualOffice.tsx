@@ -66,8 +66,10 @@ import {
   fetchAndSyncProveedores,
   fetchAndSyncOrdenes,
   fetchAndSyncPagos,
+  fetchAndSyncCotizaciones,
   isOrderBelongingToProvider,
   isPaymentBelongingToProvider,
+  isQuotationBelongingToProvider,
   INITIAL_PROVEEDORES
 } from '../data/proveedoresData';
 
@@ -200,18 +202,20 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const handleSyncWorkshops = async () => {
     setIsSyncingWorkshops(true);
     try {
-      const [syncedProvs, syncedOrds, syncedPags] = await Promise.all([
+      const [syncedProvs, syncedOrds, syncedPags, syncedCots] = await Promise.all([
         fetchAndSyncProveedores(),
         fetchAndSyncOrdenes(),
-        fetchAndSyncPagos()
+        fetchAndSyncPagos(),
+        fetchAndSyncCotizaciones()
       ]);
       setAllRegisteredProveedores(syncedProvs);
+      setAllCotizaciones(syncedCots);
       if (currentProveedor) {
         setOrdenes(syncedOrds.filter((o) => isOrderBelongingToProvider(o, currentProveedor)));
         setPagos(syncedPags.filter((p) => isPaymentBelongingToProvider(p, currentProveedor)));
       }
       setNotificationBanner({
-        msg: `✓ Se sincronizaron ${syncedProvs.length} talleres y todas las órdenes de producción desde el servidor central.`,
+        msg: `✓ Se sincronizaron ${syncedProvs.length} talleres, cotizaciones y órdenes de producción desde el servidor central.`,
         type: 'success'
       });
       setTimeout(() => setNotificationBanner(null), 4000);
@@ -231,9 +235,12 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       const localProvs = getStoredProveedores();
       setAllRegisteredProveedores(localProvs);
 
-      // Also trigger initial sync of orders and payments
+      // Also trigger initial sync of orders, payments and cotizaciones
       fetchAndSyncOrdenes().catch(() => {});
       fetchAndSyncPagos().catch(() => {});
+      fetchAndSyncCotizaciones().then((syncedCots) => {
+        if (!isCancelled && syncedCots) setAllCotizaciones(syncedCots);
+      }).catch(() => {});
 
       // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
       let token = (initialTokenOrId || '').trim();
@@ -386,7 +393,7 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
   const providerPayments = pagos;
 
   const myCotizaciones = currentProveedor
-    ? allCotizaciones.filter(c => c.proveedorId === currentProveedor.id)
+    ? allCotizaciones.filter(c => isQuotationBelongingToProvider(c, currentProveedor))
     : [];
 
   const filteredMyCotizaciones = myCotizaciones.filter(c => {
@@ -654,6 +661,11 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     setAllCotizaciones(updated);
     window.dispatchEvent(new Event('storage'));
     window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+
+    fetch(`/api/proveedores/cotizaciones/${encodeURIComponent(id)}`, {
+      method: 'DELETE'
+    }).catch(() => {});
+
     setNotificationBanner({
       msg: 'Cotización eliminada correctamente.',
       type: 'info'
@@ -679,9 +691,10 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
 
     if (editingQuoteId) {
       // Update existing quote
+      let savedQuoteObj: CotizacionProveedor | null = null;
       const updated = currentList.map(c => {
         if (c.id === editingQuoteId) {
-          return {
+          const updatedObj = {
             ...c,
             tituloProducto: quoteForm.tituloProducto.trim(),
             categoria: quoteForm.categoria,
@@ -697,6 +710,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
             precioCostoUnitario: unitPrice,
             fechaActualizacion: new Date().toISOString()
           };
+          savedQuoteObj = updatedObj;
+          return updatedObj;
         }
         return c;
       });
@@ -704,6 +719,15 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       setAllCotizaciones(updated);
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+
+      if (savedQuoteObj) {
+        fetch('/api/proveedores/cotizaciones', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(savedQuoteObj)
+        }).catch(() => {});
+      }
+
       setNotificationBanner({
         msg: `✓ Cotización "${quoteForm.tituloProducto}" actualizada exitosamente. Ya está disponible en el panel del Administrador.`,
         type: 'success'
@@ -738,6 +762,13 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       setAllCotizaciones(updated);
       window.dispatchEvent(new Event('storage'));
       window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+
+      fetch('/api/proveedores/cotizaciones', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newQuote)
+      }).catch(() => {});
+
       setNotificationBanner({
         msg: `🎉 ¡Cotización "${newQuote.tituloProducto}" publicada! Aparecerá de inmediato en el comparador de precios de Atziluth Gráfic para asignarte órdenes.`,
         type: 'success'

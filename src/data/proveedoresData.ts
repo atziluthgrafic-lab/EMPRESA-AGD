@@ -818,14 +818,20 @@ export function isOrderBelongingToProvider(
   const pClave = (provider.claveAcceso || "").trim().toLowerCase();
   const pToken = (provider.tokenAcceso || "").trim().toLowerCase();
   const pSlug = (provider.slugAcceso || "").trim().toLowerCase();
+  const pName = (provider.nombreComercial || "").trim().toLowerCase();
 
   const oProvId = (order.proveedorId || "").trim().toLowerCase();
+  const oProvCode = ((order as any).proveedorCodigo || "").trim().toLowerCase();
+  const oProvName = ((order as any).proveedorNombre || "").trim().toLowerCase();
+
   if (
     oProvId === pId ||
     oProvId === pCode ||
     oProvId === pClave ||
     oProvId === pToken ||
-    oProvId === pSlug
+    oProvId === pSlug ||
+    (oProvCode && (oProvCode === pCode || oProvCode === pId || oProvCode === pClave)) ||
+    (oProvName && pName && (oProvName === pName || (pName.length > 5 && oProvName.includes(pName))))
   ) {
     return true;
   }
@@ -841,6 +847,16 @@ export function isOrderBelongingToProvider(
     (cleanO === cleanPId || cleanO === cleanPCode || cleanO === cleanPClave)
   ) {
     return true;
+  }
+
+  if (oProvCode) {
+    const cleanOCode = oProvCode.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    if (
+      cleanOCode.length >= 3 &&
+      (cleanOCode === cleanPId || cleanOCode === cleanPCode || cleanOCode === cleanPClave)
+    ) {
+      return true;
+    }
   }
 
   return false;
@@ -935,5 +951,84 @@ export async function fetchAndSyncPagos(): Promise<PagoProveedor[]> {
   }
   return getStoredPagos();
 }
+
+/**
+ * Valida de forma infalible si una cotización o tarifa le pertenece a un taller/proveedor
+ */
+export function isQuotationBelongingToProvider(
+  quotation: CotizacionProveedor,
+  provider: ProveedorRecord
+): boolean {
+  if (!quotation || !provider) return false;
+  const pId = (provider.id || "").trim().toLowerCase();
+  const pCode = (provider.codigo || "").trim().toLowerCase();
+  const pClave = (provider.claveAcceso || "").trim().toLowerCase();
+  const pToken = (provider.tokenAcceso || "").trim().toLowerCase();
+  const pSlug = (provider.slugAcceso || "").trim().toLowerCase();
+
+  const qProvId = (quotation.proveedorId || "").trim().toLowerCase();
+  const qProvCode = (quotation.proveedorCodigo || "").trim().toLowerCase();
+
+  if (
+    qProvId === pId ||
+    qProvId === pCode ||
+    qProvId === pClave ||
+    qProvId === pToken ||
+    qProvId === pSlug ||
+    qProvCode === pCode ||
+    qProvCode === pId ||
+    qProvCode === pClave
+  ) {
+    return true;
+  }
+
+  const cleanQ = qProvId.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const cleanQCode = qProvCode.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const cleanPId = pId.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const cleanPCode = pCode.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const cleanPClave = pClave.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+  if (
+    cleanQ.length >= 3 &&
+    (cleanQ === cleanPId || cleanQ === cleanPCode || cleanQ === cleanPClave)
+  ) {
+    return true;
+  }
+
+  if (
+    cleanQCode.length >= 3 &&
+    (cleanQCode === cleanPId || cleanQCode === cleanPCode || cleanQCode === cleanPClave)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Sincroniza las cotizaciones de los talleres desde el backend central con localStorage
+ */
+export async function fetchAndSyncCotizaciones(): Promise<CotizacionProveedor[]> {
+  try {
+    const local = getStoredCotizaciones();
+    const map = new Map<string, CotizacionProveedor>();
+    local.forEach((c) => map.set(c.id, c));
+
+    const res = await fetch("/api/proveedores/cotizaciones");
+    if (res.ok) {
+      const json = await res.json();
+      if (json && Array.isArray(json.cotizaciones) && json.cotizaciones.length > 0) {
+        json.cotizaciones.forEach((c: CotizacionProveedor) => map.set(c.id, c));
+        const merged = Array.from(map.values());
+        saveStoredCotizaciones(merged);
+        return merged;
+      }
+    }
+  } catch (e) {
+    console.warn("fetchAndSyncCotizaciones offline fallback:", e);
+  }
+  return getStoredCotizaciones();
+}
+
 
 
