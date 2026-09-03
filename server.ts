@@ -290,8 +290,9 @@ app.get("/api/admin/config", (req, res) => {
   res.json({ success: true, config });
 });
 
-// Path to dynamic almanaques data storage
+// Path to dynamic almanaques data storage and persistent image vault
 const ALMANAQUES_FILE = path.join(process.cwd(), "almanaques_data.json");
+const ALMANAQUES_VAULT_FILE = path.join(process.cwd(), "almanaques_images_vault.json");
 
 function getDefaultAlmanaquesData() {
   return {
@@ -310,23 +311,99 @@ function getDefaultAlmanaquesData() {
         ref: "ALM-101",
         categoryId: 1,
         name: "Almanaque de Escritorio PyME Premium",
-        description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes.",
+        description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia para anotaciones diarias.",
         finish: "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
         paper: "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
         price: 6500,
         imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+        gallery: [
+          "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+          "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80"
+        ],
+        inStock: true
+      },
+      {
+        id: "alm-102",
+        ref: "ALM-102",
+        categoryId: 1,
+        name: "Escritorio Ejecutivo Deluxe Foil",
+        description: "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual integrado.",
+        finish: "Estampado Foil Metalizado + Argollado Doble O Dorado",
+        paper: "Propalcote 300g Extra Blanco de Alta Rigidez",
+        price: 8200,
+        imageUrl: "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80",
         inStock: true
       },
       {
         id: "alm-201",
         ref: "ALM-201",
         categoryId: 2,
-        name: "Respaldo de Taco Litografiado Tamaño Grande",
-        description: "Respaldo publicitario en cartón grueso con ojete metálico para colgar en pared, diseñado para soportar tacos de calendario diario.",
-        finish: "Plastificado Brillante de Alta Protección + Ojete Metálico reforzado",
-        paper: "Maule C-18 de 300g con Respaldo Blanco",
+        name: "Respaldo de Taco Tradicional Santoral",
+        description: "Respaldo troquelado rígido con perforación superior reforzada para colgar en pared. Soporte ideal para bloques o tacos de santoral diario tradicional de 365 días.",
+        finish: "Plastificado brillante impermeable protector contra humedad",
+        paper: "Cartón Maule Importado 320g",
         price: 4200,
-        imageUrl: "https://images.unsplash.com/photo-1506784365847-bbad939e9335?auto=format&fit=crop&w=800&q=80",
+        imageUrl: "https://images.unsplash.com/photo-1513151233558-d860c5398176?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-202",
+        ref: "ALM-202",
+        categoryId: 2,
+        name: "Respaldo de Taco Gigante Comercial",
+        description: "Respaldo publicitario formato 35x50 cm con amplio espacio para encabezado de marca, teléfonos, dirección y red de distribución municipal.",
+        finish: "Laminado Térmico + Ojete de Ojalatado Metálico",
+        paper: "Cartulina Cemento 350g Ultra Resistente",
+        price: 5800,
+        imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-301",
+        ref: "ALM-301",
+        categoryId: 3,
+        name: "Anuario Clásico 1 Varilla HD",
+        description: "Almanaque de pared en una sola lámina formato 33x48 cm con ojete y varilla metálica en la parte superior. Impresión litográfica de paisajes y tradiciones de Antioquia.",
+        finish: "Varilla Metálica Antioxidante + Barniz UV Total",
+        paper: "Propalcote 200g Brillante",
+        price: 3500,
+        imageUrl: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-401",
+        ref: "ALM-401",
+        categoryId: 4,
+        name: "Almanaque Trimestral de Pared 3 Cuerpos",
+        description: "Almanaque corporativo de 3 cuerpos independientes unidos con resorte metálico. Permite visualizar mes anterior, mes actual y mes siguiente simultáneamente.",
+        finish: "Argollado Doble O Triple + Visor de Fecha Móvil Rojo",
+        paper: "Propalcote 240g Gloss",
+        price: 9800,
+        imageUrl: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-501",
+        ref: "ALM-501",
+        categoryId: 5,
+        name: "Calendario de Bolsillo Plastificado Doble Faz",
+        description: "Tarjetas tipo bolsillo formato 9x5.5 cm con esquinas redondeadas. Calendario anual al respaldo y diseño publicitario a todo color al frente.",
+        finish: "Plastificado Mate/Brillante + Despunte de Bordes (Redondeado)",
+        paper: "Propalcote 350g Alta Densidad",
+        price: 450,
+        imageUrl: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=800&q=80",
+        inStock: true
+      },
+      {
+        id: "alm-601",
+        ref: "ALM-601",
+        categoryId: 6,
+        name: "Imantado Publicitario para Nevera con Taco",
+        description: "Imán flexible 100% magnético en todo el respaldo con impresión full color en la carátula y micro taco calado de 12 meses desprendibles.",
+        finish: "Magneto Flexible Calibre 0.4mm + Plastificado Brillante",
+        paper: "Propalcote 300g sobre Respaldo Magnético",
+        price: 1200,
+        imageUrl: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&w=800&q=80",
         inStock: true
       }
     ],
@@ -334,21 +411,85 @@ function getDefaultAlmanaquesData() {
   };
 }
 
+function loadAlmanaquesVaultServer(): Record<string, string> {
+  try {
+    if (fs.existsSync(ALMANAQUES_VAULT_FILE)) {
+      const raw = fs.readFileSync(ALMANAQUES_VAULT_FILE, "utf-8");
+      return JSON.parse(raw) || {};
+    }
+  } catch (e) {
+    console.error("Error reading almanaques vault:", e);
+  }
+  return {};
+}
+
+function saveAlmanaquesVaultServer(vault: Record<string, string>) {
+  try {
+    fs.writeFileSync(ALMANAQUES_VAULT_FILE, JSON.stringify(vault, null, 2), "utf-8");
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      fs.writeFileSync(path.join(distPath, "almanaques_images_vault.json"), JSON.stringify(vault, null, 2), "utf-8");
+    }
+  } catch (e) {
+    console.error("Error saving almanaques vault:", e);
+  }
+}
+
 function loadAlmanaquesDataServer() {
+  const defaults = getDefaultAlmanaquesData();
+  const vault = loadAlmanaquesVaultServer();
+
   try {
     if (fs.existsSync(ALMANAQUES_FILE)) {
       const info = fs.readFileSync(ALMANAQUES_FILE, "utf-8");
       const parsed = JSON.parse(info);
       if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products)) {
-        return parsed;
+        // Ensure all default products exist in the returned array
+        const productMap = new Map<string, any>();
+        
+        // Start with defaults
+        defaults.products.forEach(p => {
+          productMap.set(p.ref, { ...p });
+        });
+
+        // Overlay with parsed products
+        parsed.products.forEach((p: any) => {
+          const key = p.ref || p.id;
+          const existing = productMap.get(key) || {};
+          productMap.set(key, { ...existing, ...p });
+        });
+
+        // Overlay with persistent image vault
+        for (const [key, img] of Object.entries(vault)) {
+          if (img && img.trim()) {
+            const prod = productMap.get(key);
+            if (prod) {
+              prod.imageUrl = img;
+            }
+          }
+        }
+
+        const mergedProducts = Array.from(productMap.values());
+        return {
+          ...defaults,
+          ...parsed,
+          products: mergedProducts
+        };
       }
     }
   } catch (err) {
     console.error("Error reading almanaques_data.json:", err);
   }
   
-  // Seed initial data if missing or corrupted
-  const initial = getDefaultAlmanaquesData();
+  // Seed initial data with full 8 products and vault
+  const initial = defaults;
+  for (const [key, img] of Object.entries(vault)) {
+    const prod = initial.products.find(p => p.ref === key || p.id === key);
+    if (prod && img) {
+      prod.imageUrl = img;
+    }
+  }
+
   try {
     saveAlmanaquesDataServer(initial);
   } catch (e) {
@@ -359,6 +500,19 @@ function loadAlmanaquesDataServer() {
 
 function saveAlmanaquesDataServer(data: any) {
   data.updatedAt = new Date().toISOString();
+  
+  // Extract and update persistent image vault
+  const vault = loadAlmanaquesVaultServer();
+  if (Array.isArray(data.products)) {
+    data.products.forEach((p: any) => {
+      const key = p.ref || p.id;
+      if (key && p.imageUrl && p.imageUrl.trim()) {
+        vault[key] = p.imageUrl;
+      }
+    });
+    saveAlmanaquesVaultServer(vault);
+  }
+
   const jsonStr = JSON.stringify(data, null, 2);
   
   // Save to root
@@ -392,6 +546,24 @@ app.post("/api/almanaques/data", allowUpload, (req, res) => {
   } catch (err: any) {
     console.error("Error saving almanaques data:", err);
     res.status(500).json({ success: false, error: "Error de servidor al guardar datos de almanaques." });
+  }
+});
+
+// Dedicated Image Vault endpoints
+app.get("/api/almanaques/vault", (req, res) => {
+  const vault = loadAlmanaquesVaultServer();
+  res.json({ success: true, vault });
+});
+
+app.post("/api/almanaques/vault", allowUpload, (req, res) => {
+  try {
+    const incoming = req.body || {};
+    const vault = loadAlmanaquesVaultServer();
+    const updated = { ...vault, ...incoming };
+    saveAlmanaquesVaultServer(updated);
+    res.json({ success: true, vault: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Error guardando bóveda de imágenes" });
   }
 });
 

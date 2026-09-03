@@ -56,7 +56,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
     window.addEventListener("storage", handleUpdate);
     window.addEventListener("focus", syncData);
 
-    const intervalId = setInterval(syncData, 12000);
+    const intervalId = setInterval(syncData, 60000);
 
     return () => {
       window.removeEventListener("almanaques-updated", handleUpdate);

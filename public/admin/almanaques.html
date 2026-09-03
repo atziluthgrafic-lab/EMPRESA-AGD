@@ -711,6 +711,64 @@
       updatedAt: new Date().toISOString()
     };
 
+    // Persistent Image Vault to guarantee uploaded images are NEVER lost
+    const IMAGE_VAULT_KEY = "atziluth_almanaques_images_vault";
+
+    function getImageVault() {
+      try {
+        const raw = localStorage.getItem(IMAGE_VAULT_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (e) {
+        return {};
+      }
+    }
+
+    function saveImageToVault(key, url) {
+      if (!key || !url) return;
+      try {
+        const vault = getImageVault();
+        vault[key] = url;
+        localStorage.setItem(IMAGE_VAULT_KEY, JSON.stringify(vault));
+        fetch("/api/almanaques/vault", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [key]: url })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    function applyImageVault(data) {
+      if (!data || !Array.isArray(data.products)) return data;
+      const vault = getImageVault();
+      data.products.forEach(p => {
+        const custom = vault[p.ref] || vault[p.id];
+        if (custom && custom.trim()) {
+          p.imageUrl = custom;
+        }
+      });
+      return data;
+    }
+
+    function mergeWithDefaults(data) {
+      const productMap = new Map();
+      DEFAULT_DATA.products.forEach(p => {
+        productMap.set(p.ref, { ...p });
+      });
+      if (data && Array.isArray(data.products)) {
+        data.products.forEach(p => {
+          const key = p.ref || p.id;
+          const existing = productMap.get(key) || {};
+          productMap.set(key, { ...existing, ...p });
+        });
+      }
+      return {
+        pdfUrl: (data && data.pdfUrl) || DEFAULT_DATA.pdfUrl,
+        categories: (data && data.categories && data.categories.length >= 6) ? data.categories : DEFAULT_DATA.categories,
+        products: Array.from(productMap.values()),
+        updatedAt: (data && data.updatedAt) || new Date().toISOString()
+      };
+    }
+
     // Global State
     let appData = loadData();
     let authToken = localStorage.getItem("atziluth_admin_token") || "";
@@ -719,24 +777,75 @@
     function loadData() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return DEFAULT_DATA;
+        if (!raw) return applyImageVault(DEFAULT_DATA);
         const parsed = JSON.parse(raw);
-        if (!parsed.categories || !parsed.products) return DEFAULT_DATA;
-        return parsed;
+        if (!parsed.categories || !parsed.products) return applyImageVault(DEFAULT_DATA);
+        const merged = mergeWithDefaults(parsed);
+        return applyImageVault(merged);
       } catch (e) {
-        return DEFAULT_DATA;
+        return applyImageVault(DEFAULT_DATA);
       }
     }
 
     async function syncWithServerOnBoot() {
       try {
+        // Also fetch server vault to restore any persistent server-saved images
+        try {
+          const vRes = await fetch("/api/almanaques/vault");
+          const vJson = await vRes.json();
+          if (vJson.success && vJson.vault) {
+            const localVault = getImageVault();
+            const mergedVault = { ...vJson.vault, ...localVault };
+            localStorage.setItem(IMAGE_VAULT_KEY, JSON.stringify(mergedVault));
+          }
+        } catch (_) {}
+
         const res = await fetch("/api/almanaques/data");
         const json = await res.json();
         
         if (json.success && json.data && Array.isArray(json.data.products)) {
-          appData = json.data;
+          const serverData = json.data;
+          const vault = getImageVault();
+          let hasLocalOverrides = false;
+
+          // Merge without losing any local custom images
+          const mergedProducts = serverData.products.map(sp => {
+            const localProd = appData.products.find(lp => lp.ref === sp.ref || lp.id === sp.id);
+            const vaultImg = vault[sp.ref] || vault[sp.id];
+
+            if (vaultImg && vaultImg.trim()) {
+              return { ...sp, imageUrl: vaultImg };
+            }
+
+            if (localProd && localProd.imageUrl && localProd.imageUrl !== sp.imageUrl) {
+              const isServerDefault = sp.imageUrl.includes("unsplash.com");
+              const isLocalCustom = !localProd.imageUrl.includes("unsplash.com") || localProd.imageUrl.startsWith("data:") || localProd.imageUrl.startsWith("/imagenes");
+              if (isLocalCustom || !isServerDefault) {
+                hasLocalOverrides = true;
+                saveImageToVault(sp.ref, localProd.imageUrl);
+                return { ...sp, imageUrl: localProd.imageUrl };
+              }
+            }
+            return sp;
+          });
+
+          const merged = mergeWithDefaults({
+            ...serverData,
+            products: mergedProducts
+          });
+
+          appData = applyImageVault(merged);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
           renderAll();
+
+          // Sync back to server if we preserved local custom images
+          if (hasLocalOverrides) {
+            fetch("/api/almanaques/data", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(appData)
+            }).catch(() => {});
+          }
         }
       } catch (e) {
         console.error("Error sincronizando almanaques con servidor:", e);
@@ -746,6 +855,19 @@
     async function saveData() {
       try {
         appData.updatedAt = new Date().toISOString();
+        
+        // Register all product images in vault
+        if (Array.isArray(appData.products)) {
+          appData.products.forEach(p => {
+            if (p.imageUrl && p.imageUrl.trim()) {
+              saveImageToVault(p.ref, p.imageUrl);
+              if (p.id) saveImageToVault(p.id, p.imageUrl);
+            }
+          });
+        }
+
+        const merged = mergeWithDefaults(appData);
+        appData = applyImageVault(merged);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         
         // Sync to server so all devices see changes
@@ -764,7 +886,7 @@
         } catch (_) {}
         
         if (res.ok) {
-          showToast("Sincronizado en Servidor", "Los datos de almanaques 2026 se actualizaron y están visibles en todos los dispositivos.");
+          showToast("Sincronizado en Servidor", "Los datos e imágenes de almanaques están guardados y visibles en todos los dispositivos.");
         } else {
           showToast("Guardado Local", "Guardado localmente. Revisa la conexión al servidor.");
         }
@@ -1035,6 +1157,11 @@
       const price = Number(document.getElementById("form-product-price").value);
       const imageUrl = document.getElementById("form-product-image").value.trim();
 
+      if (imageUrl) {
+        saveImageToVault(ref, imageUrl);
+        if (id) saveImageToVault(id, imageUrl);
+      }
+
       if (id) {
         // Edit
         appData.products = appData.products.map(p => p.id === id ? {
@@ -1062,7 +1189,7 @@
       renderProducts();
     });
 
-    // Image file upload inside modal
+    // Image file upload inside modal with instant visual feedback & vault backup
     const modalDropzone = document.getElementById("product-modal-dropzone");
     const modalFileInput = document.getElementById("modal-file-input");
     modalDropzone.addEventListener("click", () => modalFileInput.click());
@@ -1072,6 +1199,20 @@
 
       const reader = new FileReader();
       reader.onload = async () => {
+        const base64Data = reader.result;
+        const currentRef = document.getElementById("form-product-ref").value.trim();
+        const currentId = document.getElementById("form-product-id").value;
+
+        // Provide immediate visual preview
+        modalDropzone.innerHTML = `
+          <div class="relative w-full h-36 rounded-lg overflow-hidden border border-brand-orange/40 group">
+            <img src="${base64Data}" class="w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
+            </div>
+          </div>
+        `;
+
         try {
           const res = await fetch("/api/admin/upload-image", {
             method: "POST",
@@ -1079,17 +1220,26 @@
               "Content-Type": "application/json",
               "Authorization": `Bearer ${authToken}`
             },
-            body: JSON.stringify({ fileName: file.name, base64Data: reader.result })
+            body: JSON.stringify({ fileName: file.name, base64Data })
           });
           const data = await res.json();
+          const finalUrl = (res.ok && data.url) ? data.url : base64Data;
+          document.getElementById("form-product-image").value = finalUrl;
+          
+          if (currentRef) saveImageToVault(currentRef, finalUrl);
+          if (currentId) saveImageToVault(currentId, finalUrl);
+
           if (res.ok && data.url) {
-            document.getElementById("form-product-image").value = data.url;
-            showToast("Imagen Cargada", "La imagen se subió exitosamente.");
+            showToast("Imagen Cargada", "La imagen se guardó y sincronizó exitosamente.");
           } else {
-            showToast("Error", data.error || "Fallo al subir la imagen", "error");
+            showToast("Imagen Conservada", "Imagen preservada en memoria local y lista para guardar.");
           }
         } catch (err) {
-          showToast("Error de red", "Fallo al conectar con el servidor", "error");
+          // Fallback to base64 so user's image is 100% saved
+          document.getElementById("form-product-image").value = base64Data;
+          if (currentRef) saveImageToVault(currentRef, base64Data);
+          if (currentId) saveImageToVault(currentId, base64Data);
+          showToast("Imagen Guardada Localmente", "Tu imagen se conservó correctamente.");
         }
       };
       reader.readAsDataURL(file);
