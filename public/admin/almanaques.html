@@ -567,10 +567,17 @@
           </div>
         </div>
 
-        <div>
-          <label class="block font-mono text-slate-400 uppercase mb-1">Precio Unitario Base (COP) *</label>
-          <input type="number" id="form-product-price" placeholder="Ej: 6500" required min="0" step="10"
-            class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono font-bold focus:border-brand-orange">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block font-mono text-slate-400 uppercase mb-1">Precio Unitario Base (COP) *</label>
+            <input type="number" id="form-product-price" placeholder="Ej: 6500" required min="0" step="10"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono font-bold focus:border-brand-orange">
+          </div>
+          <div>
+            <label class="block font-mono text-slate-400 uppercase mb-1">Secuencia / Posición en Catálogo</label>
+            <input type="number" id="form-product-order" min="1" step="1" placeholder="Ej: 1 (Primero)"
+              class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 font-mono focus:border-brand-orange">
+          </div>
         </div>
 
         <div>
@@ -737,6 +744,20 @@
       } catch (e) {}
     }
 
+    function removeImageFromVault(key) {
+      if (!key) return;
+      try {
+        const vault = getImageVault();
+        delete vault[key];
+        localStorage.setItem(IMAGE_VAULT_KEY, JSON.stringify(vault));
+        fetch("/api/almanaques/vault", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
     function applyImageVault(data) {
       if (!data || !Array.isArray(data.products)) return data;
       const vault = getImageVault();
@@ -749,22 +770,12 @@
       return data;
     }
 
-    function mergeWithDefaults(data) {
-      const productMap = new Map();
-      DEFAULT_DATA.products.forEach(p => {
-        productMap.set(p.ref, { ...p });
-      });
-      if (data && Array.isArray(data.products)) {
-        data.products.forEach(p => {
-          const key = p.ref || p.id;
-          const existing = productMap.get(key) || {};
-          productMap.set(key, { ...existing, ...p });
-        });
-      }
+    function sanitizeData(data) {
+      if (!data) return DEFAULT_DATA;
       return {
         pdfUrl: (data && data.pdfUrl) || DEFAULT_DATA.pdfUrl,
-        categories: (data && data.categories && data.categories.length >= 6) ? data.categories : DEFAULT_DATA.categories,
-        products: Array.from(productMap.values()),
+        categories: (data && Array.isArray(data.categories) && data.categories.length >= 6) ? data.categories : DEFAULT_DATA.categories,
+        products: (data && Array.isArray(data.products) && data.products.length > 0) ? data.products : DEFAULT_DATA.products,
         updatedAt: (data && data.updatedAt) || new Date().toISOString()
       };
     }
@@ -779,9 +790,8 @@
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return applyImageVault(DEFAULT_DATA);
         const parsed = JSON.parse(raw);
-        if (!parsed.categories || !parsed.products) return applyImageVault(DEFAULT_DATA);
-        const merged = mergeWithDefaults(parsed);
-        return applyImageVault(merged);
+        if (!parsed.categories || !Array.isArray(parsed.products)) return applyImageVault(DEFAULT_DATA);
+        return applyImageVault(sanitizeData(parsed));
       } catch (e) {
         return applyImageVault(DEFAULT_DATA);
       }
@@ -806,46 +816,23 @@
         if (json.success && json.data && Array.isArray(json.data.products)) {
           const serverData = json.data;
           const vault = getImageVault();
-          let hasLocalOverrides = false;
 
-          // Merge without losing any local custom images
-          const mergedProducts = serverData.products.map(sp => {
-            const localProd = appData.products.find(lp => lp.ref === sp.ref || lp.id === sp.id);
+          // Apply vault images strictly to the server's ordered product list
+          const updatedProducts = serverData.products.map(sp => {
             const vaultImg = vault[sp.ref] || vault[sp.id];
-
             if (vaultImg && vaultImg.trim()) {
               return { ...sp, imageUrl: vaultImg };
-            }
-
-            if (localProd && localProd.imageUrl && localProd.imageUrl !== sp.imageUrl) {
-              const isServerDefault = sp.imageUrl.includes("unsplash.com");
-              const isLocalCustom = !localProd.imageUrl.includes("unsplash.com") || localProd.imageUrl.startsWith("data:") || localProd.imageUrl.startsWith("/imagenes");
-              if (isLocalCustom || !isServerDefault) {
-                hasLocalOverrides = true;
-                saveImageToVault(sp.ref, localProd.imageUrl);
-                return { ...sp, imageUrl: localProd.imageUrl };
-              }
             }
             return sp;
           });
 
-          const merged = mergeWithDefaults({
+          appData = {
             ...serverData,
-            products: mergedProducts
-          });
+            products: updatedProducts
+          };
 
-          appData = applyImageVault(merged);
           localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
           renderAll();
-
-          // Sync back to server if we preserved local custom images
-          if (hasLocalOverrides) {
-            fetch("/api/almanaques/data", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(appData)
-            }).catch(() => {});
-          }
         }
       } catch (e) {
         console.error("Error sincronizando almanaques con servidor:", e);
@@ -856,7 +843,7 @@
       try {
         appData.updatedAt = new Date().toISOString();
         
-        // Register all product images in vault
+        // Register all active product images in vault
         if (Array.isArray(appData.products)) {
           appData.products.forEach(p => {
             if (p.imageUrl && p.imageUrl.trim()) {
@@ -866,8 +853,8 @@
           });
         }
 
-        const merged = mergeWithDefaults(appData);
-        appData = applyImageVault(merged);
+        const sanitized = sanitizeData(appData);
+        appData = applyImageVault(sanitized);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
         
         // Sync to server so all devices see changes
@@ -886,7 +873,7 @@
         } catch (_) {}
         
         if (res.ok) {
-          showToast("Sincronizado en Servidor", "Los datos e imágenes de almanaques están guardados y visibles en todos los dispositivos.");
+          showToast("Guardado con Éxito", "Los cambios y el orden de almanaques se sincronizaron en el servidor.");
         } else {
           showToast("Guardado Local", "Guardado localmente. Revisa la conexión al servidor.");
         }
@@ -1040,16 +1027,25 @@
 
       container.innerHTML = filtered.map(p => {
         const category = appData.categories.find(c => c.id === p.categoryId) || { name: "Almanaque" };
+        const realIdx = appData.products.findIndex(item => item.id === p.id || (item.ref && item.ref === p.ref));
+        const canMoveUp = realIdx > 0;
+        const canMoveDown = realIdx !== -1 && realIdx < appData.products.length - 1;
+
         return `
-          <div class="bg-brand-darkCard border border-slate-800 rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between group">
+          <div class="bg-brand-darkCard border border-slate-800 rounded-2xl overflow-hidden shadow-lg flex flex-col justify-between group hover:border-slate-700 transition-colors">
             <div class="relative h-44 bg-slate-950 overflow-hidden">
               <img src="${p.imageUrl}" alt="${p.name}" class="w-full h-full object-cover">
               <div class="absolute top-3 left-3 flex flex-col gap-1">
-                <span class="px-2.5 py-1 bg-slate-900/90 text-white font-mono text-[10px] font-extrabold rounded-md border border-slate-700">
+                <span class="px-2.5 py-1 bg-slate-900/90 text-white font-mono text-[10px] font-extrabold rounded-md border border-slate-700 shadow">
                   REF: ${p.ref}
                 </span>
-                <span class="px-2 py-0.5 bg-brand-orange/90 text-white font-mono text-[9px] font-bold rounded">
+                <span class="px-2 py-0.5 bg-brand-orange/90 text-white font-mono text-[9px] font-bold rounded shadow">
                   Cat. #${p.categoryId}
+                </span>
+              </div>
+              <div class="absolute top-3 right-3">
+                <span class="px-2.5 py-1 bg-slate-950/80 backdrop-blur text-brand-orange font-mono text-[11px] font-bold rounded-lg border border-brand-orange/30 shadow">
+                  #${realIdx + 1}
                 </span>
               </div>
             </div>
@@ -1070,13 +1066,23 @@
               </div>
             </div>
 
-            <div class="p-4 bg-slate-950/50 border-t border-slate-800 flex items-center justify-between">
+            <div class="p-4 bg-slate-950/50 border-t border-slate-800 flex items-center justify-between gap-2">
               <span class="font-mono font-bold text-base text-brand-orange">${formatCOP(p.price)}</span>
-              <div class="flex items-center gap-2">
-                <button onclick="editProduct('${p.id}')" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 cursor-pointer">
+              
+              <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800 mr-1">
+                  <button onclick="moveProductUp(${realIdx})" ${!canMoveUp ? 'disabled class="opacity-25 p-1 text-slate-600 rounded cursor-not-allowed"' : 'class="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded cursor-pointer transition-colors"'} title="Subir en orden">
+                    <i data-lucide="chevron-up" class="w-4 h-4 text-brand-orange"></i>
+                  </button>
+                  <button onclick="moveProductDown(${realIdx})" ${!canMoveDown ? 'disabled class="opacity-25 p-1 text-slate-600 rounded cursor-not-allowed"' : 'class="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded cursor-pointer transition-colors"'} title="Bajar en orden">
+                    <i data-lucide="chevron-down" class="w-4 h-4 text-brand-orange"></i>
+                  </button>
+                </div>
+
+                <button onclick="editProduct('${p.id}')" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 cursor-pointer transition-colors" title="Editar referencia">
                   <i data-lucide="edit" class="w-4 h-4 text-brand-cyan"></i>
                 </button>
-                <button onclick="deleteProduct('${p.id}')" class="p-2 bg-slate-900 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 cursor-pointer">
+                <button onclick="deleteProduct('${p.id}')" class="p-2 bg-slate-900 hover:bg-rose-950/60 text-slate-200 hover:text-rose-400 rounded-lg border border-slate-700 hover:border-rose-700/50 cursor-pointer transition-colors" title="Eliminar referencia">
                   <i data-lucide="trash-2" class="w-4 h-4 text-rose-400"></i>
                 </button>
               </div>
@@ -1091,6 +1097,26 @@
     document.getElementById("product-search").addEventListener("input", renderProducts);
     document.getElementById("product-filter-cat").addEventListener("change", renderProducts);
 
+    window.moveProductUp = function(index) {
+      if (index <= 0 || index >= appData.products.length) return;
+      const temp = appData.products[index];
+      appData.products[index] = appData.products[index - 1];
+      appData.products[index - 1] = temp;
+      saveData();
+      renderProducts();
+      showToast("Secuencia Actualizada", `Referencia ${temp.ref} movida a la posición #${index}.`);
+    };
+
+    window.moveProductDown = function(index) {
+      if (index < 0 || index >= appData.products.length - 1) return;
+      const temp = appData.products[index];
+      appData.products[index] = appData.products[index + 1];
+      appData.products[index + 1] = temp;
+      saveData();
+      renderProducts();
+      showToast("Secuencia Actualizada", `Referencia ${temp.ref} movida a la posición #${index + 2}.`);
+    };
+
     // Create / Edit Modal logic
     const modal = document.getElementById("product-modal");
     document.getElementById("open-create-modal-btn").addEventListener("click", () => {
@@ -1103,6 +1129,20 @@
       document.getElementById("form-product-paper").value = "";
       document.getElementById("form-product-price").value = "5000";
       document.getElementById("form-product-image").value = "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80";
+
+      const orderInput = document.getElementById("form-product-order");
+      if (orderInput) {
+        orderInput.value = appData.products.length + 1;
+        orderInput.max = appData.products.length + 1;
+      }
+
+      const dropzone = document.getElementById("product-modal-dropzone");
+      if (dropzone) {
+        dropzone.innerHTML = `
+          <input type="file" id="modal-file-input" class="hidden" accept="image/*">
+          <span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>
+        `;
+      }
 
       populateCatSelect();
       modal.classList.remove("hidden");
@@ -1117,8 +1157,10 @@
     }
 
     window.editProduct = function(id) {
-      const p = appData.products.find(item => item.id === id);
+      const p = appData.products.find(item => item.id === id || item.ref === id);
       if (!p) return;
+
+      const currentIdx = appData.products.findIndex(item => item.id === id || item.ref === id);
 
       document.getElementById("modal-title").textContent = `Editar Referencia: ${p.ref}`;
       document.getElementById("form-product-id").value = p.id;
@@ -1130,17 +1172,38 @@
       document.getElementById("form-product-price").value = p.price;
       document.getElementById("form-product-image").value = p.imageUrl;
 
+      const orderInput = document.getElementById("form-product-order");
+      if (orderInput) {
+        orderInput.value = currentIdx + 1;
+        orderInput.max = appData.products.length;
+      }
+
+      const dropzone = document.getElementById("product-modal-dropzone");
+      if (dropzone && p.imageUrl) {
+        dropzone.innerHTML = `
+          <div class="relative w-full h-32 rounded-lg overflow-hidden border border-slate-700 group">
+            <img src="${p.imageUrl}" class="w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+              <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
+            </div>
+          </div>
+        `;
+      }
+
       populateCatSelect(p.categoryId);
       modal.classList.remove("hidden");
     };
 
     window.deleteProduct = function(id) {
-      const p = appData.products.find(item => item.id === id);
+      const p = appData.products.find(item => item.id === id || item.ref === id);
       if (!p) return;
-      if (confirm(`¿Estás seguro de eliminar la referencia ${p.ref} - ${p.name}?`)) {
-        appData.products = appData.products.filter(item => item.id !== id);
+      if (confirm(`¿Estás seguro de eliminar la referencia ${p.ref} - ${p.name} permanentemente?`)) {
+        appData.products = appData.products.filter(item => item.id !== id && item.ref !== id && item.id !== p.id && item.ref !== p.ref);
+        if (p.ref) removeImageFromVault(p.ref);
+        if (p.id) removeImageFromVault(p.id);
         saveData();
         renderProducts();
+        showToast("Referencia Eliminada", `Se ha eliminado ${p.ref} permanentemente.`);
       }
     };
 
@@ -1156,6 +1219,7 @@
       const paper = document.getElementById("form-product-paper").value.trim();
       const price = Number(document.getElementById("form-product-price").value);
       const imageUrl = document.getElementById("form-product-image").value.trim();
+      const orderVal = document.getElementById("form-product-order") ? parseInt(document.getElementById("form-product-order").value, 10) : NaN;
 
       if (imageUrl) {
         saveImageToVault(ref, imageUrl);
@@ -1164,9 +1228,27 @@
 
       if (id) {
         // Edit
-        appData.products = appData.products.map(p => p.id === id ? {
-          ...p, ref, categoryId: catId, name, description: desc, finish, paper, price, imageUrl
-        } : p);
+        const prodIdx = appData.products.findIndex(p => p.id === id || p.ref === id);
+        if (prodIdx !== -1) {
+          appData.products[prodIdx] = {
+            ...appData.products[prodIdx],
+            ref,
+            categoryId: catId,
+            name,
+            description: desc,
+            finish,
+            paper,
+            price,
+            imageUrl: imageUrl || appData.products[prodIdx].imageUrl
+          };
+
+          // Reorder if user changed sequence position
+          if (!isNaN(orderVal) && orderVal >= 1 && orderVal <= appData.products.length && orderVal !== prodIdx + 1) {
+            const [moved] = appData.products.splice(prodIdx, 1);
+            appData.products.splice(orderVal - 1, 0, moved);
+          }
+        }
+        showToast("Referencia Actualizada", `Cambios en ${ref} guardados correctamente.`);
       } else {
         // Create
         const newProd = {
@@ -1181,7 +1263,13 @@
           imageUrl: imageUrl || "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
           inStock: true
         };
-        appData.products.push(newProd);
+
+        if (!isNaN(orderVal) && orderVal >= 1 && orderVal <= appData.products.length + 1) {
+          appData.products.splice(orderVal - 1, 0, newProd);
+        } else {
+          appData.products.push(newProd);
+        }
+        showToast("Referencia Creada", `Nueva referencia ${ref} agregada al catálogo.`);
       }
 
       saveData();

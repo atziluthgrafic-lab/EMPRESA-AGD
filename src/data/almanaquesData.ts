@@ -171,6 +171,22 @@ export function saveImageToVault(idOrRef: string, imageUrl: string): void {
   }
 }
 
+export function removeImageFromVault(idOrRef: string): void {
+  if (!idOrRef) return;
+  try {
+    const vault = getImageVault();
+    delete vault[idOrRef];
+    localStorage.setItem(IMAGE_VAULT_KEY, JSON.stringify(vault));
+    fetch("/api/almanaques/vault", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ key: idOrRef })
+    }).catch(() => {});
+  } catch (e) {
+    console.warn("Error removing image from vault:", e);
+  }
+}
+
 export function applyImageVault(data: AlmanaquesData): AlmanaquesData {
   const vault = getImageVault();
   if (!vault || Object.keys(vault).length === 0) return data;
@@ -186,32 +202,20 @@ export function applyImageVault(data: AlmanaquesData): AlmanaquesData {
   return { ...data, products: updatedProducts };
 }
 
-function mergeWithDefaults(data: AlmanaquesData): AlmanaquesData {
-  const productMap = new Map<string, ProductReference>();
-  
-  // Start with all 8 default products
-  DEFAULT_ALMANAQUES_DATA.products.forEach(p => {
-    productMap.set(p.ref, { ...p });
-  });
-
-  // Overlay with data products
-  if (Array.isArray(data.products)) {
-    data.products.forEach(p => {
-      const key = p.ref || p.id;
-      const existing = productMap.get(key) || {};
-      productMap.set(key, { ...existing, ...p });
-    });
-  }
-
-  // Ensure categories are complete
+function sanitizeAlmanaquesData(data: AlmanaquesData): AlmanaquesData {
   const categories = data.categories && data.categories.length >= 6
     ? data.categories
     : DEFAULT_ALMANAQUES_DATA.categories;
 
+  // STRICTLY preserve user's products array and order! Do not re-inject deleted products.
+  const products = Array.isArray(data.products) && data.products.length > 0
+    ? data.products
+    : DEFAULT_ALMANAQUES_DATA.products;
+
   return {
     pdfUrl: data.pdfUrl || DEFAULT_ALMANAQUES_DATA.pdfUrl,
     categories,
-    products: Array.from(productMap.values()),
+    products,
     updatedAt: data.updatedAt || new Date().toISOString()
   };
 }
@@ -223,11 +227,11 @@ export function getAlmanaquesData(): AlmanaquesData {
       return applyImageVault(DEFAULT_ALMANAQUES_DATA);
     }
     const parsed = JSON.parse(raw);
-    if (!parsed.categories || !parsed.products) {
+    if (!parsed.categories || !Array.isArray(parsed.products)) {
       return applyImageVault(DEFAULT_ALMANAQUES_DATA);
     }
-    const merged = mergeWithDefaults(parsed);
-    return applyImageVault(merged);
+    const sanitized = sanitizeAlmanaquesData(parsed);
+    return applyImageVault(sanitized);
   } catch (e) {
     return applyImageVault(DEFAULT_ALMANAQUES_DATA);
   }
@@ -243,49 +247,21 @@ export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
     if (json.success && json.data && Array.isArray(json.data.products)) {
       const serverData = json.data as AlmanaquesData;
       
-      // Smart Merge: Preserve any custom images from localData or image vault
-      let hasLocalCustomImages = false;
       const mergedProducts = serverData.products.map(sp => {
-        const localProd = localData.products.find(lp => lp.ref === sp.ref || lp.id === sp.id);
         const vaultImg = vault[sp.ref] || vault[sp.id];
-        
-        // Priority 1: Vault image
         if (vaultImg && vaultImg.trim()) {
           return { ...sp, imageUrl: vaultImg };
         }
-        
-        // Priority 2: Custom local image if server has default unsplash photo
-        if (localProd && localProd.imageUrl && localProd.imageUrl !== sp.imageUrl) {
-          const isServerDefault = sp.imageUrl.includes("unsplash.com");
-          const isLocalCustom = !localProd.imageUrl.includes("unsplash.com") || localProd.imageUrl.startsWith("data:") || localProd.imageUrl.startsWith("/imagenes");
-          if (isLocalCustom || !isServerDefault) {
-            hasLocalCustomImages = true;
-            saveImageToVault(sp.ref, localProd.imageUrl);
-            return { ...sp, imageUrl: localProd.imageUrl };
-          }
-        }
-        
         return sp;
       });
 
-      const mergedData: AlmanaquesData = mergeWithDefaults({
+      const finalData = sanitizeAlmanaquesData({
         ...serverData,
         products: mergedProducts
       });
 
-      const finalData = applyImageVault(mergedData);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
       safeDispatchEvent("almanaques-updated", finalData);
-
-      // If client had custom images that server was missing, sync back to server
-      if (hasLocalCustomImages) {
-        fetch("/api/almanaques/data", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(finalData)
-        }).catch(() => {});
-      }
-
       return finalData;
     }
   } catch (e) {
@@ -308,15 +284,15 @@ export function saveAlmanaquesData(data: AlmanaquesData): void {
       });
     }
 
-    const merged = mergeWithDefaults(data);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-    safeDispatchEvent("almanaques-updated", merged);
+    const sanitized = sanitizeAlmanaquesData(data);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized));
+    safeDispatchEvent("almanaques-updated", sanitized);
     
     // Async push to server
     fetch("/api/almanaques/data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(merged)
+      body: JSON.stringify(sanitized)
     }).catch(console.error);
   } catch (e) {
     console.error("Error guardando datos de Almanaques:", e);

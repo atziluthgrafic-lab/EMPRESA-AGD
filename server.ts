@@ -443,37 +443,22 @@ function loadAlmanaquesDataServer() {
     if (fs.existsSync(ALMANAQUES_FILE)) {
       const info = fs.readFileSync(ALMANAQUES_FILE, "utf-8");
       const parsed = JSON.parse(info);
-      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products)) {
-        // Ensure all default products exist in the returned array
-        const productMap = new Map<string, any>();
-        
-        // Start with defaults
-        defaults.products.forEach(p => {
-          productMap.set(p.ref, { ...p });
-        });
-
-        // Overlay with parsed products
-        parsed.products.forEach((p: any) => {
+      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products) && parsed.products.length > 0) {
+        // STRICTLY preserve user's products and sequence. NEVER re-inject deleted defaults!
+        const updatedProducts = parsed.products.map((p: any) => {
           const key = p.ref || p.id;
-          const existing = productMap.get(key) || {};
-          productMap.set(key, { ...existing, ...p });
+          const vaultImg = vault[key] || vault[p.ref] || vault[p.id];
+          if (vaultImg && vaultImg.trim()) {
+            return { ...p, imageUrl: vaultImg };
+          }
+          return p;
         });
 
-        // Overlay with persistent image vault
-        for (const [key, img] of Object.entries(vault)) {
-          if (img && img.trim()) {
-            const prod = productMap.get(key);
-            if (prod) {
-              prod.imageUrl = img;
-            }
-          }
-        }
-
-        const mergedProducts = Array.from(productMap.values());
         return {
-          ...defaults,
-          ...parsed,
-          products: mergedProducts
+          pdfUrl: parsed.pdfUrl || defaults.pdfUrl,
+          categories: parsed.categories.length >= 6 ? parsed.categories : defaults.categories,
+          products: updatedProducts,
+          updatedAt: parsed.updatedAt || new Date().toISOString()
         };
       }
     }
@@ -481,7 +466,7 @@ function loadAlmanaquesDataServer() {
     console.error("Error reading almanaques_data.json:", err);
   }
   
-  // Seed initial data with full 8 products and vault
+  // Seed initial data ONLY if file does not exist or has no products
   const initial = defaults;
   for (const [key, img] of Object.entries(vault)) {
     const prod = initial.products.find(p => p.ref === key || p.id === key);
@@ -564,6 +549,25 @@ app.post("/api/almanaques/vault", allowUpload, (req, res) => {
     res.json({ success: true, vault: updated });
   } catch (err: any) {
     res.status(500).json({ success: false, error: "Error guardando bóveda de imágenes" });
+  }
+});
+
+app.delete("/api/almanaques/vault", allowUpload, (req, res) => {
+  try {
+    const { key, keys } = req.body || {};
+    const vault = loadAlmanaquesVaultServer();
+    if (key && vault[key]) {
+      delete vault[key];
+    }
+    if (Array.isArray(keys)) {
+      keys.forEach((k: string) => {
+        if (k && vault[k]) delete vault[k];
+      });
+    }
+    saveAlmanaquesVaultServer(vault);
+    res.json({ success: true, vault });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Error eliminando de la bóveda de imágenes" });
   }
 });
 
