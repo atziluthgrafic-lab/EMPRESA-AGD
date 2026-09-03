@@ -443,7 +443,7 @@ function loadAlmanaquesDataServer() {
     if (fs.existsSync(ALMANAQUES_FILE)) {
       const info = fs.readFileSync(ALMANAQUES_FILE, "utf-8");
       const parsed = JSON.parse(info);
-      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products) && parsed.products.length > 0) {
+      if (parsed && Array.isArray(parsed.categories) && Array.isArray(parsed.products)) {
         // STRICTLY preserve user's products and sequence. NEVER re-inject deleted defaults!
         const updatedProducts = parsed.products.map((p: any) => {
           const key = p.ref || p.id;
@@ -466,14 +466,10 @@ function loadAlmanaquesDataServer() {
     console.error("Error reading almanaques_data.json:", err);
   }
   
-  // Seed initial data ONLY if file does not exist or has no products
-  const initial = defaults;
-  for (const [key, img] of Object.entries(vault)) {
-    const prod = initial.products.find(p => p.ref === key || p.id === key);
-    if (prod && img) {
-      prod.imageUrl = img;
-    }
-  }
+  // Seed initial data ONLY if file does not exist at all
+  const initial = {
+    ...defaults
+  };
 
   try {
     saveAlmanaquesDataServer(initial);

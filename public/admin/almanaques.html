@@ -348,8 +348,8 @@
               </select>
             </div>
 
-            <button id="open-create-modal-btn"
-              class="w-full sm:w-auto px-4 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-mono uppercase cursor-pointer">
+            <button id="open-create-modal-btn" type="button"
+              class="w-full sm:w-auto px-4 py-2 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-mono uppercase cursor-pointer shadow-md">
               <i data-lucide="plus" class="w-4 h-4"></i>
               Nueva Referencia
             </button>
@@ -586,17 +586,45 @@
             <input type="text" id="form-product-image" placeholder="https://..."
               class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-200 focus:border-brand-orange">
           </div>
-          <div id="product-modal-dropzone" class="border border-dashed border-slate-800 hover:border-brand-orange rounded-xl p-3 text-center cursor-pointer bg-slate-950/60">
-            <input type="file" id="modal-file-input" class="hidden" accept="image/*">
-            <span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>
+          <input type="file" id="modal-file-input" class="hidden" accept="image/*">
+          <div id="product-modal-dropzone" class="border border-dashed border-slate-800 hover:border-brand-orange rounded-xl p-3 text-center cursor-pointer bg-slate-950/60 transition-colors">
+            <div id="product-modal-dropzone-content">
+              <span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>
+            </div>
           </div>
         </div>
 
         <div class="pt-4 border-t border-slate-800 flex justify-end gap-3">
-          <button type="button" id="cancel-modal-btn" class="px-4 py-2 bg-slate-900 text-slate-400 rounded-xl font-mono">Cancelar</button>
-          <button type="submit" class="px-6 py-2 bg-brand-orange text-white font-bold rounded-xl font-mono uppercase">Guardar Referencia</button>
+          <button type="button" id="cancel-modal-btn" class="px-4 py-2 bg-slate-900 text-slate-400 rounded-xl font-mono cursor-pointer">Cancelar</button>
+          <button type="submit" class="px-6 py-2 bg-brand-orange text-white font-bold rounded-xl font-mono uppercase cursor-pointer shadow-lg">Guardar Referencia</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmación de Eliminación (Sin confirm() de navegador para compatibilidad total) -->
+  <div id="delete-confirm-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-brand-darkCard border border-rose-500/40 rounded-2xl w-full max-w-md p-6 shadow-2xl space-y-4">
+      <div class="flex items-center gap-3 text-rose-400">
+        <div class="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20">
+          <i data-lucide="trash-2" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 id="delete-modal-title" class="text-base font-bold text-white">Eliminar Referencia</h3>
+          <p class="text-xs text-slate-400">Acción permanente de base de datos</p>
+        </div>
+      </div>
+      <p id="delete-modal-text" class="text-xs text-slate-300 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800 leading-relaxed">
+        ¿Estás seguro de eliminar esta referencia permanentemente?
+      </p>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="cancel-delete-modal-btn" type="button" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs font-mono rounded-xl border border-slate-700 cursor-pointer">
+          Cancelar
+        </button>
+        <button id="confirm-delete-action-btn" type="button" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold rounded-xl shadow-lg cursor-pointer">
+          Sí, Eliminar Permanentemente
+        </button>
+      </div>
     </div>
   </div>
 
@@ -606,7 +634,7 @@
     const STORAGE_KEY = "atziluth_almanaques_data";
     const ORDERS_KEY = "atziluth_almanaques_orders";
 
-    // Default Fallback Initial Data
+    // Default Fallback Initial Data (Complete catalog of 8 references)
     const DEFAULT_DATA = {
       pdfUrl: "/uploads/catalogo_almanaques_2026.pdf",
       categories: [
@@ -647,7 +675,7 @@
           ref: "ALM-201",
           categoryId: 2,
           name: "Respaldo de Taco Tradicional Santoral",
-          description: "Respaldo troquelado rígido con perforación superior reforzada para colgar en pared. Soporte ideal para bloques o tacos de santoral diario tradicional.",
+          description: "Respaldo troquelado rígido con perforación superior reforzada para colgar en pared. Soporte ideal para bloques o tacos de santoral diario tradicional de 365 días.",
           finish: "Plastificado brillante impermeable protector contra humedad",
           paper: "Cartón Maule Importado 320g",
           price: 4200,
@@ -671,7 +699,7 @@
           ref: "ALM-301",
           categoryId: 3,
           name: "Anuario Clásico 1 Varilla HD",
-          description: "Almanaque de pared en una sola lámina formato 33x48 cm con ojete y varilla metálica en la parte superior. Impresión litográfica HD de paisajes.",
+          description: "Almanaque de pared en una sola lámina formato 33x48 cm con ojete y varilla metálica en la parte superior. Impresión litográfica de paisajes y tradiciones de Antioquia.",
           finish: "Varilla Metálica Antioxidante + Barniz UV Total",
           paper: "Propalcote 200g Brillante",
           price: 3500,
@@ -771,11 +799,11 @@
     }
 
     function sanitizeData(data) {
-      if (!data) return DEFAULT_DATA;
+      if (!data) return { ...DEFAULT_DATA, products: [] };
       return {
         pdfUrl: (data && data.pdfUrl) || DEFAULT_DATA.pdfUrl,
         categories: (data && Array.isArray(data.categories) && data.categories.length >= 6) ? data.categories : DEFAULT_DATA.categories,
-        products: (data && Array.isArray(data.products) && data.products.length > 0) ? data.products : DEFAULT_DATA.products,
+        products: (data && Array.isArray(data.products)) ? data.products : [],
         updatedAt: (data && data.updatedAt) || new Date().toISOString()
       };
     }
@@ -791,6 +819,10 @@
         if (!raw) return applyImageVault(DEFAULT_DATA);
         const parsed = JSON.parse(raw);
         if (!parsed.categories || !Array.isArray(parsed.products)) return applyImageVault(DEFAULT_DATA);
+        if (parsed.products.length === 0) {
+          // If local storage had an empty array, restore catalog so user can choose which ones to keep
+          return applyImageVault(DEFAULT_DATA);
+        }
         return applyImageVault(sanitizeData(parsed));
       } catch (e) {
         return applyImageVault(DEFAULT_DATA);
@@ -817,22 +849,30 @@
           const serverData = json.data;
           const vault = getImageVault();
 
-          // Apply vault images strictly to the server's ordered product list
-          const updatedProducts = serverData.products.map(sp => {
-            const vaultImg = vault[sp.ref] || vault[sp.id];
-            if (vaultImg && vaultImg.trim()) {
-              return { ...sp, imageUrl: vaultImg };
-            }
-            return sp;
-          });
+          // If local has products but server is empty, push local to server
+          if (appData.products && appData.products.length > 0 && serverData.products.length === 0) {
+            saveData();
+            return;
+          }
 
-          appData = {
-            ...serverData,
-            products: updatedProducts
-          };
+          if (serverData.products.length > 0) {
+            // Apply vault images strictly to the server's ordered product list
+            const updatedProducts = serverData.products.map(sp => {
+              const vaultImg = vault[sp.ref] || vault[sp.id];
+              if (vaultImg && vaultImg.trim()) {
+                return { ...sp, imageUrl: vaultImg };
+              }
+              return sp;
+            });
 
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
-          renderAll();
+            appData = {
+              ...serverData,
+              products: updatedProducts
+            };
+
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData));
+            renderAll();
+          }
         }
       } catch (e) {
         console.error("Error sincronizando almanaques con servidor:", e);
@@ -1017,11 +1057,31 @@
       });
 
       if (filtered.length === 0) {
-        container.innerHTML = `
-          <div class="col-span-full py-12 text-center text-slate-500 font-mono text-xs bg-brand-darkCard rounded-xl border border-slate-800">
-            No se encontraron productos que coincidan con la búsqueda.
-          </div>
-        `;
+        if (appData.products.length === 0) {
+          container.innerHTML = `
+            <div class="col-span-full py-16 text-center bg-brand-darkCard rounded-2xl border border-slate-800 p-8 space-y-4">
+              <div class="w-14 h-14 rounded-2xl bg-brand-orange/10 border border-brand-orange/20 text-brand-orange flex items-center justify-center mx-auto">
+                <i data-lucide="plus-circle" class="w-7 h-7"></i>
+              </div>
+              <div class="space-y-1">
+                <h3 class="text-base font-bold text-white">Catálogo de Almanaques Limpio</h3>
+                <p class="text-xs text-slate-400 max-w-md mx-auto">
+                  No hay almanaques de muestra. Puedes agregar tus nuevos almanaques usando el botón <strong>"Nueva Referencia"</strong> arriba con su imagen, precio, secuencia y acabados.
+                </p>
+              </div>
+              <button onclick="document.getElementById('open-create-modal-btn').click()" class="px-5 py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-white text-xs font-mono font-bold rounded-xl shadow-lg cursor-pointer inline-flex items-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i> Crear Mi Primer Almanaque
+              </button>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="col-span-full py-12 text-center text-slate-500 font-mono text-xs bg-brand-darkCard rounded-xl border border-slate-800">
+              No se encontraron productos que coincidan con la búsqueda o filtro.
+            </div>
+          `;
+        }
+        safeIcons();
         return;
       }
 
@@ -1136,12 +1196,9 @@
         orderInput.max = appData.products.length + 1;
       }
 
-      const dropzone = document.getElementById("product-modal-dropzone");
-      if (dropzone) {
-        dropzone.innerHTML = `
-          <input type="file" id="modal-file-input" class="hidden" accept="image/*">
-          <span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>
-        `;
+      const dropzoneContent = document.getElementById("product-modal-dropzone-content");
+      if (dropzoneContent) {
+        dropzoneContent.innerHTML = `<span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>`;
       }
 
       populateCatSelect();
@@ -1178,34 +1235,79 @@
         orderInput.max = appData.products.length;
       }
 
-      const dropzone = document.getElementById("product-modal-dropzone");
-      if (dropzone && p.imageUrl) {
-        dropzone.innerHTML = `
-          <div class="relative w-full h-32 rounded-lg overflow-hidden border border-slate-700 group">
-            <img src="${p.imageUrl}" class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
+      const dropzoneContent = document.getElementById("product-modal-dropzone-content");
+      if (dropzoneContent) {
+        if (p.imageUrl) {
+          dropzoneContent.innerHTML = `
+            <div class="relative w-full h-32 rounded-lg overflow-hidden border border-slate-700 group">
+              <img src="${p.imageUrl}" class="w-full h-full object-cover" />
+              <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
+              </div>
             </div>
-          </div>
-        `;
+          `;
+        } else {
+          dropzoneContent.innerHTML = `<span class="text-[11px] text-slate-400 font-mono">📷 Cargar imagen local desde tu equipo</span>`;
+        }
       }
 
       populateCatSelect(p.categoryId);
       modal.classList.remove("hidden");
     };
 
+    // Custom Delete Confirmation Modal Logic (No confirm() popups)
+    let deleteTargetId = null;
+
     window.deleteProduct = function(id) {
       const p = appData.products.find(item => item.id === id || item.ref === id);
       if (!p) return;
-      if (confirm(`¿Estás seguro de eliminar la referencia ${p.ref} - ${p.name} permanentemente?`)) {
-        appData.products = appData.products.filter(item => item.id !== id && item.ref !== id && item.id !== p.id && item.ref !== p.ref);
-        if (p.ref) removeImageFromVault(p.ref);
-        if (p.id) removeImageFromVault(p.id);
+
+      deleteTargetId = p.id;
+
+      const titleEl = document.getElementById("delete-modal-title");
+      const textEl = document.getElementById("delete-modal-text");
+      const modalEl = document.getElementById("delete-confirm-modal");
+
+      if (titleEl) titleEl.textContent = "Eliminar Referencia";
+      if (textEl) {
+        textEl.innerHTML = `¿Estás seguro de eliminar permanentemente la referencia <strong class="text-white font-mono">${p.ref}</strong> - <span class="text-brand-orange">${p.name}</span> del catálogo?`;
+      }
+      if (modalEl) modalEl.classList.remove("hidden");
+      safeIcons();
+    };
+
+    const cancelDeleteBtn = document.getElementById("cancel-delete-modal-btn");
+    if (cancelDeleteBtn) {
+      cancelDeleteBtn.addEventListener("click", () => {
+        deleteTargetId = null;
+        const modalEl = document.getElementById("delete-confirm-modal");
+        if (modalEl) modalEl.classList.add("hidden");
+      });
+    }
+
+    const confirmDeleteBtn = document.getElementById("confirm-delete-action-btn");
+    if (confirmDeleteBtn) {
+      confirmDeleteBtn.addEventListener("click", () => {
+        const modalEl = document.getElementById("delete-confirm-modal");
+        if (!deleteTargetId) {
+          if (modalEl) modalEl.classList.add("hidden");
+          return;
+        }
+
+        const id = deleteTargetId;
+        const p = appData.products.find(item => item.id === id || item.ref === id);
+        appData.products = appData.products.filter(item => item.id !== id && item.ref !== id && item.id !== (p && p.id) && item.ref !== (p && p.ref));
+        if (p) {
+          if (p.ref) removeImageFromVault(p.ref);
+          if (p.id) removeImageFromVault(p.id);
+        }
+        deleteTargetId = null;
+        if (modalEl) modalEl.classList.add("hidden");
         saveData();
         renderProducts();
-        showToast("Referencia Eliminada", `Se ha eliminado ${p.ref} permanentemente.`);
-      }
-    };
+        showToast("Referencia Eliminada", `Se ha eliminado ${p ? p.ref : ''} permanentemente.`);
+      });
+    }
 
     // Modal Form Submit
     document.getElementById("product-form").addEventListener("submit", (e) => {
@@ -1227,7 +1329,7 @@
       }
 
       if (id) {
-        // Edit
+        // Edit existing product
         const prodIdx = appData.products.findIndex(p => p.id === id || p.ref === id);
         if (prodIdx !== -1) {
           appData.products[prodIdx] = {
@@ -1250,7 +1352,7 @@
         }
         showToast("Referencia Actualizada", `Cambios en ${ref} guardados correctamente.`);
       } else {
-        // Create
+        // Create new product
         const newProd = {
           id: `alm-${Date.now()}`,
           ref,
@@ -1280,58 +1382,63 @@
     // Image file upload inside modal with instant visual feedback & vault backup
     const modalDropzone = document.getElementById("product-modal-dropzone");
     const modalFileInput = document.getElementById("modal-file-input");
-    modalDropzone.addEventListener("click", () => modalFileInput.click());
-    modalFileInput.addEventListener("change", async (e) => {
-      const file = e.target.files && e.target.files[0];
-      if (!file) return;
+    if (modalDropzone && modalFileInput) {
+      modalDropzone.addEventListener("click", () => modalFileInput.click());
+      modalFileInput.addEventListener("change", async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
 
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const base64Data = reader.result;
-        const currentRef = document.getElementById("form-product-ref").value.trim();
-        const currentId = document.getElementById("form-product-id").value;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64Data = reader.result;
+          const currentRef = document.getElementById("form-product-ref").value.trim();
+          const currentId = document.getElementById("form-product-id").value;
 
-        // Provide immediate visual preview
-        modalDropzone.innerHTML = `
-          <div class="relative w-full h-36 rounded-lg overflow-hidden border border-brand-orange/40 group">
-            <img src="${base64Data}" class="w-full h-full object-cover" />
-            <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
-            </div>
-          </div>
-        `;
-
-        try {
-          const res = await fetch("/api/admin/upload-image", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${authToken}`
-            },
-            body: JSON.stringify({ fileName: file.name, base64Data })
-          });
-          const data = await res.json();
-          const finalUrl = (res.ok && data.url) ? data.url : base64Data;
-          document.getElementById("form-product-image").value = finalUrl;
-          
-          if (currentRef) saveImageToVault(currentRef, finalUrl);
-          if (currentId) saveImageToVault(currentId, finalUrl);
-
-          if (res.ok && data.url) {
-            showToast("Imagen Cargada", "La imagen se guardó y sincronizó exitosamente.");
-          } else {
-            showToast("Imagen Conservada", "Imagen preservada en memoria local y lista para guardar.");
+          // Provide immediate visual preview without destroying modal-file-input
+          const dropzoneContent = document.getElementById("product-modal-dropzone-content");
+          if (dropzoneContent) {
+            dropzoneContent.innerHTML = `
+              <div class="relative w-full h-36 rounded-lg overflow-hidden border border-brand-orange/40 group">
+                <img src="${base64Data}" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <span class="text-xs font-mono text-white bg-black/70 px-2 py-1 rounded">Cambiar Imagen</span>
+                </div>
+              </div>
+            `;
           }
-        } catch (err) {
-          // Fallback to base64 so user's image is 100% saved
-          document.getElementById("form-product-image").value = base64Data;
-          if (currentRef) saveImageToVault(currentRef, base64Data);
-          if (currentId) saveImageToVault(currentId, base64Data);
-          showToast("Imagen Guardada Localmente", "Tu imagen se conservó correctamente.");
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+
+          try {
+            const res = await fetch("/api/admin/upload-image", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`
+              },
+              body: JSON.stringify({ fileName: file.name, base64Data })
+            });
+            const data = await res.json();
+            const finalUrl = (res.ok && data.url) ? data.url : base64Data;
+            document.getElementById("form-product-image").value = finalUrl;
+            
+            if (currentRef) saveImageToVault(currentRef, finalUrl);
+            if (currentId) saveImageToVault(currentId, finalUrl);
+
+            if (res.ok && data.url) {
+              showToast("Imagen Cargada", "La imagen se guardó y sincronizó exitosamente.");
+            } else {
+              showToast("Imagen Conservada", "Imagen preservada en memoria local y lista para guardar.");
+            }
+          } catch (err) {
+            // Fallback to base64 so user's image is 100% saved
+            document.getElementById("form-product-image").value = base64Data;
+            if (currentRef) saveImageToVault(currentRef, base64Data);
+            if (currentId) saveImageToVault(currentId, base64Data);
+            showToast("Imagen Guardada Localmente", "Tu imagen se conservó correctamente.");
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     // -------------------------------------------------------------
     // TAB 2: PDF MANAGEMENT

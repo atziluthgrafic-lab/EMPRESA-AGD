@@ -43,15 +43,11 @@ export const DEFAULT_ALMANAQUES_DATA: AlmanaquesData = {
       ref: "ALM-101",
       categoryId: 1,
       name: "Almanaque de Escritorio PyME Premium",
-      description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia para anotaciones diarias.",
+      description: "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia.",
       finish: "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
       paper: "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
       price: 6500,
       imageUrl: "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
-      gallery: [
-        "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80"
-      ],
       inStock: true
     },
     {
@@ -59,7 +55,7 @@ export const DEFAULT_ALMANAQUES_DATA: AlmanaquesData = {
       ref: "ALM-102",
       categoryId: 1,
       name: "Escritorio Ejecutivo Deluxe Foil",
-      description: "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual integrado.",
+      description: "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual.",
       finish: "Estampado Foil Metalizado + Argollado Doble O Dorado",
       paper: "Propalcote 300g Extra Blanco de Alta Rigidez",
       price: 8200,
@@ -128,7 +124,7 @@ export const DEFAULT_ALMANAQUES_DATA: AlmanaquesData = {
     },
     {
       id: "alm-601",
-      ref: "ALM-601",
+      "ref": "ALM-601",
       categoryId: 6,
       name: "Imantado Publicitario para Nevera con Taco",
       description: "Imán flexible 100% magnético en todo el respaldo con impresión full color en la carátula y micro taco calado de 12 meses desprendibles.",
@@ -208,9 +204,9 @@ function sanitizeAlmanaquesData(data: AlmanaquesData): AlmanaquesData {
     : DEFAULT_ALMANAQUES_DATA.categories;
 
   // STRICTLY preserve user's products array and order! Do not re-inject deleted products.
-  const products = Array.isArray(data.products) && data.products.length > 0
+  const products = Array.isArray(data.products)
     ? data.products
-    : DEFAULT_ALMANAQUES_DATA.products;
+    : [];
 
   return {
     pdfUrl: data.pdfUrl || DEFAULT_ALMANAQUES_DATA.pdfUrl,
@@ -230,6 +226,9 @@ export function getAlmanaquesData(): AlmanaquesData {
     if (!parsed.categories || !Array.isArray(parsed.products)) {
       return applyImageVault(DEFAULT_ALMANAQUES_DATA);
     }
+    if (parsed.products.length === 0) {
+      return applyImageVault(DEFAULT_ALMANAQUES_DATA);
+    }
     const sanitized = sanitizeAlmanaquesData(parsed);
     return applyImageVault(sanitized);
   } catch (e) {
@@ -247,22 +246,30 @@ export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
     if (json.success && json.data && Array.isArray(json.data.products)) {
       const serverData = json.data as AlmanaquesData;
       
-      const mergedProducts = serverData.products.map(sp => {
-        const vaultImg = vault[sp.ref] || vault[sp.id];
-        if (vaultImg && vaultImg.trim()) {
-          return { ...sp, imageUrl: vaultImg };
-        }
-        return sp;
-      });
+      // If local storage has items but server has 0, protect local data and push to server
+      if (localData.products && localData.products.length > 0 && serverData.products.length === 0) {
+        saveAlmanaquesData(localData);
+        return localData;
+      }
 
-      const finalData = sanitizeAlmanaquesData({
-        ...serverData,
-        products: mergedProducts
-      });
+      if (serverData.products.length > 0) {
+        const mergedProducts = serverData.products.map(sp => {
+          const vaultImg = vault[sp.ref] || vault[sp.id];
+          if (vaultImg && vaultImg.trim()) {
+            return { ...sp, imageUrl: vaultImg };
+          }
+          return sp;
+        });
 
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
-      safeDispatchEvent("almanaques-updated", finalData);
-      return finalData;
+        const finalData = sanitizeAlmanaquesData({
+          ...serverData,
+          products: mergedProducts
+        });
+
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(finalData));
+        safeDispatchEvent("almanaques-updated", finalData);
+        return finalData;
+      }
     }
   } catch (e) {
     console.warn("Error obteniendo datos de almanaques del servidor:", e);

@@ -14,15 +14,11 @@
       "ref": "ALM-101",
       "categoryId": 1,
       "name": "Almanaque de Escritorio PyME Premium",
-      "description": "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia para anotaciones diarias.",
+      "description": "Diseño tipo pirámide con argollado Doble O metálico súper resistente, base rígida empastada en cartón grueso de 1.5mm y 12 hojas independientes con cuadrícula amplia.",
       "finish": "Plastificado Mate + Barniz UV Brillo Parcial en Portada",
       "paper": "Hojas en Propalcote 250g / Base Cartón Prensado 1.5mm",
       "price": 6500,
       "imageUrl": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
-      "gallery": [
-        "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1584438784894-089d6a62b8fa?auto=format&fit=crop&w=800&q=80"
-      ],
       "inStock": true
     },
     {
@@ -30,7 +26,7 @@
       "ref": "ALM-102",
       "categoryId": 1,
       "name": "Escritorio Ejecutivo Deluxe Foil",
-      "description": "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual integrado.",
+      "description": "Calendario compacto de mesa con acabado de lujo. Incluye espacio para logotipo personalizado estampado en pan de oro/plata (Foil metálico) y planificador mensual.",
       "finish": "Estampado Foil Metalizado + Argollado Doble O Dorado",
       "paper": "Propalcote 300g Extra Blanco de Alta Rigidez",
       "price": 8200,
@@ -110,5 +106,5 @@
       "inStock": true
     }
   ],
-  "updatedAt": "2026-09-03T21:50:00.000Z"
+  "updatedAt": "2026-09-03T22:25:00.000Z"
 }
