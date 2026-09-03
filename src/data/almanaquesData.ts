@@ -1,3 +1,5 @@
+import { safeDispatchEvent } from "../utils/safeEvents";
+
 export interface Category {
   id: number;
   name: string;
@@ -161,7 +163,7 @@ export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
     const json = await res.json();
     if (json.success && json.data && Array.isArray(json.data.products)) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(json.data));
-      window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: json.data }));
+      safeDispatchEvent("almanaques-updated", json.data);
       return json.data;
     }
   } catch (e) {
@@ -174,7 +176,7 @@ export function saveAlmanaquesData(data: AlmanaquesData): void {
   try {
     data.updatedAt = new Date().toISOString();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    window.dispatchEvent(new CustomEvent("almanaques-updated", { detail: data }));
+    safeDispatchEvent("almanaques-updated", data);
     
     // Async push to server
     fetch("/api/almanaques/data", {

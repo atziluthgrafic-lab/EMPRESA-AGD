@@ -1,4 +1,5 @@
 import { ProveedorRecord, OrdenProduccion, PagoProveedor, CotizacionProveedor, DEFAULT_PROVEEDORES_CATEGORIAS } from '../types/proveedor';
+import { safeDispatchEvent } from '../utils/safeEvents';
 
 export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   {
@@ -133,179 +134,7 @@ export const INITIAL_PROVEEDORES: ProveedorRecord[] = [
   }
 ];
 
-export const INITIAL_ORDENES: OrdenProduccion[] = [
-  {
-    id: "ord_ser_102_1",
-    numeroOrden: "ORD-PRV-2026-0091",
-    pedidoClienteId: "PED-1001",
-    clienteNombre: "Distribuidora El Progreso S.A.S. — Medellín",
-    proveedorId: "prv_ser_102",
-    descripcionTrabajo: "500 Almanaques de Escritorio PyME Premium con Base Troquelada y Plastificado Mate",
-    categoria: "Servicios",
-    cantidad: 500,
-    especificaciones: {
-      medidas: "20 x 15 cm",
-      material: "Cartón Maule 350g + Anillado Doble O metálico negro",
-      tintas: "Policromía 4x4 + Reserva UV Brillante",
-      acabados: "Troquelado de base piramidal, armado con resorte y tacos mensuales",
-      notas: "Pedido de alta prioridad. Empacar en cajas de 50 unidades con protección."
-    },
-    archivosAdjuntos: [
-      {
-        nombre: "Guia_Produccion_Almanaque_Escritorio_2027.pdf",
-        url: "/uploads/catalogo_almanaques_2027.pdf",
-        tipo: "application/pdf",
-        tamano: "4.5 MB"
-      }
-    ],
-    precioVentaCliente: 1650000,
-    costoProveedor: 890000,
-    estado: "En_Produccion",
-    tipoEntrega: "Recoger_Taller",
-    direccionEnvio: "Calle 33 # 65-40, Barrio San Joaquín, Medellín",
-    fechaAsignacion: "2026-08-16T08:30:00",
-    fechaLimiteEntrega: "2026-08-25",
-    notificadoAdmin: false
-  },
-  {
-    id: "ord_ser_102_2",
-    numeroOrden: "ORD-PRV-2026-0092",
-    clienteNombre: "Inversiones & Eventos Antioquia S.A.S.",
-    proveedorId: "prv_ser_102",
-    descripcionTrabajo: "2000 Carpetas Corporativas con Bolsillo Troquelado y Portatarjeta",
-    categoria: "Litografía Comercial",
-    cantidad: 2000,
-    especificaciones: {
-      medidas: "Carta Abierta (46 x 31 cm)",
-      material: "Propalcote 300g",
-      tintas: "Policromía 4x0 + Plastificado Mate 1 Cara",
-      acabados: "Troquelado interior para dos bolsillos y corte para tarjeta de presentación",
-      notas: "Entrega programada para evento empresarial."
-    },
-    precioVentaCliente: 2400000,
-    costoProveedor: 1350000,
-    estado: "Pendiente_Cotizar",
-    tipoEntrega: "Envio_Direccion",
-    direccionEnvio: "Carrera 43A # 1-50, Poblado, Medellín",
-    fechaAsignacion: "2026-08-17T11:00:00",
-    fechaLimiteEntrega: "2026-08-28",
-    notificadoAdmin: false
-  },
-  {
-    id: "ord_alm_102_1",
-    numeroOrden: "ORD-PRV-2026-0095",
-    clienteNombre: "Comercializadora San Antonio — Rionegro",
-    proveedorId: "prv_alm_102",
-    descripcionTrabajo: "1000 Almanaques Tipo Gigante de Pared con Ojillete y Taco 2027",
-    categoria: "Almanaques",
-    cantidad: 1000,
-    especificaciones: {
-      medidas: "33 x 50 cm",
-      material: "Cartón Duplex 320g + Taco Papel Bond 75g",
-      tintas: "Policromía 4x0 + Barniz UV Total",
-      acabados: "Ojillete metálico superior reforzado, taco mensual con festivos colombianos",
-      notas: "Diseño listo aprobado por administración."
-    },
-    precioVentaCliente: 2100000,
-    costoProveedor: 1180000,
-    estado: "En_Produccion",
-    tipoEntrega: "Recoger_Taller",
-    direccionEnvio: "Carrera 45 # 50-20, Centro, Medellín",
-    fechaAsignacion: "2026-08-15T09:00:00",
-    fechaLimiteEntrega: "2026-08-24",
-    notificadoAdmin: false
-  },
-  {
-    id: "ord_p1",
-    numeroOrden: "ORD-PRV-2026-0081",
-    pedidoClienteId: "ORD-CLI-2026-0120",
-    clienteNombre: "Agroinsumos del Oriente — Rionegro",
-    proveedorId: "prv_1",
-    descripcionTrabajo: "500 Almanaques Modelo Gigante (33x50cm) con Taco Mensual grapado y ojillete reforzado",
-    categoria: "Almanaques",
-    cantidad: 500,
-    especificaciones: {
-      medidas: "33 x 50 cm",
-      material: "Cartón Duplex 320g + Taco Papel Bond 75g",
-      tintas: "Policromía 4x0 + Barniz UV Brillante",
-      acabados: "Ojillete metálico superior y taco grapado con 2 grapas industriales",
-      notas: "Diseño aprobado por cliente. Entregar empacado en paquetes de 50 unidades."
-    },
-    archivosAdjuntos: [
-      {
-        nombre: "Arte_Almanaque_Agroinsumos_33x50.pdf",
-        url: "https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?auto=format&fit=crop&w=1200&q=80",
-        tipo: "application/pdf",
-        tamano: "14.2 MB"
-      },
-      {
-        nombre: "Previsualizacion_Tiro.jpg",
-        url: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?auto=format&fit=crop&w=800&q=80",
-        tipo: "image/jpeg",
-        tamano: "1.8 MB"
-      }
-    ],
-    precioVentaCliente: 1250000,
-    costoProveedor: 680000,
-    estado: "En_Produccion",
-    tipoEntrega: "Recoger_Taller",
-    direccionEnvio: "Sede Principal Atziluth — Medellín",
-    fechaAsignacion: "2026-08-14T09:30:00",
-    fechaLimiteEntrega: "2026-08-22",
-    notificadoAdmin: false
-  },
-  {
-    id: "ord_p2",
-    numeroOrden: "ORD-PRV-2026-0082",
-    pedidoClienteId: "ORD-CLI-2026-0125",
-    clienteNombre: "Supermercado La Colmena — Marinilla",
-    proveedorId: "prv_2",
-    descripcionTrabajo: "100 Talonarios Media Carta (14x21.5cm) Químico Autocopiante 2 Copias",
-    categoria: "Talonarios",
-    cantidad: 100,
-    especificaciones: {
-      medidas: "14 x 21.5 cm",
-      material: "Papel químico 70g (Blanco/Rosado) 50 juegos",
-      tintas: "1x0 Tinta negra + Numeración roja consecutiva",
-      acabados: "Prepicado, grapado y tapa en cartulina kraft",
-      notas: "Numerar desde 0001 a 5000."
-    },
-    precioVentaCliente: 780000,
-    costoProveedor: 480000,
-    estado: "En_Produccion",
-    tipoEntrega: "Envio_Direccion",
-    direccionEnvio: "Carrera 50 # 38-20, Guayabal, Medellín",
-    fechaAsignacion: "2026-08-16T14:00:00",
-    fechaLimiteEntrega: "2026-08-25",
-    notificadoAdmin: false
-  },
-  {
-    id: "ord_p3",
-    numeroOrden: "ORD-PRV-2026-0078",
-    pedidoClienteId: "ORD-CLI-2026-0105",
-    clienteNombre: "Ferretería El Tornillo Dorado — Sabaneta",
-    proveedorId: "prv_1",
-    descripcionTrabajo: "1000 Almanaques Bolsillo (7x10cm) Plastificado Mate 2 Caras",
-    categoria: "Almanaques",
-    cantidad: 1000,
-    especificaciones: {
-      medidas: "7 x 10 cm",
-      material: "Propalcote 300g",
-      tintas: "4x4 Tintas",
-      acabados: "Plastificado mate y despunte en 4 esquinas",
-      notas: "Pedido entregado conforme."
-    },
-    precioVentaCliente: 420000,
-    costoProveedor: 210000,
-    estado: "Terminado",
-    tipoEntrega: "Recoger_Taller",
-    fechaAsignacion: "2026-08-08T10:00:00",
-    fechaLimiteEntrega: "2026-08-13",
-    fechaFinalizado: "2026-08-12T16:45:00",
-    notificadoAdmin: true,
-    mensajeNotificacion: "Trabajo terminado y empaquetado en cajas de 250 unidades listo para recoger en taller."
-  }
-];
+export const INITIAL_ORDENES: OrdenProduccion[] = [];
 
 export const INITIAL_COTIZACIONES: CotizacionProveedor[] = [
   {
@@ -405,56 +234,7 @@ export const INITIAL_COTIZACIONES: CotizacionProveedor[] = [
   }
 ];
 
-export const INITIAL_PAGOS: PagoProveedor[] = [
-  {
-    id: "pag_1",
-    reciboConsecutivo: "REC-PRV-2026-0001",
-    proveedorId: "prv_1",
-    ordenProduccionId: "ord_p3",
-    monto: 210000,
-    metodoPago: "Transferencia Bancolombia",
-    referenciaBancaria: "TRF-883920194",
-    comprobanteJpgUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-    comprobanteTipo: "jpg",
-    comprobanteNombre: "comprobante_bancolombia_rec_0001.jpg",
-    fechaPago: "2026-08-13",
-    registradoPor: "Estivenson Navarro (Administrador General)",
-    observaciones: "Pago liquidado al 100% por entrega conforme de 1.000 almanaques de bolsillo.",
-    createdAt: "2026-08-13T17:00:00"
-  },
-  {
-    id: "pag_ser_102",
-    reciboConsecutivo: "REC-PRV-2026-0002",
-    proveedorId: "prv_ser_102",
-    ordenProduccionId: "ord_ser_102_1",
-    monto: 450000,
-    metodoPago: "Transferencia Bancolombia",
-    referenciaBancaria: "TRF-992817450",
-    comprobanteJpgUrl: "/uploads/catalogo_almanaques_2027.pdf",
-    comprobanteTipo: "pdf",
-    comprobanteNombre: "comprobante_anticipo_bancolombia.pdf",
-    fechaPago: "2026-08-16",
-    registradoPor: "Estivenson Navarro (Administrador General)",
-    observaciones: "Abono inicial 50% para arranque de producción de 500 almanaques de escritorio.",
-    createdAt: "2026-08-16T15:30:00"
-  },
-  {
-    id: "pag_alm_102",
-    reciboConsecutivo: "REC-PRV-2026-0003",
-    proveedorId: "prv_alm_102",
-    ordenProduccionId: "ord_alm_102_1",
-    monto: 600000,
-    metodoPago: "Transferencia Bancolombia",
-    referenciaBancaria: "TRF-774619022",
-    comprobanteJpgUrl: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
-    comprobanteTipo: "jpg",
-    comprobanteNombre: "comprobante_anticipo_almanaques.jpg",
-    fechaPago: "2026-08-15",
-    registradoPor: "Estivenson Navarro (Administrador General)",
-    observaciones: "Anticipo 50% para compra de cartón duplex 320g e impresión de 1000 almanaques.",
-    createdAt: "2026-08-15T11:00:00"
-  }
-];
+export const INITIAL_PAGOS: PagoProveedor[] = [];
 
 const STORAGE_KEYS = {
   PROVEEDORES: "atziluth_proveedores_records",
@@ -553,22 +333,16 @@ export function getStoredOrdenes(): OrdenProduccion[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.ORDENES);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.ORDENES, JSON.stringify(INITIAL_ORDENES));
-      return INITIAL_ORDENES;
+      return [];
     }
     const list = JSON.parse(raw);
-    if (!Array.isArray(list) || list.length === 0) {
-      localStorage.setItem(STORAGE_KEYS.ORDENES, JSON.stringify(INITIAL_ORDENES));
-      return INITIAL_ORDENES;
+    if (!Array.isArray(list)) {
+      return [];
     }
-    const map = new Map<string, OrdenProduccion>();
-    INITIAL_ORDENES.forEach((o) => map.set(o.id, o));
-    list.forEach((o: OrdenProduccion) => map.set(o.id, o));
-    const merged = Array.from(map.values());
-    return merged;
+    return list;
   } catch (e) {
     console.error("Error loading ordenes from localStorage:", e);
-    return INITIAL_ORDENES;
+    return [];
   }
 }
 
@@ -576,9 +350,8 @@ export function saveStoredOrdenes(list: OrdenProduccion[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.ORDENES, JSON.stringify(list));
     // Emit storage event for same-window listeners
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("storage"));
-    }
+    safeDispatchEvent("storage");
+    safeDispatchEvent("atziluth_prov_data_change");
   } catch (e) {
     console.error("Error saving ordenes to localStorage:", e);
   }
@@ -588,30 +361,24 @@ export function getStoredPagos(): PagoProveedor[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.PAGOS);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.PAGOS, JSON.stringify(INITIAL_PAGOS));
-      return INITIAL_PAGOS;
+      return [];
     }
     const list = JSON.parse(raw);
-    if (!Array.isArray(list) || list.length === 0) {
-      localStorage.setItem(STORAGE_KEYS.PAGOS, JSON.stringify(INITIAL_PAGOS));
-      return INITIAL_PAGOS;
+    if (!Array.isArray(list)) {
+      return [];
     }
-    const map = new Map<string, PagoProveedor>();
-    INITIAL_PAGOS.forEach((p) => map.set(p.id, p));
-    list.forEach((p: PagoProveedor) => map.set(p.id, p));
-    return Array.from(map.values());
+    return list;
   } catch (e) {
     console.error("Error loading pagos from localStorage:", e);
-    return INITIAL_PAGOS;
+    return [];
   }
 }
 
 export function saveStoredPagos(list: PagoProveedor[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.PAGOS, JSON.stringify(list));
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("storage"));
-    }
+    safeDispatchEvent("storage");
+    safeDispatchEvent("atziluth_prov_data_change");
   } catch (e) {
     console.error("Error saving pagos to localStorage:", e);
   }
@@ -621,20 +388,21 @@ export function getStoredCotizaciones(): CotizacionProveedor[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEYS.COTIZACIONES);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEYS.COTIZACIONES, JSON.stringify(INITIAL_COTIZACIONES));
-      return INITIAL_COTIZACIONES;
+      return [];
     }
     const list: CotizacionProveedor[] = JSON.parse(raw);
-    return list;
+    return Array.isArray(list) ? list : [];
   } catch (e) {
     console.error("Error loading cotizaciones from localStorage:", e);
-    return INITIAL_COTIZACIONES;
+    return [];
   }
 }
 
 export function saveStoredCotizaciones(list: CotizacionProveedor[]): void {
   try {
     localStorage.setItem(STORAGE_KEYS.COTIZACIONES, JSON.stringify(list));
+    safeDispatchEvent("storage");
+    safeDispatchEvent("atziluth_prov_data_change");
   } catch (e) {
     console.error("Error saving cotizaciones to localStorage:", e);
   }
@@ -654,21 +422,37 @@ export function findProviderByAnyQuery(
 
   // Si pegaron una URL completa (ej: http://.../?token=prv-ser-102#proveedor), extraer el valor
   if (query.includes("?") || query.includes("#") || query.includes("http")) {
+    let extracted = false;
     try {
-      const parsedUrl = new URL(query.startsWith("http") ? query : `https://temp.local/${query}`);
-      const tokenFromQuery = parsedUrl.searchParams.get("token") || parsedUrl.searchParams.get("proveedor") || parsedUrl.searchParams.get("prv");
-      if (tokenFromQuery) query = tokenFromQuery;
-      else if (parsedUrl.hash) {
-        const hashClean = parsedUrl.hash.replace("#", "");
-        if (hashClean.includes("token=")) {
-          const match = hashClean.match(/token=([^&]+)/);
-          if (match && match[1]) query = match[1];
+      if (typeof URL === "function") {
+        const parsedUrl = new URL(query.startsWith("http") ? query : `https://temp.local/${query}`);
+        const tokenFromQuery = parsedUrl.searchParams?.get("token") || parsedUrl.searchParams?.get("proveedor") || parsedUrl.searchParams?.get("prv");
+        if (tokenFromQuery) {
+          query = tokenFromQuery;
+          extracted = true;
+        } else if (parsedUrl.hash) {
+          const hashClean = parsedUrl.hash.replace("#", "");
+          if (hashClean.includes("token=")) {
+            const match = hashClean.match(/token=([^&]+)/);
+            if (match && match[1]) {
+              query = match[1];
+              extracted = true;
+            }
+          }
         }
       }
-    } catch (_) {
+    } catch (_) {}
+
+    if (!extracted) {
       // Fallback regex extraction
-      const match = query.match(/[?&#]token=([^&#]+)/);
-      if (match && match[1]) query = decodeURIComponent(match[1]);
+      const match = query.match(/[?&#](token|proveedor|prv|id)=([^&#]+)/i);
+      if (match && match[2]) {
+        try {
+          query = decodeURIComponent(match[2]);
+        } catch (_) {
+          query = match[2];
+        }
+      }
     }
   }
 
@@ -907,18 +691,12 @@ export function isPaymentBelongingToProvider(
  */
 export async function fetchAndSyncOrdenes(): Promise<OrdenProduccion[]> {
   try {
-    const local = getStoredOrdenes();
-    const map = new Map<string, OrdenProduccion>();
-    local.forEach((o) => map.set(o.id, o));
-
     const res = await fetch("/api/proveedores/ordenes");
     if (res.ok) {
       const json = await res.json();
-      if (json && Array.isArray(json.ordenes) && json.ordenes.length > 0) {
-        json.ordenes.forEach((o: OrdenProduccion) => map.set(o.id, o));
-        const merged = Array.from(map.values());
-        saveStoredOrdenes(merged);
-        return merged;
+      if (json && Array.isArray(json.ordenes)) {
+        saveStoredOrdenes(json.ordenes);
+        return json.ordenes;
       }
     }
   } catch (e) {
@@ -932,18 +710,12 @@ export async function fetchAndSyncOrdenes(): Promise<OrdenProduccion[]> {
  */
 export async function fetchAndSyncPagos(): Promise<PagoProveedor[]> {
   try {
-    const local = getStoredPagos();
-    const map = new Map<string, PagoProveedor>();
-    local.forEach((p) => map.set(p.id, p));
-
     const res = await fetch("/api/proveedores/pagos");
     if (res.ok) {
       const json = await res.json();
-      if (json && Array.isArray(json.pagos) && json.pagos.length > 0) {
-        json.pagos.forEach((p: PagoProveedor) => map.set(p.id, p));
-        const merged = Array.from(map.values());
-        saveStoredPagos(merged);
-        return merged;
+      if (json && Array.isArray(json.pagos)) {
+        saveStoredPagos(json.pagos);
+        return json.pagos;
       }
     }
   } catch (e) {
@@ -1010,18 +782,12 @@ export function isQuotationBelongingToProvider(
  */
 export async function fetchAndSyncCotizaciones(): Promise<CotizacionProveedor[]> {
   try {
-    const local = getStoredCotizaciones();
-    const map = new Map<string, CotizacionProveedor>();
-    local.forEach((c) => map.set(c.id, c));
-
     const res = await fetch("/api/proveedores/cotizaciones");
     if (res.ok) {
       const json = await res.json();
-      if (json && Array.isArray(json.cotizaciones) && json.cotizaciones.length > 0) {
-        json.cotizaciones.forEach((c: CotizacionProveedor) => map.set(c.id, c));
-        const merged = Array.from(map.values());
-        saveStoredCotizaciones(merged);
-        return merged;
+      if (json && Array.isArray(json.cotizaciones)) {
+        saveStoredCotizaciones(json.cotizaciones);
+        return json.cotizaciones;
       }
     }
   } catch (e) {

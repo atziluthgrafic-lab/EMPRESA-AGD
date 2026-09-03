@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { safeDispatchEvent } from '../utils/safeEvents';
 import {
   Building2,
   Package,
@@ -245,17 +246,33 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       // Extract token from URL search query (?token=... or ?proveedor=...) or hash (#proveedor?token=... or #proveedor/token) or props
       let token = (initialTokenOrId || '').trim();
       if (!token && typeof window !== 'undefined') {
-        const urlParams = new URLSearchParams(window.location.search);
-        token = (urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '').trim();
-        
-        if (!token && window.location.hash.includes('?')) {
-          const hashQuery = window.location.hash.split('?')[1];
-          const hashParams = new URLSearchParams(hashQuery);
-          token = (hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '').trim();
-        } else if (!token && window.location.hash.includes('/')) {
-          const parts = window.location.hash.split('/');
-          if (parts.length > 1 && parts[1]) {
-            token = parts[1].trim();
+        try {
+          if (typeof URLSearchParams === 'function') {
+            const urlParams = new URLSearchParams(window.location.search);
+            token = (urlParams.get('token') || urlParams.get('proveedor') || urlParams.get('prv') || urlParams.get('id') || '').trim();
+            
+            if (!token && window.location.hash.includes('?')) {
+              const hashQuery = window.location.hash.split('?')[1];
+              const hashParams = new URLSearchParams(hashQuery);
+              token = (hashParams.get('token') || hashParams.get('proveedor') || hashParams.get('prv') || hashParams.get('id') || '').trim();
+            }
+          }
+        } catch (_) {}
+
+        if (!token) {
+          const fullQuery = (window.location.search || '') + '&' + (window.location.hash || '');
+          const match = fullQuery.match(/[?&#](token|proveedor|prv|id)=([^&#]+)/i);
+          if (match && match[2]) {
+            try {
+              token = decodeURIComponent(match[2]).trim();
+            } catch (_) {
+              token = match[2].trim();
+            }
+          } else if (window.location.hash.includes('/')) {
+            const parts = window.location.hash.split('/');
+            if (parts.length > 1 && parts[1]) {
+              token = parts[1].trim();
+            }
           }
         }
       }
@@ -659,8 +676,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
     const updated = current.filter(c => c.id !== id);
     saveStoredCotizaciones(updated);
     setAllCotizaciones(updated);
-    window.dispatchEvent(new Event('storage'));
-    window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+    safeDispatchEvent('storage');
+    safeDispatchEvent('atziluth_prov_data_change');
 
     fetch(`/api/proveedores/cotizaciones/${encodeURIComponent(id)}`, {
       method: 'DELETE'
@@ -717,8 +734,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       });
       saveStoredCotizaciones(updated);
       setAllCotizaciones(updated);
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+      safeDispatchEvent('storage');
+      safeDispatchEvent('atziluth_prov_data_change');
 
       if (savedQuoteObj) {
         fetch('/api/proveedores/cotizaciones', {
@@ -760,8 +777,8 @@ export const ProveedorVirtualOffice: React.FC<ProveedorVirtualOfficeProps> = ({
       const updated = [newQuote, ...currentList];
       saveStoredCotizaciones(updated);
       setAllCotizaciones(updated);
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
+      safeDispatchEvent('storage');
+      safeDispatchEvent('atziluth_prov_data_change');
 
       fetch('/api/proveedores/cotizaciones', {
         method: 'POST',

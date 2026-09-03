@@ -192,18 +192,6 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
           <p className="text-slate-300 text-sm md:text-base leading-relaxed">
             Consigue la máxima exposición de tu empresa los 365 días del año. Explora nuestra gama por categoría con detalles de acabado, tipo de papel, varilla, argollado e impresiones personalizadas.
           </p>
-
-          <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-mono">
-            <a
-              href="/almanaques.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 py-2.5 bg-brand-orange hover:bg-brand-orange/90 text-white font-bold rounded-xl flex items-center gap-2 shadow-lg transition-all"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Abrir Subpágina almanaques.html</span>
-            </a>
-          </div>
         </div>
       </div>
 

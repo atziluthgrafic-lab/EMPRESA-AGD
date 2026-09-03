@@ -56,21 +56,100 @@ export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
   const [activeSub, setActiveSub] = useState<SubregionId | null>(null);
-  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin">("servicios");
+  const [activeTab, setActiveTab] = useState<"servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin">(() => {
+    if (typeof window !== "undefined") {
+      const p = window.location.pathname.toLowerCase();
+      const h = window.location.hash.toLowerCase();
+      if (h === "#admin") {
+        return "admin";
+      }
+      if (
+        p.includes("almanaque") ||
+        p.includes("calendario") ||
+        h.includes("almanaque") ||
+        h.includes("calendario")
+      ) {
+        return "almanaques";
+      }
+      if (h.includes("litografia") || p.includes("litografia")) return "litografia";
+      if (h.includes("mapa") || p.includes("mapa")) return "mapa";
+      if (h.includes("directorio") || p.includes("directorio")) return "directorio";
+      if (h.includes("tarifas") || p.includes("tarifas")) return "tarifas";
+    }
+    return "servicios";
+  });
 
   // HashRouter hash listening for isolated views
-  const [currentHash, setCurrentHash] = useState<string>(window.location.hash || "");
+  const [currentHash, setCurrentHash] = useState<string>(typeof window !== "undefined" ? window.location.hash || "" : "");
+
+  const navigateToTab = (tab: "servicios" | "litografia" | "almanaques" | "mapa" | "directorio" | "tarifas" | "admin") => {
+    setActiveTab(tab);
+    try {
+      if (typeof window !== "undefined") {
+        if (tab === "almanaques") {
+          if (window.history && window.history.pushState) {
+            window.history.pushState({ tab }, "", "/almanaque-2027");
+          } else {
+            window.location.hash = "#almanaque-2027";
+          }
+        } else if (tab === "admin") {
+          window.location.hash = "#admin";
+        } else if (tab === "servicios") {
+          if (window.history && window.history.pushState) {
+            window.history.pushState({ tab }, "", "/");
+          } else {
+            window.location.hash = "";
+          }
+        } else {
+          if (window.history && window.history.pushState) {
+            window.history.pushState({ tab }, "", `/#${tab}`);
+          } else {
+            window.location.hash = `#${tab}`;
+          }
+        }
+      }
+    } catch (_) {}
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
-    const handleHashChange = () => {
-      const h = window.location.hash || "";
-      setCurrentHash(h);
+    const handleRouteSync = () => {
+      if (typeof window === "undefined") return;
+      const h = (window.location.hash || "").toLowerCase();
+      const p = (window.location.pathname || "").toLowerCase();
+      setCurrentHash(window.location.hash || "");
+
       if (h === "#admin") {
         setActiveTab("admin");
+      } else if (
+        p.includes("almanaque") ||
+        p.includes("calendario") ||
+        h.includes("almanaque") ||
+        h.includes("calendario")
+      ) {
+        setActiveTab("almanaques");
+      } else if (h === "#litografia" || p.includes("litografia")) {
+        setActiveTab("litografia");
+      } else if (h === "#mapa" || p.includes("mapa")) {
+        setActiveTab("mapa");
+      } else if (h === "#directorio" || p.includes("directorio")) {
+        setActiveTab("directorio");
+      } else if (h === "#tarifas" || p.includes("tarifas")) {
+        setActiveTab("tarifas");
+      } else if (h === "#servicios" || p === "/" || p === "") {
+        setActiveTab("servicios");
       }
     };
-    window.addEventListener("hashchange", handleHashChange);
-    return () => window.removeEventListener("hashchange", handleHashChange);
+
+    handleRouteSync();
+    window.addEventListener("hashchange", handleRouteSync);
+    window.addEventListener("popstate", handleRouteSync);
+    return () => {
+      window.removeEventListener("hashchange", handleRouteSync);
+      window.removeEventListener("popstate", handleRouteSync);
+    };
   }, []);
 
   // Mobile menu expand/collapse state
@@ -443,16 +522,32 @@ export default function App() {
   if (isProveedorRoute) {
     let provToken = "";
     if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      provToken = urlParams.get("token") || urlParams.get("proveedor") || urlParams.get("prv") || urlParams.get("id") || "";
-      if (!provToken && window.location.hash.includes("?")) {
-        const hashQuery = window.location.hash.split("?")[1];
-        const hashParams = new URLSearchParams(hashQuery);
-        provToken = hashParams.get("token") || hashParams.get("proveedor") || hashParams.get("prv") || hashParams.get("id") || "";
-      } else if (!provToken && window.location.hash.includes("/")) {
-        const parts = window.location.hash.split("/");
-        if (parts.length > 1 && parts[1]) {
-          provToken = parts[1];
+      try {
+        if (typeof URLSearchParams === "function") {
+          const urlParams = new URLSearchParams(window.location.search);
+          provToken = urlParams.get("token") || urlParams.get("proveedor") || urlParams.get("prv") || urlParams.get("id") || "";
+          if (!provToken && window.location.hash.includes("?")) {
+            const hashQuery = window.location.hash.split("?")[1];
+            const hashParams = new URLSearchParams(hashQuery);
+            provToken = hashParams.get("token") || hashParams.get("proveedor") || hashParams.get("prv") || hashParams.get("id") || "";
+          }
+        }
+      } catch (_) {}
+
+      if (!provToken && typeof window !== "undefined") {
+        const fullQuery = (window.location.search || "") + "&" + (window.location.hash || "");
+        const match = fullQuery.match(/[?&#](token|proveedor|prv|id)=([^&#]+)/i);
+        if (match && match[2]) {
+          try {
+            provToken = decodeURIComponent(match[2]);
+          } catch (_) {
+            provToken = match[2];
+          }
+        } else if (window.location.hash.includes("/")) {
+          const parts = window.location.hash.split("/");
+          if (parts.length > 1 && parts[1]) {
+            provToken = parts[1];
+          }
         }
       }
     }
@@ -638,10 +733,7 @@ export default function App() {
           {/* Desktop Nav links */}
           <div className="hidden md:flex items-center gap-6 text-xs font-mono font-bold">
             <button
-              onClick={() => {
-                setActiveTab("servicios");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("servicios")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
                 activeTab === "servicios" 
                   ? "text-brand-magenta border-brand-magenta" 
@@ -651,10 +743,7 @@ export default function App() {
               SERVICIOS
             </button>
             <button
-              onClick={() => {
-                setActiveTab("litografia");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("litografia")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
                 activeTab === "litografia" 
                   ? "text-brand-orange border-brand-orange" 
@@ -664,10 +753,7 @@ export default function App() {
               PUBLICIDAD LITOGRÁFICA
             </button>
             <button
-              onClick={() => {
-                setActiveTab("almanaques");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("almanaques")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 flex items-center gap-1 ${
                 activeTab === "almanaques" 
                   ? "text-brand-orange border-brand-orange font-black" 
@@ -677,10 +763,7 @@ export default function App() {
               <span>ALMANAQUE PARA EL 2027</span>
             </button>
             <button
-              onClick={() => {
-                setActiveTab("mapa");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("mapa")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
                 activeTab === "mapa" 
                   ? "text-brand-cyan border-brand-cyan" 
@@ -690,10 +773,7 @@ export default function App() {
               MAPA INTERACTIVO
             </button>
             <button
-              onClick={() => {
-                setActiveTab("directorio");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("directorio")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
                 activeTab === "directorio" 
                   ? "text-brand-yellow border-brand-yellow" 
@@ -704,10 +784,7 @@ export default function App() {
             </button>
 
             <button
-              onClick={() => {
-                setActiveTab("tarifas");
-                window.scrollTo({ top: 0, behavior: "smooth" });
-              }}
+              onClick={() => navigateToTab("tarifas")}
               className={`transition-colors cursor-pointer py-1.5 px-0.5 border-b-2 ${
                 activeTab === "tarifas" 
                   ? "text-brand-orange border-brand-orange" 
@@ -764,8 +841,7 @@ export default function App() {
                       key={item.id}
                       onClick={() => {
                         setMobileMenuOpen(false);
-                        setActiveTab(item.id as any);
-                        window.scrollTo({ top: 0, behavior: "smooth" });
+                        navigateToTab(item.id as any);
                       }}
                       className={`w-full text-left p-3.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
                         isSelected

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { safeDispatchEvent } from "../utils/safeEvents";
 import VendedorDashboard from "./VendedorDashboard";
 import {
   Users,
@@ -212,62 +213,7 @@ export interface OrderReceiptRecord {
   createdAt: string;
 }
 
-const DEFAULT_ORDERS: OrderReceiptRecord[] = [
-  {
-    id: "ord_101",
-    orderNumber: "PED-2026-001",
-    documentType: "abono",
-    date: "2026-08-01",
-    sellerId: "sel_1",
-    sellerName: "Carlos Mario Arango",
-    sellerUsername: "carlos.ventas",
-    sellerPhone: "3004567890",
-    sellerSupervisor: "Estivenson Navarro (Director Comercial)",
-    clientName: "Distribuidora El Triunfo S.A.S.",
-    clientDocument: "900.123.456-7",
-    clientPhone: "3115559876",
-    clientMunicipality: "Bello",
-    clientAddress: "Calle 50 # 45-12, Sector Niquía",
-    productCategory: "Calendarios & Almanaques 2026",
-    productDescription: "Almanaque de Pared 30x50cm - Tinta UV Full Color - Carátula Propalcote 300g",
-    quantity: 500,
-    unitPrice: 3800,
-    totalAmount: 1900000,
-    paidAmount: 900000,
-    balance: 1000000,
-    paymentMethod: "Transferencia Bancaria (Bancolombia)",
-    status: "pendiente",
-    notes: "Abono inicial del 47%. Saldo restante contra entrega programada.",
-    createdAt: "2026-08-01T10:00:00.000Z"
-  },
-  {
-    id: "ord_102",
-    orderNumber: "PED-2026-002",
-    documentType: "factura",
-    date: "2026-08-04",
-    sellerId: "sel_2",
-    sellerName: "Camila Ospina Restrepo",
-    sellerUsername: "camila.comercial",
-    sellerPhone: "3129876543",
-    sellerSupervisor: "Laura Gómez (Supervisora Metropolitana)",
-    clientName: "Calzado & Marroquinería Real",
-    clientDocument: "71.234.567",
-    clientPhone: "3014443322",
-    clientMunicipality: "Envigado",
-    clientAddress: "Carrera 43A # 32-10, Zona Comercial",
-    productCategory: "Portafolios Comerciales & Carpetas",
-    productDescription: "Portafolio Ejecutivo Plastificado Mate con Bolsillo Interno y Solapa",
-    quantity: 200,
-    unitPrice: 6500,
-    totalAmount: 1300000,
-    paidAmount: 1300000,
-    balance: 0,
-    paymentMethod: "Efectivo",
-    status: "completado",
-    notes: "Factura cancelada en su totalidad al momento de entrega.",
-    createdAt: "2026-08-04T14:30:00.000Z"
-  }
-];
+const DEFAULT_ORDERS: OrderReceiptRecord[] = [];
 
 export const PROVEEDORES_CATEGORIAS: ProveedorCategoria[] = [
   "Almanaques",
@@ -1071,10 +1017,8 @@ export default function AdminDashboard() {
       body: JSON.stringify(newOrd)
     }).catch((e) => console.warn('Error syncing order to server:', e));
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
-    }
+    safeDispatchEvent('storage');
+    safeDispatchEvent('atziluth_prov_data_change');
 
     setOrderModalProv(null);
     setNewOrdCliente("");
@@ -1109,10 +1053,8 @@ export default function AdminDashboard() {
       }).catch(() => {});
     }
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
-    }
+    safeDispatchEvent('storage');
+    safeDispatchEvent('atziluth_prov_data_change');
   };
 
   const handleCreateProvPayment = (e: React.FormEvent) => {
@@ -1157,10 +1099,8 @@ export default function AdminDashboard() {
     }).catch((e) => console.warn('Error syncing payment to server:', e));
 
     // Disparar eventos de storage y sincronización en vivo para oficinas virtuales
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new Event('storage'));
-      window.dispatchEvent(new CustomEvent('atziluth_prov_data_change'));
-    }
+    safeDispatchEvent('storage');
+    safeDispatchEvent('atziluth_prov_data_change');
 
     setPaymentModalProv(null);
     setPayMonto(0);
@@ -1218,10 +1158,10 @@ export default function AdminDashboard() {
     return null;
   });
 
-  const [loginUsername, setLoginUsername] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
+  const [loginUsername, setLoginUsername] = useState("Estivenson");
+  const [loginPassword, setLoginPassword] = useState("Lmrv1979");
   const [loginError, setLoginError] = useState<string | null>(null);
-  const [loginMode, setLoginMode] = useState<'vendedor' | 'admin'>('vendedor');
+  const [loginMode, setLoginMode] = useState<'vendedor' | 'admin'>('admin');
 
   // Vendedores State & LocalStorage persistence
   const [sellers, setSellers] = useState<SellerRecord[]>(() => {
@@ -1854,12 +1794,12 @@ export default function AdminDashboard() {
       const saved = localStorage.getItem("atziluth_pedidos_admin");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error("Error al cargar pedidos:", e);
     }
-    return DEFAULT_ORDERS;
+    return [];
   });
 
   useEffect(() => {
@@ -1869,6 +1809,14 @@ export default function AdminDashboard() {
       console.error("Error al guardar pedidos:", e);
     }
   }, [orders]);
+
+  // Master Reset & Granular Edit Modals State
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resettingTarget, setResettingTarget] = useState<string | null>(null);
+  const [editingProvOrden, setEditingProvOrden] = useState<OrdenProduccion | null>(null);
+  const [editingProvPago, setEditingProvPago] = useState<PagoProveedor | null>(null);
+  const [editingOrder, setEditingOrder] = useState<OrderReceiptRecord | null>(null);
+  const [editingAccountingPayment, setEditingAccountingPayment] = useState<{ clientId: string; payment: any } | null>(null);
 
   // Formulario Pedido / Recibo State
   const [ordDocumentType, setOrdDocumentType] = useState<'abono' | 'factura'>('abono');
@@ -1959,6 +1907,19 @@ export default function AdminDashboard() {
 
     const updated = [newOrder, ...orders];
     setOrders(updated);
+    try {
+      localStorage.setItem("atziluth_orders_data", JSON.stringify(updated));
+      localStorage.setItem("atziluth_sales_orders_v1", JSON.stringify(updated));
+    } catch (e) {
+      console.error("Error saving orders:", e);
+    }
+
+    // Also persist to backend sales_orders
+    fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newOrder)
+    }).catch(() => {});
 
     // If an external workshop / provider was selected, also create the production order for their virtual office
     if (provAssigned) {
@@ -1989,7 +1950,7 @@ export default function AdminDashboard() {
         body: JSON.stringify(newProvOrder)
       }).catch(() => {});
 
-      window.dispatchEvent(new Event("atziluth_prov_data_change"));
+      safeDispatchEvent("atziluth_prov_data_change");
       setSaveStatus(`✓ Pedido ${nextNumber} registrado y orden enviada al taller ${provAssigned.nombreComercial}`);
       setTimeout(() => setSaveStatus(null), 4000);
     }
@@ -2009,9 +1970,256 @@ export default function AdminDashboard() {
     setOrdNotes("");
   };
 
-  const handleDeleteOrder = (id: string, orderNumber: string) => {
+  const handleDeleteOrder = async (id: string, orderNumber: string) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede eliminar órdenes de pedido.");
+      return;
+    }
     if (confirm(`¿Está seguro de eliminar el registro de pedido "${orderNumber}"?`)) {
-      setOrders(orders.filter((o) => o.id !== id));
+      const updated = orders.filter((o) => o.id !== id);
+      setOrders(updated);
+      try {
+        localStorage.setItem("atziluth_orders_data", JSON.stringify(updated));
+        localStorage.setItem("atziluth_sales_orders_v1", JSON.stringify(updated));
+        localStorage.setItem("atziluth_pedidos_admin", JSON.stringify(updated));
+        await fetch(`/api/orders/${id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Error deleting order:", err);
+      }
+      safeDispatchEvent("atziluth_prov_data_change");
+      setSaveStatus(`✓ Pedido ${orderNumber} eliminado correctamente`);
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
+  const handleUpdateOrder = async (updatedOrder: OrderReceiptRecord) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede editar órdenes de pedido.");
+      return;
+    }
+    const updated = orders.map((o) => (o.id === updatedOrder.id ? updatedOrder : o));
+    setOrders(updated);
+    try {
+      localStorage.setItem("atziluth_orders_data", JSON.stringify(updated));
+      localStorage.setItem("atziluth_sales_orders_v1", JSON.stringify(updated));
+      localStorage.setItem("atziluth_pedidos_admin", JSON.stringify(updated));
+      await fetch(`/api/orders/${updatedOrder.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedOrder)
+      });
+    } catch (err) {
+      console.error("Error updating order:", err);
+    }
+    safeDispatchEvent("atziluth_prov_data_change");
+    setEditingOrder(null);
+    setSaveStatus(`✓ Pedido ${updatedOrder.orderNumber} actualizado`);
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleDeleteProvOrden = async (id: string, numeroOrden: string) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede eliminar órdenes de producción.");
+      return;
+    }
+    if (confirm(`¿Está seguro de eliminar la orden de producción "${numeroOrden}"?`)) {
+      const updated = provOrdenes.filter((o) => o.id !== id);
+      setProvOrdenes(updated);
+      saveStoredOrdenes(updated);
+      try {
+        await fetch(`/api/proveedores/ordenes/${id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Error deleting prov orden:", err);
+      }
+      safeDispatchEvent("atziluth_prov_data_change");
+      setSaveStatus(`✓ Orden de producción ${numeroOrden} eliminada`);
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
+  const handleUpdateProvOrden = async (updatedOrd: OrdenProduccion) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede modificar órdenes de producción.");
+      return;
+    }
+    const updated = provOrdenes.map((o) => (o.id === updatedOrd.id ? updatedOrd : o));
+    setProvOrdenes(updated);
+    saveStoredOrdenes(updated);
+    try {
+      await fetch(`/api/proveedores/ordenes/${updatedOrd.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedOrd)
+      });
+    } catch (err) {
+      console.error("Error updating prov orden:", err);
+    }
+    safeDispatchEvent("atziluth_prov_data_change");
+    setEditingProvOrden(null);
+    setSaveStatus(`✓ Orden de producción ${updatedOrd.numeroOrden} modificada con éxito`);
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleDeleteProvPago = async (id: string, reciboConsecutivo: string) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede eliminar comprobantes de pago y transferencias.");
+      return;
+    }
+    if (confirm(`¿Está seguro de eliminar el registro de transferencia "${reciboConsecutivo}"?`)) {
+      const updated = provPagos.filter((p) => p.id !== id);
+      setProvPagos(updated);
+      saveStoredPagos(updated);
+      try {
+        await fetch(`/api/proveedores/pagos/${id}`, { method: "DELETE" });
+      } catch (err) {
+        console.error("Error deleting prov pago:", err);
+      }
+      safeDispatchEvent("atziluth_prov_data_change");
+      setSaveStatus(`✓ Transferencia / Recibo ${reciboConsecutivo} eliminado`);
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
+  const handleUpdateProvPago = async (updatedPago: PagoProveedor) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede modificar transferencias y pagos.");
+      return;
+    }
+    const updated = provPagos.map((p) => (p.id === updatedPago.id ? updatedPago : p));
+    setProvPagos(updated);
+    saveStoredPagos(updated);
+    try {
+      await fetch(`/api/proveedores/pagos/${updatedPago.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedPago)
+      });
+    } catch (err) {
+      console.error("Error updating prov pago:", err);
+    }
+    safeDispatchEvent("atziluth_prov_data_change");
+    setEditingProvPago(null);
+    setSaveStatus(`✓ Comprobante ${updatedPago.reciboConsecutivo} actualizado`);
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleDeleteClientPayment = async (clientId: string, paymentId: string) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede eliminar pagos del balance contable.");
+      return;
+    }
+    if (confirm("¿Está seguro de eliminar este registro de pago del balance contable?")) {
+      const updatedClients = clients.map((c) => {
+        if (c.id === clientId && Array.isArray(c.payments)) {
+          return {
+            ...c,
+            payments: c.payments.filter((p) => p.id !== paymentId)
+          };
+        }
+        return c;
+      });
+      setClients(updatedClients);
+      await saveConfig(updatedClients);
+      setSaveStatus("✓ Registro de pago eliminado del balance contable");
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
+
+  const handleUpdateClientPayment = async (clientId: string, updatedPayment: any) => {
+    if (authSession?.role !== 'admin') {
+      alert("Solo el Administrador General puede editar pagos del balance contable.");
+      return;
+    }
+    const updatedClients = clients.map((c) => {
+      if (c.id === clientId && Array.isArray(c.payments)) {
+        return {
+          ...c,
+          payments: c.payments.map((p) => (p.id === updatedPayment.id ? updatedPayment : p))
+        };
+      }
+      return c;
+    });
+    setClients(updatedClients);
+    await saveConfig(updatedClients);
+    setEditingAccountingPayment(null);
+    setSaveStatus("✓ Registro de pago actualizado en balance contable");
+    setTimeout(() => setSaveStatus(null), 3000);
+  };
+
+  const handleResetData = async (target: 'all' | 'sales_orders' | 'prov_ordenes' | 'prov_pagos' | 'balance' | 'prov_cotizaciones') => {
+    if (authSession?.role !== 'admin') {
+      alert("Acceso denegado: Solo el Administrador General puede reiniciar datos.");
+      return;
+    }
+
+    const descriptions: Record<string, string> = {
+      all: "TODOS los datos (Órdenes de pedido, Órdenes de producción, Transferencias, Balance contable y Cotizaciones) para ARRANCAR DE CERO",
+      sales_orders: "todas las Órdenes de Pedido y Facturación",
+      prov_ordenes: "todas las Órdenes de Producción y Balance de Costos",
+      prov_pagos: "todas las Transferencias, Recibos y Comprobantes de pago",
+      balance: "todos los registros del Balance Contable y mensualidades",
+      prov_cotizaciones: "todas las Cotizaciones de talleres registradas"
+    };
+
+    if (!confirm(`⚠️ ATENCIÓN ADMINISTRADOR GENERAL:\n\n¿Está completamente seguro de eliminar definitivamente ${descriptions[target]}?\n\nEsta acción dejará el sistema en cero limpio.`)) {
+      return;
+    }
+
+    setResettingTarget(target);
+    try {
+      const res = await fetch("/api/admin/reset-data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ target })
+      });
+
+      if (res.ok) {
+        if (target === 'sales_orders' || target === 'all') {
+          setOrders([]);
+          localStorage.removeItem("atziluth_orders_data");
+          localStorage.removeItem("atziluth_sales_orders_v1");
+          localStorage.removeItem("atziluth_pedidos_admin");
+          localStorage.setItem("atziluth_orders_data", "[]");
+          localStorage.setItem("atziluth_sales_orders_v1", "[]");
+          localStorage.setItem("atziluth_pedidos_admin", "[]");
+        }
+        if (target === 'prov_ordenes' || target === 'balance' || target === 'all') {
+          setProvOrdenes([]);
+          saveStoredOrdenes([]);
+        }
+        if (target === 'prov_pagos' || target === 'all') {
+          setProvPagos([]);
+          saveStoredPagos([]);
+        }
+        if (target === 'prov_cotizaciones' || target === 'all') {
+          setProvCotizaciones([]);
+          saveStoredCotizaciones([]);
+        }
+        if (target === 'balance' || target === 'all') {
+          const clearedClients = clients.map((c) => ({
+            ...c,
+            hostingDomainPaid: false,
+            payments: []
+          }));
+          setClients(clearedClients);
+          await saveConfig(clearedClients);
+        }
+
+        safeDispatchEvent("storage");
+        safeDispatchEvent("atziluth_prov_data_change");
+        safeDispatchEvent("configUpdated");
+
+        setShowResetModal(false);
+        setSaveStatus("✓ ¡Registros eliminados con éxito! Todo arrancó de cero limpiamente.");
+        setTimeout(() => setSaveStatus(null), 5000);
+      } else {
+        alert("Error al reiniciar datos en el servidor.");
+      }
+    } catch (err) {
+      console.error("Error en reset:", err);
+      alert("Hubo un problema de conexión al reiniciar datos.");
+    } finally {
+      setResettingTarget(null);
     }
   };
 
@@ -2098,7 +2306,7 @@ export default function AdminDashboard() {
         setSaveStatus("¡Cambios guardados con éxito!");
         try {
           localStorage.setItem("atziluth_custom_config", JSON.stringify(payload));
-          window.dispatchEvent(new Event("configUpdated"));
+          safeDispatchEvent("configUpdated");
         } catch (_) {}
         setTimeout(() => setSaveStatus(null), 3000);
       } else {
@@ -2485,6 +2693,16 @@ export default function AdminDashboard() {
             <h2 className="text-2xl font-display font-bold text-white tracking-tight">Atziluth Gráfic Digital</h2>
             <p className="text-xs font-mono uppercase text-emerald-400 font-bold tracking-wider">
               Autenticación & Control de Acceso
+            </p>
+          </div>
+
+          <div className="p-3.5 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 space-y-1">
+            <div className="font-bold flex items-center gap-1.5 text-rose-300 font-mono text-[11px]">
+              <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+              <span>Función "ARRANCAR DE CERO"</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-snug font-sans">
+              Para ver el botón rojo <strong>🔴 ARRANCAR DE CERO</strong> y reiniciar el sistema, ingresa como <strong>Administrador (Estivenson)</strong>.
             </p>
           </div>
 
@@ -2939,10 +3157,23 @@ export default function AdminDashboard() {
           {/* HISTORIAL DE COMPROBANTES Y PEDIDOS */}
           <div className="space-y-4 pt-4 border-t border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-indigo-400" />
-                Historial de Comprobantes Registrados
-              </h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-sm font-bold text-white font-display flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-indigo-400" />
+                  Historial de Comprobantes Registrados ({orders.length})
+                </h3>
+                {authSession?.role === 'admin' && orders.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleResetData('sales_orders')}
+                    className="px-3 py-1 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow"
+                    title="Eliminar todas las órdenes de pedido y arrancar de cero"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Limpiar Pedidos</span>
+                  </button>
+                )}
+              </div>
 
               <div className="relative w-full sm:w-72">
                 <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -2971,71 +3202,104 @@ export default function AdminDashboard() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-sans">
-                    {orders
-                      .filter((ord) => {
-                        if (!orderSearchQuery) return true;
-                        const q = orderSearchQuery.toLowerCase();
-                        return (
-                          ord.orderNumber.toLowerCase().includes(q) ||
-                          ord.clientName.toLowerCase().includes(q) ||
-                          ord.productCategory.toLowerCase().includes(q)
-                        );
-                      })
-                      .map((ord) => (
-                        <tr key={ord.id} className="hover:bg-slate-900/50 transition-colors">
-                          <td className="px-4 py-3 font-mono">
-                            <strong className="text-indigo-400 block font-bold">{ord.orderNumber}</strong>
-                            <span className="text-[10px] text-slate-500 block">{ord.date}</span>
-                          </td>
+                    {orders.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className="py-6 text-center text-slate-500 text-xs font-mono">
+                          No hay órdenes de pedido registradas aún.
+                        </td>
+                      </tr>
+                    ) : (
+                      orders
+                        .filter((ord) => {
+                          if (!orderSearchQuery) return true;
+                          const q = orderSearchQuery.toLowerCase();
+                          return (
+                            ord.orderNumber.toLowerCase().includes(q) ||
+                            ord.clientName.toLowerCase().includes(q) ||
+                            ord.productCategory.toLowerCase().includes(q)
+                          );
+                        })
+                        .map((ord) => (
+                          <tr key={ord.id} className="hover:bg-slate-900/50 transition-colors">
+                            <td className="px-4 py-3 font-mono">
+                              <strong className="text-indigo-400 block font-bold">{ord.orderNumber}</strong>
+                              <span className="text-[10px] text-slate-500 block">{ord.date}</span>
+                            </td>
 
-                          <td className="px-4 py-3">
-                            <strong className="text-white block font-medium">{ord.clientName}</strong>
-                            <span className="text-[10px] text-slate-400 font-mono">{ord.clientMunicipality} • Tel: {ord.clientPhone}</span>
-                          </td>
+                            <td className="px-4 py-3">
+                              <strong className="text-white block font-medium">{ord.clientName}</strong>
+                              <span className="text-[10px] text-slate-400 font-mono">{ord.clientMunicipality} • Tel: {ord.clientPhone}</span>
+                            </td>
 
-                          <td className="px-4 py-3">
-                            <span className="text-slate-200 block text-[11px] font-medium">{ord.productCategory}</span>
-                            <span className="text-[10px] text-slate-500 block truncate max-w-xs">{ord.productDescription}</span>
-                          </td>
+                            <td className="px-4 py-3">
+                              <span className="text-slate-200 block text-[11px] font-medium">{ord.productCategory}</span>
+                              <span className="text-[10px] text-slate-500 block truncate max-w-xs">{ord.productDescription}</span>
+                            </td>
 
-                          <td className="px-4 py-3 text-right font-mono font-bold text-white">
-                            ${ord.totalAmount.toLocaleString("es-CO")}
-                          </td>
+                            <td className="px-4 py-3 text-right font-mono font-bold text-white">
+                              ${ord.totalAmount.toLocaleString("es-CO")}
+                            </td>
 
-                          <td className="px-4 py-3 text-right font-mono">
-                            <span className="text-emerald-400 block font-bold">${ord.paidAmount.toLocaleString("es-CO")}</span>
-                            <span className="text-[10px] text-amber-400 block">Saldo: ${ord.balance.toLocaleString("es-CO")}</span>
-                          </td>
+                            <td className="px-4 py-3 text-right font-mono">
+                              <span className="text-emerald-400 block font-bold">${ord.paidAmount.toLocaleString("es-CO")}</span>
+                              <span className="text-[10px] text-amber-400 block">Saldo: ${ord.balance.toLocaleString("es-CO")}</span>
+                            </td>
 
-                          <td className="px-4 py-3 text-center">
-                            <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
-                                ord.status === 'pagado'
-                                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
-                                  : ord.status === 'abono_parcial'
-                                  ? 'bg-amber-950 text-amber-400 border border-amber-800'
-                                  : 'bg-slate-900 text-slate-400 border border-slate-800'
-                              }`}
-                            >
-                              {ord.status === 'pagado' ? 'Pagado Total' : 'Abono Parcial'}
-                            </span>
-                          </td>
+                            <td className="px-4 py-3 text-center">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                                  ord.status === 'pagado'
+                                    ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                                    : ord.status === 'abono_parcial'
+                                    ? 'bg-amber-950 text-amber-400 border border-amber-800'
+                                    : 'bg-slate-900 text-slate-400 border border-slate-800'
+                                }`}
+                              >
+                                {ord.status === 'pagado' ? 'Pagado Total' : 'Abono Parcial'}
+                              </span>
+                            </td>
 
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              onClick={() => {
-                                setViewingReceiptOrder(ord);
-                                setShowReceiptModal(true);
-                              }}
-                              className="px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center justify-end gap-1 cursor-pointer ml-auto"
-                              title="Ver / Imprimir Recibo PDF"
-                            >
-                              <Printer className="w-3 h-3 text-indigo-400" />
-                              <span>Ver PDF</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="px-4 py-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setViewingReceiptOrder(ord);
+                                    setShowReceiptModal(true);
+                                  }}
+                                  className="px-2 py-1 bg-indigo-950 hover:bg-indigo-900 border border-indigo-700 text-indigo-300 rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1 cursor-pointer"
+                                  title="Ver / Imprimir Recibo PDF"
+                                >
+                                  <Printer className="w-3 h-3 text-indigo-400" />
+                                  <span>PDF</span>
+                                </button>
+                                {authSession?.role === 'admin' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingOrder(ord)}
+                                      className="p-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-300 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[10px] font-mono"
+                                      title="Editar orden de pedido"
+                                    >
+                                      <Edit3 className="w-3 h-3 text-amber-400" />
+                                      <span>Editar</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteOrder(ord.id, ord.orderNumber)}
+                                      className="p-1 bg-slate-900 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[10px] font-mono"
+                                      title="Eliminar orden de pedido"
+                                    >
+                                      <Trash2 className="w-3 h-3 text-rose-400" />
+                                      <span>Eliminar</span>
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -3196,7 +3460,7 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8 p-4 md:p-8 bg-slate-950 text-slate-100 min-h-screen rounded-3xl border border-slate-800 my-4 shadow-2xl">
       {/* Top Session Bar para Admin */}
-      <div className="bg-slate-900 border border-slate-800 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
+      <div className="bg-slate-900 border-2 border-rose-500/30 p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl">
         <div className="flex items-center gap-3">
           <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
             <Lock className="w-6 h-6" />
@@ -3214,13 +3478,26 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <button
-          onClick={handleLogout}
-          className="px-4 py-2 bg-rose-950/80 hover:bg-rose-900 border border-rose-800 text-rose-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
-        >
-          <LogOut className="w-4 h-4" />
-          <span>Cerrar Sesión</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {/* BOTÓN MAESTRO ARRANCAR DE CERO ULTRA VISIBLE EN LA BARRA DE SESIÓN */}
+          <button
+            type="button"
+            onClick={() => setShowResetModal(true)}
+            className="px-5 py-2.5 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-xs font-mono font-black text-white rounded-xl flex items-center gap-2.5 transition-all cursor-pointer shadow-xl border-2 border-rose-400 ring-4 ring-rose-500/30 animate-pulse uppercase tracking-wider"
+            title="Panel de Reinicio Maestro / Arrancar de Cero (Solo Administrador General)"
+          >
+            <Trash2 className="w-4 h-4 text-white animate-bounce" />
+            <span>🔴 ARRANCAR DE CERO</span>
+          </button>
+
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-mono font-bold rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Cerrar Sesión</span>
+          </button>
+        </div>
       </div>
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -3297,6 +3574,18 @@ export default function AdminDashboard() {
             <ImageIcon className="w-4 h-4" />
             <span>Gestor de Logo</span>
           </button>
+
+          {authSession?.role === 'admin' && (
+            <button
+              type="button"
+              onClick={() => setShowResetModal(true)}
+              className="px-4 py-2 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-600 text-xs font-mono font-black text-white rounded-xl flex items-center gap-2 transition-all cursor-pointer shadow-lg border border-rose-400/50"
+              title="Panel de Reinicio Maestro / Arrancar de Cero (Solo Administrador General)"
+            >
+              <Trash2 className="w-4 h-4 text-white animate-pulse" />
+              <span>🔴 ARRANCAR DE CERO</span>
+            </button>
+          )}
 
           <button
             onClick={fetchConfig}
@@ -3477,20 +3766,31 @@ export default function AdminDashboard() {
                   Ruta: /admin/almanaques.html
                 </span>
               </div>
-              <h3 className="text-base font-bold text-white font-display">Almanaques & Calendarios 2026</h3>
+              <h3 className="text-base font-bold text-white font-display">Almanaques & Calendarios 2027</h3>
               <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                Administra los tipos de almanaques, listas de precios por cantidad, subida del catálogo en PDF y cotizaciones especiales.
+                Administra los tipos de almanaques, listas de precios por cantidad, subida del catálogo en PDF y herramientas de marketing/redes sociales con la URL directa <strong>/almanaque-2027</strong>.
               </p>
             </div>
-            <a
-              href="/admin/almanaques.html"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
-            >
-              <FolderOpen className="w-4 h-4" />
-              <span>ABRIR PANEL ALMANAQUES ↗</span>
-            </a>
+            <div className="space-y-2">
+              <a
+                href="/admin/almanaques.html"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span>ABRIR PANEL ALMANAQUES ↗</span>
+              </a>
+              <a
+                href="/almanaque-2027"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-400/30 font-mono text-[11px] font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow cursor-pointer text-center"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Ver Catálogo Público (/almanaque-2027)</span>
+              </a>
+            </div>
           </div>
 
           {/* Portal 4: Editor Web General */}
@@ -7259,13 +7559,27 @@ export default function AdminDashboard() {
           {/* TABLA DE ÓRDENES DE PRODUCCIÓN & ANÁLISIS DE GANANCIA POR PEDIDO */}
           <div className="space-y-4 pt-4 border-t border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Package className="w-4 h-4 text-sky-400" />
-                Órdenes Asignadas a Talleres & Margen de Ganancia ({provOrdenes.length})
-              </h3>
-              <span className="text-[11px] font-mono text-slate-400">
-                Calcula instantáneamente la ganancia retenida por cada trabajo litográfico
-              </span>
+              <div>
+                <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Package className="w-4 h-4 text-sky-400" />
+                  Órdenes Asignadas a Talleres & Margen de Ganancia ({provOrdenes.length})
+                </h3>
+                <span className="text-[11px] font-mono text-slate-400">
+                  Calcula instantáneamente la ganancia retenida por cada trabajo litográfico
+                </span>
+              </div>
+
+              {authSession?.role === 'admin' && provOrdenes.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleResetData('prov_ordenes')}
+                  className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow shrink-0"
+                  title="Eliminar todas las órdenes de producción y arrancar de cero"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Limpiar Órdenes de Producción</span>
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/80 shadow-xl custom-scrollbar">
@@ -7280,12 +7594,13 @@ export default function AdminDashboard() {
                     <th className="py-2.5 px-3">Costo Taller</th>
                     <th className="py-2.5 px-3">Ganancia / Margen</th>
                     <th className="py-2.5 px-3">Estado</th>
+                    <th className="py-2.5 px-3 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
                   {provOrdenes.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-6 text-center text-slate-500 text-xs font-mono">
+                      <td colSpan={9} className="py-6 text-center text-slate-500 text-xs font-mono">
                         No hay órdenes de producción asignadas aún.
                       </td>
                     </tr>
@@ -7336,6 +7651,34 @@ export default function AdminDashboard() {
                               )}
                             </button>
                           </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {authSession?.role === 'admin' ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingProvOrden(ord)}
+                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-300 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                                    title="Editar datos de la orden de producción"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Editar</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteProvOrden(ord.id, ord.numeroOrden)}
+                                    className="p-1.5 bg-slate-900 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                                    title="Eliminar esta orden de producción"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Eliminar</span>
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-[10px] text-slate-600 font-mono">Solo lectura</span>
+                              )}
+                            </div>
+                          </td>
                         </tr>
                       );
                     })
@@ -7348,13 +7691,27 @@ export default function AdminDashboard() {
           {/* HISTORIAL DE PAGOS A PROVEEDORES CON COMPROBANTES JPG / PDF */}
           <div className="space-y-4 pt-4 border-t border-slate-800">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
-                <Receipt className="w-4 h-4 text-emerald-400" />
-                Historial de Transferencias & Comprobantes de Pago (JPG / PDF) ({provPagos.length})
-              </h3>
-              <span className="text-[11px] font-mono text-slate-400">
-                Comprobantes oficiales emitidos para soporte contable y enviados a la Oficina Virtual del taller
-              </span>
+              <div>
+                <h3 className="text-sm font-bold font-mono uppercase tracking-wider text-slate-300 flex items-center gap-2">
+                  <Receipt className="w-4 h-4 text-emerald-400" />
+                  Historial de Transferencias & Comprobantes de Pago (JPG / PDF) ({provPagos.length})
+                </h3>
+                <span className="text-[11px] font-mono text-slate-400">
+                  Comprobantes oficiales emitidos para soporte contable y enviados a la Oficina Virtual del taller
+                </span>
+              </div>
+
+              {authSession?.role === 'admin' && provPagos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleResetData('prov_pagos')}
+                  className="px-3 py-1.5 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow shrink-0"
+                  title="Eliminar todas las transferencias y arrancar de cero"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                  <span>Limpiar Transferencias</span>
+                </button>
+              )}
             </div>
 
             <div className="overflow-x-auto border border-slate-800 rounded-2xl bg-slate-950/80 shadow-xl custom-scrollbar">
@@ -7367,7 +7724,7 @@ export default function AdminDashboard() {
                     <th className="py-2.5 px-3">Monto Pagado</th>
                     <th className="py-2.5 px-3">Método & Ref. Bancaria</th>
                     <th className="py-2.5 px-3">Comprobante (JPG / PDF)</th>
-                    <th className="py-2.5 px-3 text-right">Recibo</th>
+                    <th className="py-2.5 px-3 text-right">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
@@ -7411,13 +7768,38 @@ export default function AdminDashboard() {
                             )}
                           </td>
                           <td className="py-2.5 px-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => setViewingProvReceipt(pago)}
-                              className="px-3 py-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-mono transition-colors cursor-pointer"
-                            >
-                              Ver Recibo
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => setViewingProvReceipt(pago)}
+                                className="px-2.5 py-1 bg-indigo-950 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-mono transition-colors cursor-pointer"
+                                title="Ver / Imprimir Recibo Oficial"
+                              >
+                                Ver Recibo
+                              </button>
+                              {authSession?.role === 'admin' && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingProvPago(pago)}
+                                    className="p-1.5 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-300 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                                    title="Editar datos de transferencia y pago"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                                    <span>Editar</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteProvPago(pago.id, pago.reciboConsecutivo)}
+                                    className="p-1.5 bg-slate-900 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                                    title="Eliminar registro de transferencia"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                                    <span>Eliminar</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </td>
                         </tr>
                       );
@@ -9382,7 +9764,20 @@ export default function AdminDashboard() {
               <FileSpreadsheet className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">Resumen General de Contabilidad Mensual</h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-bold text-white">Resumen General de Contabilidad Mensual</h3>
+                {authSession?.role === 'admin' && filteredAccountingPayments.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleResetData('balance')}
+                    className="px-3 py-1 bg-rose-950/60 hover:bg-rose-900 border border-rose-600/50 text-rose-300 rounded-xl text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow"
+                    title="Eliminar todos los pagos del balance contable y arrancar de cero"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Limpiar Balance</span>
+                  </button>
+                )}
+              </div>
               <p className="text-xs text-slate-400">
                 Historial consolidado de todos los pagos registrados en la plataforma.
               </p>
@@ -9423,6 +9818,7 @@ export default function AdminDashboard() {
                   <th className="py-2.5 px-3">Fecha</th>
                   <th className="py-2.5 px-3">Método</th>
                   <th className="py-2.5 px-3">Estado</th>
+                  <th className="py-2.5 px-3 text-right">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -9457,6 +9853,34 @@ export default function AdminDashboard() {
                         </span>
                       )}
                     </td>
+                    <td className="py-2.5 px-3 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        {authSession?.role === 'admin' ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setEditingAccountingPayment({ clientId: p.clientId, payment: p })}
+                              className="p-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-300 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                              title="Editar este registro de pago"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-400" />
+                              <span>Editar</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClientPayment(p.clientId, p.id)}
+                              className="p-1 bg-slate-900 hover:bg-rose-950/80 text-slate-400 hover:text-rose-400 rounded-lg border border-slate-700 transition-colors cursor-pointer inline-flex items-center gap-1 text-[11px] font-mono"
+                              title="Eliminar este pago del balance contable"
+                            >
+                              <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+                              <span>Eliminar</span>
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-slate-600 font-mono">Solo lectura</span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -9465,7 +9889,7 @@ export default function AdminDashboard() {
                   <td colSpan={4} className="py-3 px-3 text-right uppercase font-mono text-slate-400">
                     Total Recaudado en Selección:
                   </td>
-                  <td colSpan={4} className="py-3 px-3 font-mono text-emerald-400 text-sm">
+                  <td colSpan={5} className="py-3 px-3 font-mono text-emerald-400 text-sm">
                     {formatCOP(
                       filteredAccountingPayments
                         .filter((p) => p.paid)
@@ -11214,6 +11638,797 @@ export default function AdminDashboard() {
         onDeleteCategory={handleDeleteCategory}
         onResetDefaults={handleResetCategoryDefaults}
       />
+
+      {/* ========================================================================= */}
+      {/* MODAL: PANEL DE REINICIO MAESTRO / ARRANCAR DE CERO (ADMINISTRADOR GENERAL) */}
+      {/* ========================================================================= */}
+      {showResetModal && authSession?.role === 'admin' && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-rose-500/70 rounded-3xl max-w-2xl w-full p-6 space-y-6 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-rose-500/20 text-rose-400 rounded-2xl border border-rose-500/40">
+                  <Trash2 className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white font-mono uppercase tracking-wide flex items-center gap-2">
+                    <span>PANEL DE REINICIO MAESTRO</span>
+                    <span className="px-2 py-0.5 bg-rose-950 text-rose-400 border border-rose-600/50 text-[10px] rounded-md font-black">
+                      SOLO ADMIN GENERAL
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-sans">
+                    Elimina módulos específicos o todo el sistema para arrancar desde cero en cualquier momento.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl border border-slate-700 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-4 bg-rose-950/40 border border-rose-500/40 rounded-2xl text-xs text-rose-200 space-y-1">
+              <div className="font-bold flex items-center gap-1.5 text-rose-300 font-mono">
+                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                <span>Advertencia de Eliminación Definitiva</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+                Esta acción vaciará de manera permanente los registros seleccionados tanto en tu navegador como en la base de datos persistente del servidor. Usa esta función cuando desees iniciar una nueva temporada o limpiar datos de prueba.
+              </p>
+            </div>
+
+            {/* Opciones de Reinicio Granular */}
+            <div className="space-y-3">
+              <div className="text-xs font-mono uppercase text-slate-400 font-bold">
+                Selecciona la acción a ejecutar:
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  disabled={resettingTarget !== null}
+                  onClick={() => handleResetData('sales_orders')}
+                  className="p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-2xl text-left transition-all group cursor-pointer space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white group-hover:text-amber-400 flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-amber-400" />
+                      1. Órdenes de Pedido
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">({orders.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans leading-snug">
+                    Elimina pedidos de clientes, abonos registrados y recibos PDF emitidos.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={resettingTarget !== null}
+                  onClick={() => handleResetData('prov_ordenes')}
+                  className="p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-sky-500/60 rounded-2xl text-left transition-all group cursor-pointer space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white group-hover:text-sky-400 flex items-center gap-1.5">
+                      <Package className="w-4 h-4 text-sky-400" />
+                      2. Órdenes de Producción
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">({provOrdenes.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans leading-snug">
+                    Elimina trabajos asignados a talleres litográficos y márgenes de ganancia.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={resettingTarget !== null}
+                  onClick={() => handleResetData('prov_pagos')}
+                  className="p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-emerald-500/60 rounded-2xl text-left transition-all group cursor-pointer space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white group-hover:text-emerald-400 flex items-center gap-1.5">
+                      <Receipt className="w-4 h-4 text-emerald-400" />
+                      3. Transferencias & Comprobantes
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">({provPagos.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans leading-snug">
+                    Elimina historial de transferencias bancarias, recibos de egreso y archivos JPG/PDF.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={resettingTarget !== null}
+                  onClick={() => handleResetData('balance')}
+                  className="p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/60 rounded-2xl text-left transition-all group cursor-pointer space-y-1"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white group-hover:text-indigo-400 flex items-center gap-1.5">
+                      <Wallet className="w-4 h-4 text-indigo-400" />
+                      4. Balance Contable
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">({filteredAccountingPayments.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans leading-snug">
+                    Elimina bitácora de cobros mensuales, hostings y liquidaciones contables.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={resettingTarget !== null}
+                  onClick={() => handleResetData('prov_cotizaciones')}
+                  className="p-3.5 bg-slate-950/80 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-2xl text-left transition-all group cursor-pointer space-y-1 sm:col-span-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white group-hover:text-amber-400 flex items-center gap-1.5">
+                      <Tag className="w-4 h-4 text-amber-400" />
+                      5. Cotizaciones de Proveedores & Talleres
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-500">({provCotizaciones.length})</span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-sans leading-snug">
+                    Elimina todas las ofertas de costos unitarios enviadas por los talleres.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* BOTÓN MAESTRO DE REINICIO TOTAL */}
+            <div className="pt-4 border-t border-slate-800 space-y-3">
+              <button
+                type="button"
+                disabled={resettingTarget !== null}
+                onClick={() => handleResetData('all')}
+                className="w-full py-4 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-500 hover:to-red-500 text-white font-mono text-sm font-black rounded-2xl flex items-center justify-center gap-3 transition-all shadow-xl border border-rose-400/50 cursor-pointer uppercase tracking-wider"
+              >
+                <Trash2 className="w-5 h-5 animate-bounce" />
+                <span>{resettingTarget === 'all' ? 'Reiniciando Todo...' : '🔴 REINICIAR TODO Y ARRANCAR DE CERO'}</span>
+              </button>
+              <p className="text-center text-[10px] font-mono text-slate-500">
+                Limpia simultáneamente pedidos, producción, transferencias, balance y cotizaciones.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDITAR ÓRDEN DE PEDIDO (VENTAS & FACTURACIÓN) */}
+      {/* ========================================================================= */}
+      {editingOrder && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono uppercase">
+                    Editar Orden de Pedido: {editingOrder.orderNumber}
+                  </h3>
+                  <p className="text-xs text-slate-400">Modifica datos del cliente, valores y estado de pago.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingOrder(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateOrder(editingOrder);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Cliente / Razón Social *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingOrder.clientName}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, clientName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Teléfono / WhatsApp
+                  </label>
+                  <input
+                    type="text"
+                    value={editingOrder.clientPhone}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, clientPhone: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Descripción del Trabajo / Producto *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingOrder.productDescription}
+                  onChange={(e) => setEditingOrder({ ...editingOrder, productDescription: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Cantidad
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingOrder.quantity}
+                    onChange={(e) => {
+                      const qty = Number(e.target.value) || 1;
+                      const tot = qty * (editingOrder.unitPrice || 0);
+                      const bal = Math.max(0, tot - (editingOrder.paidAmount || 0));
+                      setEditingOrder({ ...editingOrder, quantity: qty, totalAmount: tot, balance: bal });
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Precio Unitario ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingOrder.unitPrice}
+                    onChange={(e) => {
+                      const price = Number(e.target.value) || 0;
+                      const tot = (editingOrder.quantity || 1) * price;
+                      const bal = Math.max(0, tot - (editingOrder.paidAmount || 0));
+                      setEditingOrder({ ...editingOrder, unitPrice: price, totalAmount: tot, balance: bal });
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Abono Pagado ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingOrder.paidAmount}
+                    onChange={(e) => {
+                      const paid = Number(e.target.value) || 0;
+                      const bal = Math.max(0, (editingOrder.totalAmount || 0) - paid);
+                      setEditingOrder({ ...editingOrder, paidAmount: paid, balance: bal, status: bal === 0 ? 'pagado' : 'abono_parcial' });
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-bold focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Costo Proveedor ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingOrder.costoProveedor || 0}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, costoProveedor: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-rose-300 focus:outline-none focus:border-indigo-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Estado
+                  </label>
+                  <select
+                    value={editingOrder.status}
+                    onChange={(e) => setEditingOrder({ ...editingOrder, status: e.target.value as any })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="pagado">Pagado Total</option>
+                    <option value="abono_parcial">Abono Parcial</option>
+                    <option value="pendiente">Pendiente</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDITAR ÓRDEN DE PRODUCCIÓN */}
+      {/* ========================================================================= */}
+      {editingProvOrden && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-sky-500/10 text-sky-400 rounded-xl border border-sky-500/20">
+                  <Package className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono uppercase">
+                    Editar Orden de Producción: {editingProvOrden.numeroOrden}
+                  </h3>
+                  <p className="text-xs text-slate-400">Modifica los detalles asignados al taller litográfico.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProvOrden(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateProvOrden(editingProvOrden);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Cliente *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingProvOrden.clienteNombre}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, clienteNombre: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Taller Asignado
+                  </label>
+                  <select
+                    value={editingProvOrden.proveedorId}
+                    onChange={(e) => {
+                      const sel = proveedores.find(p => p.id === e.target.value);
+                      setEditingProvOrden({
+                        ...editingProvOrden,
+                        proveedorId: e.target.value,
+                        proveedorNombre: sel?.nombreComercial,
+                        proveedorCodigo: sel?.codigo
+                      });
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  >
+                    {proveedores.map(p => (
+                      <option key={p.id} value={p.id}>{p.nombreComercial} ({p.codigo})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Descripción del Trabajo *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editingProvOrden.descripcionTrabajo}
+                  onChange={(e) => setEditingProvOrden({ ...editingProvOrden, descripcionTrabajo: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Cantidad (und)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={editingProvOrden.cantidad}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, cantidad: Number(e.target.value) || 1 })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Precio Venta Cliente ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProvOrden.precioVentaCliente || 0}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, precioVentaCliente: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-indigo-300 font-bold focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Costo Proveedor / Taller ($)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={editingProvOrden.costoProveedor || 0}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, costoProveedor: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-rose-300 font-bold focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Estado de Producción
+                  </label>
+                  <select
+                    value={editingProvOrden.estado}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, estado: e.target.value as any })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  >
+                    <option value="Pendiente">En Taller / Pendiente</option>
+                    <option value="En_Produccion">En Producción</option>
+                    <option value="Terminado">Terminado / Listo</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Tipo de Entrega
+                  </label>
+                  <select
+                    value={editingProvOrden.tipoEntrega}
+                    onChange={(e) => setEditingProvOrden({ ...editingProvOrden, tipoEntrega: e.target.value as any })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-sky-500"
+                  >
+                    <option value="Recoger_Taller">Recoger en Taller</option>
+                    <option value="Domicilio_Local">Domicilio Local</option>
+                    <option value="Envio_Nacional">Envío Nacional</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingProvOrden(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-sky-600 hover:bg-sky-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDITAR TRANSFERENCIA / PAGO A PROVEEDOR */}
+      {/* ========================================================================= */}
+      {editingProvPago && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-2xl w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono uppercase">
+                    Editar Transferencia / Pago: {editingProvPago.reciboConsecutivo}
+                  </h3>
+                  <p className="text-xs text-slate-400">Modifica montos, referencias y comprobantes bancarios.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingProvPago(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateProvPago(editingProvPago);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Monto Transferido ($ COP) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={editingProvPago.monto}
+                    onChange={(e) => setEditingProvPago({ ...editingProvPago, monto: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-bold font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Fecha de Pago
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingProvPago.fechaPago}
+                    onChange={(e) => setEditingProvPago({ ...editingProvPago, fechaPago: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Método de Pago
+                  </label>
+                  <select
+                    value={editingProvPago.metodoPago}
+                    onChange={(e) => setEditingProvPago({ ...editingProvPago, metodoPago: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Transferencia Bancolombia">Transferencia Bancolombia</option>
+                    <option value="Transferencia Nequi">Transferencia Nequi</option>
+                    <option value="Transferencia Daviplata">Transferencia Daviplata</option>
+                    <option value="Transferencia BBVA">Transferencia BBVA</option>
+                    <option value="Efectivo en Taller">Efectivo en Taller</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Referencia Bancaria / Aprobación
+                  </label>
+                  <input
+                    type="text"
+                    value={editingProvPago.referenciaBancaria}
+                    onChange={(e) => setEditingProvPago({ ...editingProvPago, referenciaBancaria: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                  Observaciones / Notas
+                </label>
+                <textarea
+                  rows={2}
+                  value={editingProvPago.observaciones || ""}
+                  onChange={(e) => setEditingProvPago({ ...editingProvPago, observaciones: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingProvPago(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: EDITAR PAGO DE BALANCE CONTABLE */}
+      {/* ========================================================================= */}
+      {editingAccountingPayment && (
+        <div className="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl relative max-h-[90vh] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                  <Edit3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white font-mono uppercase">
+                    Editar Registro de Balance Contable
+                  </h3>
+                  <p className="text-xs text-slate-400">{editingAccountingPayment.payment.clientName} ({editingAccountingPayment.payment.projectName})</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingAccountingPayment(null)}
+                className="p-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-xl cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleUpdateClientPayment(editingAccountingPayment.clientId, editingAccountingPayment.payment);
+              }}
+              className="space-y-4"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Concepto *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={editingAccountingPayment.payment.concept}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, concept: e.target.value }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Período / Mes
+                  </label>
+                  <input
+                    type="text"
+                    value={editingAccountingPayment.payment.period}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, period: e.target.value }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Monto ($ COP) *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={0}
+                    value={editingAccountingPayment.payment.amount}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, amount: Number(e.target.value) || 0 }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-emerald-400 font-bold font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Fecha
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={editingAccountingPayment.payment.date}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, date: e.target.value }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Método
+                  </label>
+                  <input
+                    type="text"
+                    value={editingAccountingPayment.payment.method}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, method: e.target.value }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    Estado de Pago
+                  </label>
+                  <select
+                    value={editingAccountingPayment.payment.paid ? "true" : "false"}
+                    onChange={(e) => setEditingAccountingPayment({
+                      ...editingAccountingPayment,
+                      payment: { ...editingAccountingPayment.payment, paid: e.target.value === "true" }
+                    })}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="true">PAGADO</option>
+                    <option value="false">PENDIENTE</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-3 flex justify-end gap-2 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setEditingAccountingPayment(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono rounded-xl cursor-pointer"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold rounded-xl flex items-center gap-2 shadow cursor-pointer"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>Guardar Cambios</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

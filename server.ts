@@ -630,66 +630,19 @@ function saveClientsData(clients: any[]) {
 }
 
 function getDefaultSalesOrders() {
-  return [
-    {
-      id: "ord-2001",
-      orderNumber: "PED-1001",
-      date: new Date().toLocaleDateString("es-CO"),
-      sellerId: "sel-101",
-      sellerName: "Carlos Mario Arango",
-      sellerUsername: "carlos.ventas",
-      sellerZone: "Valle de Aburrá Norte",
-      clientId: "cli-1001",
-      clientName: "Distribuidora El Progreso S.A.S.",
-      clientNit: "900.123.456-7",
-      clientPhone: "310 456 7890",
-      clientEmail: "contacto@elprogresomed.com",
-      clientAddress: "Calle 50 # 45-20",
-      clientMunicipality: "Medellín",
-      items: [
-        {
-          id: "alm-101",
-          ref: "ALM-101",
-          name: "Almanaque de Escritorio PyME Premium",
-          category: "Almanaque para el 2027",
-          quantity: 250,
-          unitPrice: 6500,
-          totalPrice: 1625000
-        }
-      ],
-      subtotal: 1625000,
-      discount: 0,
-      totalAmount: 1625000,
-      abonos: [
-        {
-          id: "ab-1",
-          date: new Date().toLocaleDateString("es-CO"),
-          amount: 800000,
-          paymentMethod: "Transferencia Bancaria / Nequi",
-          note: "Abono inicial 50% para inicio de producción",
-          receiptNumber: "REC-5001"
-        }
-      ],
-      totalPaid: 800000,
-      balance: 825000,
-      status: "PAGADO_PARCIAL",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    }
-  ];
+  return [];
 }
 
 function loadSalesOrdersData() {
   try {
     if (fs.existsSync(SALES_ORDERS_FILE)) {
-      return JSON.parse(fs.readFileSync(SALES_ORDERS_FILE, "utf-8"));
+      const data = JSON.parse(fs.readFileSync(SALES_ORDERS_FILE, "utf-8"));
+      if (Array.isArray(data)) return data;
     }
   } catch (e) {
     console.error("Error reading sales_orders_data.json:", e);
   }
-  const initial = getDefaultSalesOrders();
-  saveSalesOrdersData(initial);
-  return initial;
+  return [];
 }
 
 function saveSalesOrdersData(orders: any[]) {
@@ -1214,6 +1167,42 @@ app.post("/api/sales/orders/:id/abono", (req, res) => {
   } catch (err: any) {
     console.error("Error adding abono:", err);
     res.status(500).json({ success: false, error: "Error al registrar el abono." });
+  }
+});
+
+// Update sales order
+app.put("/api/sales/orders/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const orders = loadSalesOrdersData();
+    const idx = orders.findIndex((o: any) => o.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Pedido no encontrado." });
+    }
+    orders[idx] = {
+      ...orders[idx],
+      ...req.body,
+      updatedAt: new Date().toISOString()
+    };
+    saveSalesOrdersData(orders);
+    res.json({ success: true, order: orders[idx], orders });
+  } catch (err: any) {
+    console.error("Error updating sales order:", err);
+    res.status(500).json({ success: false, error: "Error al actualizar la orden de pedido." });
+  }
+});
+
+// Delete sales order
+app.delete("/api/sales/orders/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let orders = loadSalesOrdersData();
+    orders = orders.filter((o: any) => o.id !== id);
+    saveSalesOrdersData(orders);
+    res.json({ success: true, orders });
+  } catch (err: any) {
+    console.error("Error deleting sales order:", err);
+    res.status(500).json({ success: false, error: "Error al eliminar la orden de pedido." });
   }
 });
 
@@ -1778,168 +1767,19 @@ function saveProveedoresServer(data: any[]) {
 }
 
 function getDefaultProvOrdenesServer() {
-  return [
-    {
-      id: "ord_ser_102_1",
-      numeroOrden: "ORD-PRV-2026-0091",
-      pedidoClienteId: "PED-1001",
-      clienteNombre: "Distribuidora El Progreso S.A.S. — Medellín",
-      proveedorId: "prv_ser_102",
-      descripcionTrabajo: "500 Almanaques de Escritorio PyME Premium con Base Troquelada y Plastificado Mate",
-      categoria: "Servicios",
-      cantidad: 500,
-      especificaciones: {
-        medidas: "20 x 15 cm",
-        material: "Cartón Maule 350g + Anillado Doble O metálico negro",
-        tintas: "Policromía 4x4 + Reserva UV Brillante",
-        acabados: "Troquelado de base piramidal, armado con resorte y tacos mensuales",
-        notas: "Pedido de alta prioridad. Empacar en cajas de 50 unidades con protección."
-      },
-      precioVentaCliente: 1650000,
-      costoProveedor: 890000,
-      estado: "En_Produccion",
-      tipoEntrega: "Recoger_Taller",
-      direccionEnvio: "Calle 33 # 65-40, Barrio San Joaquín, Medellín",
-      fechaAsignacion: "2026-08-16T08:30:00",
-      fechaLimiteEntrega: "2026-08-25",
-      notificadoAdmin: false
-    },
-    {
-      id: "ord_ser_102_2",
-      numeroOrden: "ORD-PRV-2026-0092",
-      clienteNombre: "Inversiones & Eventos Antioquia S.A.S.",
-      proveedorId: "prv_ser_102",
-      descripcionTrabajo: "2000 Carpetas Corporativas con Bolsillo Troquelado y Portatarjeta",
-      categoria: "Litografía Comercial",
-      cantidad: 2000,
-      especificaciones: {
-        medidas: "Carta Abierta (46 x 31 cm)",
-        material: "Propalcote 300g",
-        tintas: "Policromía 4x0 + Plastificado Mate 1 Cara",
-        acabados: "Troquelado interior para dos bolsillos y corte para tarjeta de presentación",
-        notas: "Entrega programada para evento empresarial."
-      },
-      precioVentaCliente: 2400000,
-      costoProveedor: 1350000,
-      estado: "Pendiente_Cotizar",
-      tipoEntrega: "Envio_Direccion",
-      direccionEnvio: "Carrera 43A # 1-50, Poblado, Medellín",
-      fechaAsignacion: "2026-08-17T11:00:00",
-      fechaLimiteEntrega: "2026-08-28",
-      notificadoAdmin: false
-    },
-    {
-      id: "ord_alm_102_1",
-      numeroOrden: "ORD-PRV-2026-0095",
-      clienteNombre: "Comercializadora San Antonio — Rionegro",
-      proveedorId: "prv_alm_102",
-      descripcionTrabajo: "1000 Almanaques Tipo Gigante de Pared con Ojillete y Taco 2027",
-      categoria: "Almanaques",
-      cantidad: 1000,
-      especificaciones: {
-        medidas: "33 x 50 cm",
-        material: "Cartón Duplex 320g + Taco Papel Bond 75g",
-        tintas: "Policromía 4x0 + Barniz UV Total",
-        acabados: "Ojillete metálico superior reforzado, taco mensual con festivos colombianos",
-        notas: "Diseño listo aprobado por administración."
-      },
-      precioVentaCliente: 2100000,
-      costoProveedor: 1180000,
-      estado: "En_Produccion",
-      tipoEntrega: "Recoger_Taller",
-      direccionEnvio: "Carrera 45 # 50-20, Centro, Medellín",
-      fechaAsignacion: "2026-08-15T09:00:00",
-      fechaLimiteEntrega: "2026-08-24",
-      notificadoAdmin: false
-    },
-    {
-      id: "ord_p1",
-      numeroOrden: "ORD-PRV-2026-0081",
-      pedidoClienteId: "ORD-CLI-2026-0120",
-      clienteNombre: "Agroinsumos del Oriente — Rionegro",
-      proveedorId: "prv_1",
-      descripcionTrabajo: "500 Almanaques Modelo Gigante (33x50cm) con Taco Mensual grapado y ojillete reforzado",
-      categoria: "Almanaques",
-      cantidad: 500,
-      especificaciones: {
-        medidas: "33 x 50 cm",
-        material: "Cartón Duplex 320g + Taco Papel Bond 75g",
-        tintas: "Policromía 4x0 + Barniz UV Brillante",
-        acabados: "Ojillete metálico superior y taco grapado con 2 grapas industriales",
-        notas: "Diseño aprobado por cliente. Entregar empacado en paquetes de 50 unidades."
-      },
-      precioVentaCliente: 1250000,
-      costoProveedor: 680000,
-      estado: "En_Produccion",
-      tipoEntrega: "Recoger_Taller",
-      direccionEnvio: "Sede Principal Atziluth — Medellín",
-      fechaAsignacion: "2026-08-14T09:30:00",
-      fechaLimiteEntrega: "2026-08-22",
-      notificadoAdmin: false
-    },
-    {
-      id: "ord_p2",
-      numeroOrden: "ORD-PRV-2026-0082",
-      clienteNombre: "Supermercado La Colmena — Marinilla",
-      proveedorId: "prv_2",
-      descripcionTrabajo: "100 Talonarios Media Carta (14x21.5cm) Químico Autocopiante 2 Copias",
-      categoria: "Talonarios",
-      cantidad: 100,
-      especificaciones: {
-        medidas: "14 x 21.5 cm",
-        material: "Papel químico 70g (Blanco/Rosado) 50 juegos",
-        tintas: "1x0 Tinta negra + Numeración roja consecutiva",
-        acabados: "Prepicado, grapado y tapa en cartulina kraft",
-        notas: "Numerar desde 0001 a 5000."
-      },
-      precioVentaCliente: 780000,
-      costoProveedor: 480000,
-      estado: "En_Produccion",
-      tipoEntrega: "Envio_Direccion",
-      direccionEnvio: "Carrera 50 # 38-20, Guayabal, Medellín",
-      fechaAsignacion: "2026-08-16T14:00:00",
-      fechaLimiteEntrega: "2026-08-25",
-      notificadoAdmin: false
-    },
-    {
-      id: "ord_p3",
-      numeroOrden: "ORD-PRV-2026-0083",
-      clienteNombre: "Deportes & Confecciones del Valle",
-      proveedorId: "prv_3",
-      descripcionTrabajo: "200 Gorras Estructuradas 6 Paneles con Bordado Frontal 3D Alta Densidad",
-      categoria: "Bordados",
-      cantidad: 200,
-      especificaciones: {
-        medidas: "Talla Única con cierre metálico",
-        material: "Dril 100% algodón peinado",
-        tintas: "Bordado hilo poliéster 4 colores",
-        acabados: "Bordado frontal en relieve 3D y logo posterior plano",
-        notas: "Muestra física aprobada."
-      },
-      precioVentaCliente: 2800000,
-      costoProveedor: 1600000,
-      estado: "En_Produccion",
-      tipoEntrega: "Recoger_Taller",
-      direccionEnvio: "Calle 6 Sur # 43A-50, Itagüí",
-      fechaAsignacion: "2026-08-15T16:00:00",
-      fechaLimiteEntrega: "2026-08-26",
-      notificadoAdmin: false
-    }
-  ];
+  return [];
 }
 
 function loadProvOrdenesServer() {
   try {
     if (fs.existsSync(PROV_ORDENES_FILE)) {
       const data = JSON.parse(fs.readFileSync(PROV_ORDENES_FILE, "utf-8"));
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch (e) {
     console.error("Error reading proveedores_ordenes.json:", e);
   }
-  const initial = getDefaultProvOrdenesServer();
-  saveProvOrdenesServer(initial);
-  return initial;
+  return [];
 }
 
 function saveProvOrdenesServer(data: any[]) {
@@ -2070,14 +1910,12 @@ function loadProvCotizacionesServer() {
   try {
     if (fs.existsSync(PROV_COTIZACIONES_FILE)) {
       const data = JSON.parse(fs.readFileSync(PROV_COTIZACIONES_FILE, "utf-8"));
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch (e) {
     console.error("Error reading proveedores_cotizaciones.json:", e);
   }
-  const initial = getDefaultProvCotizacionesServer();
-  saveProvCotizacionesServer(initial);
-  return initial;
+  return [];
 }
 
 function saveProvCotizacionesServer(data: any[]) {
@@ -2426,6 +2264,20 @@ app.put("/api/proveedores/ordenes/:id", (req, res) => {
   }
 });
 
+// Delete production order
+app.delete("/api/proveedores/ordenes/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let ordenes = loadProvOrdenesServer();
+    ordenes = ordenes.filter((o: any) => o.id !== id);
+    saveProvOrdenesServer(ordenes);
+    res.json({ success: true, ordenes });
+  } catch (err: any) {
+    console.error("Error al eliminar orden de producción:", err);
+    res.status(500).json({ success: false, error: "Error al eliminar orden de producción." });
+  }
+});
+
 // 6. API: Proveedor Pagos (List and Register Payment & Automatic Receipt Generation)
 app.get("/api/proveedores/pagos", (req, res) => {
   const pagos = loadProvPagosServer();
@@ -2486,6 +2338,93 @@ app.post("/api/proveedores/pagos", allowUpload, (req, res) => {
   } catch (err: any) {
     console.error("Error al registrar pago a proveedor:", err);
     res.status(500).json({ success: false, error: "Error al registrar pago." });
+  }
+});
+
+// Update provider payment / transfer
+app.put("/api/proveedores/pagos/:id", allowUpload, (req, res) => {
+  try {
+    const { id } = req.params;
+    const pagos = loadProvPagosServer();
+    const idx = pagos.findIndex((p: any) => p.id === id);
+    if (idx === -1) {
+      return res.status(404).json({ success: false, error: "Comprobante de transferencia no encontrado." });
+    }
+
+    pagos[idx] = {
+      ...pagos[idx],
+      ...req.body,
+      monto: Number(req.body.monto || pagos[idx].monto),
+      updatedAt: new Date().toISOString()
+    };
+
+    saveProvPagosServer(pagos);
+    res.json({ success: true, pago: pagos[idx], pagos });
+  } catch (err: any) {
+    console.error("Error al actualizar comprobante de pago:", err);
+    res.status(500).json({ success: false, error: "Error al actualizar comprobante de pago." });
+  }
+});
+
+// Delete provider payment / transfer
+app.delete("/api/proveedores/pagos/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    let pagos = loadProvPagosServer();
+    pagos = pagos.filter((p: any) => p.id !== id);
+    saveProvPagosServer(pagos);
+    res.json({ success: true, pagos });
+  } catch (err: any) {
+    console.error("Error al eliminar comprobante de pago:", err);
+    res.status(500).json({ success: false, error: "Error al eliminar comprobante de pago." });
+  }
+});
+
+// Master Reset Endpoint for Admin General
+app.post("/api/admin/reset-data", (req, res) => {
+  try {
+    const { target } = req.body; // 'all' | 'sales_orders' | 'prov_ordenes' | 'prov_pagos' | 'client_payments' | 'balance'
+    
+    if (target === 'sales_orders' || target === 'all') {
+      saveSalesOrdersData([]);
+    }
+    if (target === 'prov_ordenes' || target === 'balance' || target === 'all') {
+      saveProvOrdenesServer([]);
+    }
+    if (target === 'prov_pagos' || target === 'all') {
+      saveProvPagosServer([]);
+    }
+    if (target === 'prov_cotizaciones' || target === 'all') {
+      saveProvCotizacionesServer([]);
+    }
+    if (target === 'client_payments' || target === 'balance' || target === 'all') {
+      const clients = loadClientsData();
+      const updatedClients = clients.map((c: any) => ({
+        ...c,
+        hostingDomainPaid: false,
+        payments: []
+      }));
+      saveClientsData(updatedClients);
+      
+      const config = loadImagesConfig();
+      if (Array.isArray(config.clients)) {
+        config.clients = config.clients.map((c: any) => ({
+          ...c,
+          hostingDomainPaid: false,
+          payments: []
+        }));
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2), "utf-8");
+      }
+    }
+
+    res.json({
+      success: true,
+      message: "Registros eliminados con éxito. Se arrancó de cero.",
+      target
+    });
+  } catch (err: any) {
+    console.error("Error en reset-data:", err);
+    res.status(500).json({ success: false, error: "Error al reiniciar datos." });
   }
 });
 
@@ -2619,6 +2558,31 @@ app.get(["/admin/almanaques", "/admin/almanaques.html"], (req, res) => {
 
 app.get(["/admin/panel", "/admin/panel.html", "/admin"], (req, res) => {
   res.sendFile(path.join(process.cwd(), "public", "admin", "panel.html"));
+});
+
+// Direct routes for Almanaque 2027 (Campañas de Ventas y Redes Sociales)
+app.get([
+  "/almanaque-2027.html",
+  "/almanaque2027.html",
+  "/almanaques.html",
+  "/almanaques/index.html"
+], (req, res) => {
+  res.sendFile(path.join(process.cwd(), "public", "almanaques.html"));
+});
+
+app.get([
+  "/almanaque-2027",
+  "/almanaque2027",
+  "/almanaques-2027",
+  "/almanaques2027",
+  "/almanaque",
+  "/almanaques"
+], (req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
+    const distPath = path.join(process.cwd(), "dist");
+    return res.sendFile(path.join(distPath, "index.html"));
+  }
+  next();
 });
 
 // Serve frontend assets
