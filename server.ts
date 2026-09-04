@@ -33,6 +33,258 @@ if (!fs.existsSync(PUBLIC_UPLOADS_DIR)) {
   fs.mkdirSync(PUBLIC_UPLOADS_DIR, { recursive: true });
 }
 
+// Paths to dynamic image configuration file and resilient backups
+const CONFIG_FILE = path.join(process.cwd(), "custom_images_config.json");
+const CONFIG_BACKUP_FILE = path.join(process.cwd(), "custom_images_config_backup.json");
+const PUBLIC_CONFIG_FILE = path.join(process.cwd(), "public", "custom_images_config.json");
+
+// Persistent Image Vault storage: protects uploaded binary/base64 image assets across reboots
+const CUSTOM_IMAGES_VAULT_FILE = path.join(process.cwd(), "custom_images_vault.json");
+const CUSTOM_IMAGES_VAULT_BACKUP = path.join(process.cwd(), "custom_images_vault_backup.json");
+const PUBLIC_IMAGES_VAULT_FILE = path.join(process.cwd(), "public", "custom_images_vault.json");
+
+function loadCustomImagesVaultServer(): Record<string, string> {
+  const sources = [
+    CUSTOM_IMAGES_VAULT_FILE,
+    CUSTOM_IMAGES_VAULT_BACKUP,
+    PUBLIC_IMAGES_VAULT_FILE,
+    path.join(process.cwd(), "dist", "custom_images_vault.json")
+  ];
+  let merged: Record<string, string> = {};
+  for (const src of sources) {
+    try {
+      if (fs.existsSync(src)) {
+        const raw = fs.readFileSync(src, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          merged = { ...merged, ...parsed };
+        }
+      }
+    } catch (_) {}
+  }
+  return merged;
+}
+
+function saveCustomImagesVaultServer(vault: Record<string, string>) {
+  try {
+    const jsonStr = JSON.stringify(vault, null, 2);
+    [
+      CUSTOM_IMAGES_VAULT_FILE,
+      CUSTOM_IMAGES_VAULT_BACKUP,
+      PUBLIC_IMAGES_VAULT_FILE
+    ].forEach((targetPath) => {
+      try {
+        const dir = path.dirname(targetPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(targetPath, jsonStr, "utf-8");
+      } catch (_) {}
+    });
+
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      try {
+        fs.writeFileSync(path.join(distPath, "custom_images_vault.json"), jsonStr, "utf-8");
+      } catch (_) {}
+    }
+  } catch (e) {
+    console.error("Error saving custom images vault:", e);
+  }
+}
+
+function restoreCustomImagesVaultToDisk() {
+  const vault = loadCustomImagesVaultServer();
+  const keys = Object.keys(vault);
+  if (keys.length === 0) return;
+  console.log(`[Image Vault] Restoring ${keys.length} cached images/assets to filesystem...`);
+  for (const [key, val] of Object.entries(vault)) {
+    try {
+      const fileName = path.basename(key);
+      if (!fileName || fileName === "." || fileName === "/") continue;
+
+      const p1 = path.join(IMAGENES_DIR, fileName);
+      const p2 = path.join(PUBLIC_IMAGENES_DIR, fileName);
+      const p3 = path.join(UPLOADS_DIR, fileName);
+      const p4 = path.join(PUBLIC_UPLOADS_DIR, fileName);
+
+      if (fs.existsSync(p1) && fs.statSync(p1).size > 0) continue;
+
+      let cleanBase64 = val;
+      const commaIdx = cleanBase64.indexOf(",");
+      if (commaIdx !== -1) cleanBase64 = cleanBase64.substring(commaIdx + 1);
+      cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, "");
+      const buffer = Buffer.from(cleanBase64, "base64");
+      if (buffer.length > 0) {
+        fs.writeFileSync(p1, buffer);
+        fs.writeFileSync(p2, buffer);
+        fs.writeFileSync(p3, buffer);
+        fs.writeFileSync(p4, buffer);
+      }
+    } catch (e) {
+      console.error(`[Image Vault] Error restoring image ${key}:`, e);
+    }
+  }
+}
+
+function mergeImageConfigs(base: any, incoming: any) {
+  if (!incoming || typeof incoming !== "object") return base;
+  const result = { ...base };
+
+  // Logo: prioritize non-default logo
+  if (incoming.logoUrl && !incoming.logoUrl.includes("logo_atziluth")) {
+    result.logoUrl = incoming.logoUrl;
+  } else if (!result.logoUrl || result.logoUrl.includes("logo_atziluth")) {
+    if (incoming.logoUrl) result.logoUrl = incoming.logoUrl;
+  }
+  if (incoming.faviconUrl) result.faviconUrl = incoming.faviconUrl;
+
+  // Mockups: non-empty overrides empty
+  if (incoming.webDesignMockup && typeof incoming.webDesignMockup === "string" && incoming.webDesignMockup.trim()) {
+    result.webDesignMockup = incoming.webDesignMockup.trim();
+  }
+  if (incoming.restaurantAppMockup && typeof incoming.restaurantAppMockup === "string" && incoming.restaurantAppMockup.trim()) {
+    result.restaurantAppMockup = incoming.restaurantAppMockup.trim();
+  }
+  if (incoming.municipalDirectoryBanner && typeof incoming.municipalDirectoryBanner === "string" && incoming.municipalDirectoryBanner.trim()) {
+    result.municipalDirectoryBanner = incoming.municipalDirectoryBanner.trim();
+  }
+
+  // Custom businesses: merge by ID
+  if (Array.isArray(incoming.customBusinesses) && incoming.customBusinesses.length > 0) {
+    const existingIds = new Set((result.customBusinesses || []).map((b: any) => b.id));
+    const mergedBiz = [...(result.customBusinesses || [])];
+    for (const biz of incoming.customBusinesses) {
+      if (biz && biz.id) {
+        if (!existingIds.has(biz.id)) {
+          mergedBiz.push(biz);
+          existingIds.add(biz.id);
+        } else {
+          const idx = mergedBiz.findIndex((b: any) => b.id === biz.id);
+          if (idx !== -1 && (!mergedBiz[idx].imageUrl || mergedBiz[idx].imageUrl.trim() === "") && biz.imageUrl) {
+            mergedBiz[idx] = { ...mergedBiz[idx], ...biz };
+          }
+        }
+      }
+    }
+    result.customBusinesses = mergedBiz;
+  }
+
+  // Custom ads: merge by ID
+  if (Array.isArray(incoming.customAds) && incoming.customAds.length > 0) {
+    const existingIds = new Set((result.customAds || []).map((a: any) => a.id));
+    const mergedAds = [...(result.customAds || [])];
+    for (const ad of incoming.customAds) {
+      if (ad && ad.id && !existingIds.has(ad.id)) {
+        mergedAds.push(ad);
+        existingIds.add(ad.id);
+      }
+    }
+    result.customAds = mergedAds;
+  }
+
+  // Custom litho images: merge keys
+  if (incoming.customLithoImages && typeof incoming.customLithoImages === "object" && !Array.isArray(incoming.customLithoImages)) {
+    result.customLithoImages = {
+      ...(result.customLithoImages || {}),
+    };
+    for (const [key, val] of Object.entries(incoming.customLithoImages)) {
+      if (val && typeof val === "string" && val.trim()) {
+        result.customLithoImages[key] = val.trim();
+      }
+    }
+  }
+
+  // Clients: merge by ID
+  if (Array.isArray(incoming.clients) && incoming.clients.length > 0) {
+    const existingClientIds = new Set((result.clients || []).map((c: any) => c.id));
+    const mergedClients = [...(result.clients || [])];
+    for (const cl of incoming.clients) {
+      if (cl && cl.id && !existingClientIds.has(cl.id)) {
+        mergedClients.push(cl);
+        existingClientIds.add(cl.id);
+      }
+    }
+    result.clients = mergedClients;
+  }
+
+  // Categories
+  if (Array.isArray(incoming.categories) && incoming.categories.length > 0) {
+    const catSet = new Set(result.categories || []);
+    incoming.categories.forEach((cat: string) => catSet.add(cat));
+    result.categories = Array.from(catSet);
+  }
+
+  return result;
+}
+
+function getDefaultImagesConfig() {
+  return {
+    logoUrl: "/logo_atziluth.jpg",
+    faviconUrl: "",
+    webDesignMockup: "",
+    restaurantAppMockup: "",
+    municipalDirectoryBanner: "",
+    customBusinesses: [] as any[],
+    customAds: [] as any[],
+    customLithoImages: {} as Record<string, string>,
+    clients: [] as any[],
+    categories: [
+      "Ferreterías",
+      "Parqueaderos",
+      "Tiendas",
+      "Supermercados",
+      "Farmacias",
+      "Peluquerías",
+      "Almacenes"
+    ]
+  };
+}
+
+function loadImagesConfig() {
+  const defaults = getDefaultImagesConfig();
+  const sources = [
+    CONFIG_FILE,
+    CONFIG_BACKUP_FILE,
+    PUBLIC_CONFIG_FILE,
+    path.join(process.cwd(), "dist", "custom_images_config.json")
+  ];
+
+  let merged = { ...defaults };
+  for (const src of sources) {
+    try {
+      if (fs.existsSync(src)) {
+        const raw = fs.readFileSync(src, "utf-8");
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          merged = mergeImageConfigs(merged, parsed);
+        }
+      }
+    } catch (_) {}
+  }
+  return merged;
+}
+
+function saveImagesConfig(config: any) {
+  try {
+    const jsonStr = JSON.stringify(config, null, 2);
+    [CONFIG_FILE, CONFIG_BACKUP_FILE, PUBLIC_CONFIG_FILE].forEach((targetPath) => {
+      try {
+        const dir = path.dirname(targetPath);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(targetPath, jsonStr, "utf-8");
+      } catch (_) {}
+    });
+
+    const distPath = path.join(process.cwd(), "dist");
+    if (fs.existsSync(distPath)) {
+      try {
+        fs.writeFileSync(path.join(distPath, "custom_images_config.json"), jsonStr, "utf-8");
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.error("Error writing images config to disk:", err);
+  }
+}
+
 // Serve uploaded assets statically from /imagenes and /uploads
 app.use("/imagenes", express.static(IMAGENES_DIR));
 app.use("/imagenes", express.static(PUBLIC_IMAGENES_DIR));
@@ -54,6 +306,36 @@ app.use(["/imagenes", "/uploads"], (req: any, res: any, next: any) => {
     if (fs.existsSync(p2)) return res.sendFile(p2);
     if (fs.existsSync(p3)) return res.sendFile(p3);
     if (fs.existsSync(p4)) return res.sendFile(p4);
+
+    // On-demand recovery from persistent Image Vault if container reset wiped the file
+    const vault = loadCustomImagesVaultServer();
+    const vaultData = vault[cleanPath] || vault[requestedPath] || vault[`/imagenes/${cleanPath}`] || vault[`/uploads/${cleanPath}`];
+    if (vaultData) {
+      try {
+        let cleanBase64 = vaultData;
+        let mime = "image/png";
+        if (cleanBase64.startsWith("data:")) {
+          const match = cleanBase64.match(/^data:([^;]+);base64,/);
+          if (match) mime = match[1];
+          const commaIdx = cleanBase64.indexOf(",");
+          cleanBase64 = cleanBase64.substring(commaIdx + 1);
+        }
+        cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, "");
+        const buffer = Buffer.from(cleanBase64, "base64");
+        if (buffer.length > 0) {
+          try {
+            fs.writeFileSync(p1, buffer);
+            fs.writeFileSync(p2, buffer);
+            fs.writeFileSync(p3, buffer);
+            fs.writeFileSync(p4, buffer);
+          } catch (_) {}
+          res.setHeader("Content-Type", mime);
+          return res.send(buffer);
+        }
+      } catch (errVault) {
+        console.error("Error restoring missing image from vault on-demand:", errVault);
+      }
+    }
   }
 
   // If requested file contains 'logo' or is a logo asset, serve public logo_atziluth.jpg/png
@@ -239,46 +521,6 @@ app.post("/api/ai/generate-banner", async (req, res) => {
   }
 });
 
-// Path to dynamic image configuration file
-const CONFIG_FILE = path.join(process.cwd(), "custom_images_config.json");
-
-// Helper to load current config
-function loadImagesConfig() {
-  const defaults = {
-    logoUrl: "/logo_atziluth.png",
-    webDesignMockup: "",
-    restaurantAppMockup: "",
-    municipalDirectoryBanner: "",
-    customBusinesses: [],
-    customAds: [],
-    customLithoImages: {},
-    clients: [],
-    categories: [
-      "Ferreterías",
-      "Parqueaderos",
-      "Tiendas",
-      "Supermercados",
-      "Farmacias",
-      "Peluquerías",
-      "Almacenes"
-    ]
-  };
-  
-  try {
-    if (fs.existsSync(CONFIG_FILE)) {
-      const info = fs.readFileSync(CONFIG_FILE, "utf-8");
-      const parsed = JSON.parse(info);
-      if (parsed && Array.isArray(parsed.customLithoImages)) {
-        parsed.customLithoImages = {};
-      }
-      return { ...defaults, ...parsed };
-    }
-  } catch (err) {
-    console.error("Error reading images configuration, using defaults:", err);
-  }
-  return defaults;
-}
-
 // 4. API: Get active customizable images configuration (Public, used on app start)
 app.get("/api/config/images", (req, res) => {
   const config = loadImagesConfig();
@@ -288,6 +530,53 @@ app.get("/api/config/images", (req, res) => {
 app.get("/api/admin/config", (req, res) => {
   const config = loadImagesConfig();
   res.json({ success: true, config });
+});
+
+// Robust state persistence and backup recovery synchronization endpoint
+app.post("/api/config/sync", allowUpload, (req, res) => {
+  try {
+    const incomingConfig = req.body.config || req.body;
+    const incomingVault = req.body.vault;
+
+    const currentConfig = loadImagesConfig();
+    const mergedConfig = mergeImageConfigs(currentConfig, incomingConfig);
+    saveImagesConfig(mergedConfig);
+
+    if (incomingVault && typeof incomingVault === "object") {
+      const currentVault = loadCustomImagesVaultServer();
+      const updatedVault = { ...currentVault, ...incomingVault };
+      saveCustomImagesVaultServer(updatedVault);
+      restoreCustomImagesVaultToDisk();
+    }
+
+    res.json({
+      success: true,
+      message: "Configuración e imágenes sincronizadas y respaldadas con éxito en almacenamiento persistente.",
+      config: mergedConfig
+    });
+  } catch (err: any) {
+    console.error("Error en /api/config/sync:", err);
+    res.status(500).json({ success: false, error: "Error al sincronizar estado persistente." });
+  }
+});
+
+// Dedicated Image Vault endpoints
+app.get("/api/config/vault", (req, res) => {
+  const vault = loadCustomImagesVaultServer();
+  res.json({ success: true, vault });
+});
+
+app.post("/api/config/vault", allowUpload, (req, res) => {
+  try {
+    const incoming = req.body.vault || req.body || {};
+    const vault = loadCustomImagesVaultServer();
+    const updated = { ...vault, ...incoming };
+    saveCustomImagesVaultServer(updated);
+    restoreCustomImagesVaultToDisk();
+    res.json({ success: true, count: Object.keys(updated).length });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: "Error guardando bóveda de imágenes" });
+  }
 });
 
 // Path to dynamic almanaques data storage and persistent image vault
@@ -1406,15 +1695,28 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
     // Sync master files
     syncLogoAndFavicon(buffer);
 
+    // Update persistent image vault
+    const vault = loadCustomImagesVaultServer();
+    const dataUri = `data:image/jpeg;base64,${cleanBase64}`;
+    vault[logoFileName] = dataUri;
+    vault[faviconFileName] = dataUri;
+    vault[`/imagenes/${logoFileName}`] = dataUri;
+    vault[`/imagenes/${faviconFileName}`] = dataUri;
+    vault["logo_atziluth.jpg"] = dataUri;
+    vault["logo_atziluth.png"] = dataUri;
+    vault["/logo_atziluth.jpg"] = dataUri;
+    vault["/logo_atziluth.png"] = dataUri;
+    saveCustomImagesVaultServer(vault);
+
     // Update config
     const currentConfig = loadImagesConfig();
     currentConfig.logoUrl = `/imagenes/${logoFileName}`;
     currentConfig.faviconUrl = `/imagenes/${faviconFileName}`;
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
+    saveImagesConfig(currentConfig);
 
     res.json({
       success: true,
-      message: "Logo y Favicon actualizados automáticamente en todo el sistema.",
+      message: "Logo y Favicon actualizados automáticamente en todo el sistema y respaldados.",
       logoUrl: `/imagenes/${logoFileName}?v=${timestamp}`,
       faviconUrl: `/imagenes/${faviconFileName}?v=${timestamp}`
     });
@@ -1426,35 +1728,10 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
 
 app.post("/api/admin/config", allowUpload, (req, res) => {
   try {
-    const { logoUrl, webDesignMockup, restaurantAppMockup, municipalDirectoryBanner, customBusinesses, customAds, categories, customLithoImages, clients } = req.body;
-    
-    let finalLitho = customLithoImages || {};
-    if (Array.isArray(finalLitho)) {
-      finalLitho = {};
-    }
-    
-    const newConfig = {
-      logoUrl: logoUrl || "/logo_atziluth.png",
-      webDesignMockup: webDesignMockup || "",
-      restaurantAppMockup: restaurantAppMockup || "",
-      municipalDirectoryBanner: municipalDirectoryBanner || "",
-      customBusinesses: customBusinesses || [],
-      customAds: customAds || [],
-      customLithoImages: finalLitho,
-      clients: clients || [],
-      categories: categories && categories.length > 0 ? categories : [
-        "Ferreterías",
-        "Parqueaderos",
-        "Tiendas",
-        "Supermercados",
-        "Farmacias",
-        "Peluquerías",
-        "Almacenes"
-      ]
-    };
-
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(newConfig, null, 2), "utf-8");
-    res.json({ success: true, config: newConfig });
+    const currentConfig = loadImagesConfig();
+    const mergedConfig = mergeImageConfigs(currentConfig, req.body);
+    saveImagesConfig(mergedConfig);
+    res.json({ success: true, config: mergedConfig });
   } catch (err: any) {
     console.error("Error saving image config:", err);
     res.status(500).json({ success: false, error: "Error de servidor al guardar la configuración." });
@@ -1653,6 +1930,24 @@ const handleUploadImageRequest = (req: any, res: any) => {
       reqType === "logo" ||
       sanitizedFileName!.toLowerCase().includes("logo");
 
+    // 5. Store in persistent Image Vault to survive reboots/container resets
+    try {
+      const mime = `image/${fileExtension === "jpg" ? "jpeg" : fileExtension}`;
+      const dataUri = `data:${mime};base64,${buffer.toString("base64")}`;
+      const vault = loadCustomImagesVaultServer();
+      vault[uniqueFileName] = dataUri;
+      vault[uploadedUrl] = dataUri;
+      if (isLogoRequest) {
+        vault["logo_atziluth.png"] = dataUri;
+        vault["logo_atziluth.jpg"] = dataUri;
+        vault["/logo_atziluth.png"] = dataUri;
+        vault["/logo_atziluth.jpg"] = dataUri;
+      }
+      saveCustomImagesVaultServer(vault);
+    } catch (errVault) {
+      console.error("Error storing image in persistent vault:", errVault);
+    }
+
     const currentConfig = loadImagesConfig();
     let updatedConfig = false;
 
@@ -1691,10 +1986,7 @@ const handleUploadImageRequest = (req: any, res: any) => {
     }
 
     if (updatedConfig) {
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentConfig, null, 2), "utf-8");
-      if (fs.existsSync(distPath)) {
-        fs.writeFileSync(path.join(distPath, "custom_images_config.json"), JSON.stringify(currentConfig, null, 2), "utf-8");
-      }
+      saveImagesConfig(currentConfig);
     }
 
     res.json({
@@ -2759,6 +3051,13 @@ app.get([
 
 // Serve frontend assets
 async function startServer() {
+  // Reconstruct any missing images from persistent Image Vault across container resets
+  try {
+    restoreCustomImagesVaultToDisk();
+  } catch (errVaultBoot) {
+    console.error("Error al restaurar bóveda de imágenes al iniciar:", errVaultBoot);
+  }
+
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },

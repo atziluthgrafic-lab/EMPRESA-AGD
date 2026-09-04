@@ -16,9 +16,17 @@ import {
   ExternalLink,
   Lock,
   ChevronRight,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from "lucide-react";
-import { getAlmanaquesData, fetchAlmanaquesDataServer, AlmanaquesData, ProductReference, Category } from "../data/almanaquesData";
+import {
+  getAlmanaquesData,
+  fetchAlmanaquesDataServer,
+  AlmanaquesData,
+  ProductReference,
+  Category,
+  getAlmanaqueFallbackSvg
+} from "../data/almanaquesData";
 
 interface AlmanaquesSectionProps {
   onOpenAsistencia?: () => void;
@@ -30,6 +38,11 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<ProductReference | null>(null);
   
+  // Loading and image state tracking
+  const [isServerFetching, setIsServerFetching] = useState<boolean>(true);
+  const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
+  const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  
   // Modal order state
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [orderQty, setOrderQty] = useState<number>(100);
@@ -40,13 +53,18 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
   const [clientNotes, setClientNotes] = useState("");
 
   useEffect(() => {
-    const syncData = () => {
-      fetchAlmanaquesDataServer().then(serverData => {
-        if (serverData) setData(serverData);
-      });
+    const syncData = (isInitial = false) => {
+      if (isInitial) setIsServerFetching(true);
+      fetchAlmanaquesDataServer()
+        .then(serverData => {
+          if (serverData) setData(serverData);
+        })
+        .finally(() => {
+          setIsServerFetching(false);
+        });
     };
 
-    syncData();
+    syncData(true);
 
     const handleUpdate = () => {
       setData(getAlmanaquesData());
@@ -54,14 +72,14 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
 
     window.addEventListener("almanaques-updated", handleUpdate);
     window.addEventListener("storage", handleUpdate);
-    window.addEventListener("focus", syncData);
+    window.addEventListener("focus", () => syncData(false));
 
-    const intervalId = setInterval(syncData, 60000);
+    const intervalId = setInterval(() => syncData(false), 60000);
 
     return () => {
       window.removeEventListener("almanaques-updated", handleUpdate);
       window.removeEventListener("storage", handleUpdate);
-      window.removeEventListener("focus", syncData);
+      window.removeEventListener("focus", () => syncData(false));
       clearInterval(intervalId);
     };
   }, []);
@@ -233,110 +251,172 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
       {/* Categories & Product List */}
       <div className="space-y-6">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-          <div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <h2 className="text-xl font-display font-bold text-slate-900">Catálogo de Productos por Categoría</h2>
-            <p className="text-xs text-slate-500">Filtra por identificador de categoría o busca tu referencia</p>
+            {isServerFetching && (
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-brand-orange/10 text-brand-orange text-[10px] font-mono font-bold rounded-full animate-pulse border border-brand-orange/20 w-fit">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Sincronizando catálogo...</span>
+              </span>
+            )}
           </div>
-
-          <div className="w-full md:w-80 relative">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar referencia (ej. ALM-101)..."
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-orange focus:bg-white transition-all"
-            />
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-          </div>
+          <p className="text-xs text-slate-500">Filtra por identificador de categoría o busca tu referencia</p>
         </div>
 
-        {/* Category Pills with Unique ID Badges */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-          <button
-            onClick={() => setSelectedCatId("all")}
-            className={`px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer ${
-              selectedCatId === "all"
-                ? "bg-brand-orange text-white border-brand-orange shadow-md"
-                : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-            }`}
-          >
-            <span>TODOS LOS ALMANAQUES</span>
-            <span className={`px-1.5 py-0.5 rounded text-[10px] ${selectedCatId === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-              {data.products.length}
-            </span>
-          </button>
-
-          {data.categories
-            .sort((a, b) => (a.order || a.id) - (b.order || b.id))
-            .map((cat) => {
-              const count = data.products.filter((p) => p.categoryId === cat.id).length;
-              const isSelected = selectedCatId === cat.id;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCatId(cat.id)}
-                  className={`px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-                    isSelected
-                      ? "bg-brand-orange text-white border-brand-orange shadow-md"
-                      : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
-                  }`}
-                >
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${isSelected ? "bg-black/20 text-white" : "bg-slate-100 text-brand-orange font-bold"}`}>
-                    CAT. #{cat.id}
-                  </span>
-                  <span>{cat.name}</span>
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] ${isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+        <div className="w-full md:w-80 relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Buscar referencia (ej. ALM-101)..."
+            className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-9 pr-4 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-brand-orange focus:bg-white transition-all"
+          />
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
         </div>
+      </div>
 
-        {/* Product Grid */}
-        {filteredProducts.length === 0 ? (
-          <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm max-w-xl mx-auto my-8">
-            <div className="w-14 h-14 rounded-2xl bg-brand-orange/10 text-brand-orange flex items-center justify-center mx-auto">
-              <Calendar className="w-7 h-7" />
-            </div>
-            <div className="space-y-1">
-              <h3 className="font-display font-bold text-slate-900 text-lg">Catálogo en Actualización</h3>
-              <p className="text-xs text-slate-500">
-                Actualmente se están preparando y cargando las nuevas referencias de almanaques para esta temporada.
-              </p>
-            </div>
-            <a
-              href="/admin/almanaques.html"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-mono font-bold transition-colors"
+      {/* Category Pills with Unique ID Badges */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
+        <button
+          onClick={() => setSelectedCatId("all")}
+          className={`px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer ${
+            selectedCatId === "all"
+              ? "bg-brand-orange text-white border-brand-orange shadow-md"
+              : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+          }`}
+        >
+          <span>TODOS LOS ALMANAQUES</span>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] ${selectedCatId === "all" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+            {data.products.length}
+          </span>
+        </button>
+
+        {data.categories
+          .sort((a, b) => (a.order || a.id) - (b.order || b.id))
+          .map((cat) => {
+            const count = data.products.filter((p) => p.categoryId === cat.id).length;
+            const isSelected = selectedCatId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCatId(cat.id)}
+                className={`px-4 py-2 rounded-xl text-xs font-mono font-bold border transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                  isSelected
+                    ? "bg-brand-orange text-white border-brand-orange shadow-md"
+                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-300"
+                }`}
+              >
+                <span className={`px-1.5 py-0.5 rounded text-[10px] ${isSelected ? "bg-black/20 text-white" : "bg-slate-100 text-brand-orange font-bold"}`}>
+                  CAT. #{cat.id}
+                </span>
+                <span>{cat.name}</span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] ${isSelected ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+      </div>
+
+      {/* Product Grid / Skeleton Loaders */}
+      {isServerFetching && data.products.length === 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {Array.from({ length: 8 }).map((_, idx) => (
+            <div
+              key={`skeleton-${idx}`}
+              className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm flex flex-col animate-pulse"
             >
-              <Lock className="w-3.5 h-3.5 text-brand-orange" />
-              <span>Gestionar en Panel Administrativo</span>
-            </a>
+              <div className="relative aspect-[3/4] h-80 sm:h-96 w-full bg-gradient-to-b from-slate-100 via-slate-200 to-slate-100 flex flex-col items-center justify-center p-6 text-slate-400">
+                <div className="w-12 h-12 rounded-2xl bg-white/70 shadow-xs flex items-center justify-center mb-3">
+                  <Calendar className="w-6 h-6 text-slate-400 animate-pulse" />
+                </div>
+                <div className="h-3 w-28 bg-slate-300 rounded-full mb-1.5" />
+                <div className="h-2 w-20 bg-slate-200 rounded-full" />
+              </div>
+              <div className="p-5 flex-grow flex flex-col space-y-4">
+                <div className="space-y-2">
+                  <div className="h-3 w-24 bg-slate-200 rounded-md" />
+                  <div className="h-5 w-4/5 bg-slate-200 rounded-md" />
+                  <div className="h-3 w-full bg-slate-100 rounded-md" />
+                  <div className="h-3 w-2/3 bg-slate-100 rounded-md" />
+                </div>
+                <div className="border-t border-b border-slate-100 py-3 space-y-2">
+                  <div className="h-3 w-1/2 bg-slate-100 rounded-md" />
+                  <div className="h-3 w-3/5 bg-slate-100 rounded-md" />
+                </div>
+                <div className="pt-2 flex items-center justify-between">
+                  <div className="h-6 w-24 bg-slate-200 rounded-md" />
+                  <div className="h-9 w-28 bg-slate-200 rounded-xl" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center space-y-4 shadow-sm max-w-xl mx-auto my-8">
+          <div className="w-14 h-14 rounded-2xl bg-brand-orange/10 text-brand-orange flex items-center justify-center mx-auto">
+            <Calendar className="w-7 h-7" />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredProducts.map((p) => {
-              const category = data.categories.find((c) => c.id === p.categoryId) || { name: "Almanaque", id: p.categoryId };
-              return (
-                <div
-                  key={p.id}
-                  className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
-                >
-                  <div className="relative h-80 sm:h-96 w-full bg-slate-100 overflow-hidden">
-                    <img
-                      src={p.imageUrl}
-                      alt={p.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3 flex flex-col gap-1">
-                      <span className="px-2.5 py-1 bg-slate-900/90 text-white font-mono text-[10px] font-extrabold rounded-lg shadow-sm border border-slate-700">
-                        REF: {p.ref}
-                      </span>
-                      <span className="px-2 py-0.5 bg-brand-orange/90 text-white font-mono text-[9px] font-bold rounded">
-                        Cat. #{category.id}
-                      </span>
+          <div className="space-y-1">
+            <h3 className="font-display font-bold text-slate-900 text-lg">Catálogo en Actualización</h3>
+            <p className="text-xs text-slate-500">
+              Actualmente se están preparando y cargando las nuevas referencias de almanaques para esta temporada.
+            </p>
+          </div>
+          <a
+            href="/admin/almanaques.html"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-mono font-bold transition-colors"
+          >
+            <Lock className="w-3.5 h-3.5 text-brand-orange" />
+            <span>Gestionar en Panel Administrativo</span>
+          </a>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProducts.map((p) => {
+            const category = data.categories.find((c) => c.id === p.categoryId) || { name: "Almanaque", id: p.categoryId };
+            return (
+              <div
+                key={p.id}
+                className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col group"
+              >
+                <div className="relative aspect-[3/4] h-80 sm:h-96 w-full bg-slate-100 overflow-hidden">
+                  {/* Skeleton loader while image is loading */}
+                  {!loadedImages[p.id] && (
+                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gradient-to-b from-slate-100 via-slate-200/80 to-slate-100 animate-pulse select-none">
+                      <div className="w-12 h-12 rounded-2xl bg-white/80 shadow-xs flex items-center justify-center text-slate-400 mb-2">
+                        <Calendar className="w-6 h-6 text-brand-orange/70 animate-pulse" />
+                      </div>
+                      <span className="text-[11px] font-mono font-bold text-slate-600">Cargando imagen...</span>
+                      <span className="text-[9px] font-mono text-slate-400 mt-0.5">REF: {p.ref}</span>
                     </div>
+                  )}
+
+                  <img
+                    src={failedImages[p.id] ? getAlmanaqueFallbackSvg(p) : p.imageUrl}
+                    alt={p.name}
+                    loading="lazy"
+                    referrerPolicy="no-referrer"
+                    onLoad={() => {
+                      setLoadedImages((prev) => ({ ...prev, [p.id]: true }));
+                    }}
+                    onError={() => {
+                      setFailedImages((prev) => ({ ...prev, [p.id]: true }));
+                      setLoadedImages((prev) => ({ ...prev, [p.id]: true }));
+                    }}
+                    className={`w-full h-full object-cover group-hover:scale-105 transition-all duration-500 ${
+                      loadedImages[p.id] ? "opacity-100" : "opacity-0"
+                    }`}
+                  />
+                  <div className="absolute top-3 left-3 flex flex-col gap-1 z-20 pointer-events-none">
+                    <span className="px-2.5 py-1 bg-slate-900/90 backdrop-blur-md text-white font-mono text-[10px] font-extrabold rounded-lg shadow-sm border border-slate-700">
+                      REF: {p.ref}
+                    </span>
+                    <span className="px-2 py-0.5 bg-brand-orange/90 backdrop-blur-md text-white font-mono text-[9px] font-bold rounded">
+                      Cat. #{category.id}
+                    </span>
                   </div>
+                </div>
 
                   <div className="p-5 flex-grow flex flex-col space-y-4">
                     <div>
@@ -388,7 +468,6 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
             })}
           </div>
         )}
-      </div>
 
       {/* Order Modal */}
       {isOrderModalOpen && selectedProduct && (
@@ -415,7 +494,17 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
             <div className="p-6 overflow-y-auto space-y-5 text-slate-800 font-sans custom-scrollbar flex-grow">
               {/* Preview */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center gap-4">
-                <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-16 h-16 object-cover rounded-lg border border-slate-300" />
+                <div className="w-16 h-16 rounded-lg border border-slate-300 overflow-hidden bg-slate-200 flex-shrink-0">
+                  <img
+                    src={failedImages[selectedProduct.id] ? getAlmanaqueFallbackSvg(selectedProduct) : selectedProduct.imageUrl}
+                    alt={selectedProduct.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = getAlmanaqueFallbackSvg(selectedProduct);
+                    }}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <div className="text-xs space-y-1">
                   <span className="font-mono font-bold text-brand-orange block">REF: {selectedProduct.ref} — {selectedProduct.name}</span>
                   <span className="text-slate-600 block">{selectedProduct.paper} | {selectedProduct.finish}</span>

@@ -305,3 +305,92 @@ export function saveAlmanaquesData(data: AlmanaquesData): void {
     console.error("Error guardando datos de Almanaques:", e);
   }
 }
+
+export function getAlmanaqueFallbackSvg(p: Partial<ProductReference>): string {
+  const ref = p.ref || "ALM";
+  const name = (p.name || "Almanaque Atziluth").replace(/[<>&"]/g, " ");
+  const finish = (p.finish || "Litografía Premium").replace(/[<>&"]/g, " ");
+  
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000">
+    <defs>
+      <linearGradient id="bg-${ref}" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#090d16" />
+        <stop offset="50%" stop-color="#161f36" />
+        <stop offset="100%" stop-color="#0b1120" />
+      </linearGradient>
+      <linearGradient id="acc-${ref}" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#f97316" />
+        <stop offset="50%" stop-color="#ec4899" />
+        <stop offset="100%" stop-color="#38bdf8" />
+      </linearGradient>
+      <filter id="shadow-${ref}" x="-10%" y="-10%" width="120%" height="125%">
+        <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.6"/>
+      </filter>
+    </defs>
+    <rect width="800" height="1000" fill="url(#bg-${ref})" />
+    <g opacity="0.08" stroke="#ffffff" stroke-width="1.5">
+      <line x1="0" y1="200" x2="800" y2="200" />
+      <line x1="0" y1="400" x2="800" y2="400" />
+      <line x1="0" y1="600" x2="800" y2="600" />
+      <line x1="0" y1="800" x2="800" y2="800" />
+      <line x1="200" y1="0" x2="200" y2="1000" />
+      <line x1="400" y1="0" x2="400" y2="1000" />
+      <line x1="600" y1="0" x2="600" y2="1000" />
+    </g>
+    
+    <rect x="230" y="55" width="340" height="42" rx="12" fill="#1e293b" stroke="#334155" stroke-width="1.5" />
+    <text x="400" y="82" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="900" text-anchor="middle" letter-spacing="3">ATZILUTH GRÁFIC</text>
+    
+    <g transform="translate(130, 130)" filter="url(#shadow-${ref})">
+      <rect x="0" y="50" width="540" height="600" rx="24" fill="#ffffff" />
+      <path d="M0,74 Q0,50 24,50 L516,50 Q540,50 540,74 L540,170 L0,170 Z" fill="url(#acc-${ref})" />
+      <text x="270" y="115" fill="#ffffff" font-family="system-ui, -apple-system, sans-serif" font-size="28" font-weight="900" text-anchor="middle" letter-spacing="2">ALMANAQUE 2026 - 2027</text>
+      <text x="270" y="145" fill="#ffffff" opacity="0.9" font-family="system-ui, -apple-system, sans-serif" font-size="14" font-weight="700" text-anchor="middle" letter-spacing="1">LITOGRAFÍA &amp; PUBLICIDAD CORPORATIVA</text>
+      
+      <g fill="#475569" stroke="#94a3b8" stroke-width="3">
+        <rect x="40" y="35" width="20" height="30" rx="10" />
+        <rect x="110" y="35" width="20" height="30" rx="10" />
+        <rect x="180" y="35" width="20" height="30" rx="10" />
+        <rect x="250" y="35" width="20" height="30" rx="10" />
+        <rect x="320" y="35" width="20" height="30" rx="10" />
+        <rect x="390" y="35" width="20" height="30" rx="10" />
+        <rect x="460" y="35" width="20" height="30" rx="10" />
+      </g>
+      
+      <g transform="translate(50, 210)" font-family="system-ui, -apple-system, sans-serif">
+        <rect x="0" y="0" width="440" height="36" rx="8" fill="#f8fafc" stroke="#e2e8f0" />
+        <text x="220" y="24" fill="#0f172a" font-size="16" font-weight="800" text-anchor="middle" letter-spacing="1">CALENDARIO MENSUAL</text>
+        
+        <g transform="translate(0, 65)" font-size="13" font-weight="800" text-anchor="middle">
+          <text x="30" y="0" fill="#f97316">DOM</text>
+          <text x="95" y="0" fill="#64748b">LUN</text>
+          <text x="160" y="0" fill="#64748b">MAR</text>
+          <text x="225" y="0" fill="#64748b">MIÉ</text>
+          <text x="290" y="0" fill="#64748b">JUE</text>
+          <text x="355" y="0" fill="#64748b">VIE</text>
+          <text x="415" y="0" fill="#f97316">SÁB</text>
+          <line x1="0" y1="12" x2="440" y2="12" stroke="#e2e8f0" stroke-width="1.5" />
+        </g>
+        
+        <g transform="translate(0, 105)" font-size="14" font-weight="700" fill="#334155" text-anchor="middle">
+          <text x="30" y="15" fill="#ef4444">1</text><text x="95" y="15">2</text><text x="160" y="15">3</text><text x="225" y="15">4</text><text x="290" y="15">5</text><text x="355" y="15">6</text><text x="415" y="15">7</text>
+          <text x="30" y="55" fill="#ef4444">8</text><text x="95" y="55">9</text><text x="160" y="55">10</text><text x="225" y="55">11</text><text x="290" y="55">12</text><text x="355" y="55">13</text><text x="415" y="55">14</text>
+          <text x="30" y="95" fill="#ef4444">15</text><text x="95" y="95">16</text><text x="160" y="95">17</text><text x="225" y="95">18</text><text x="290" y="95">19</text><text x="355" y="95">20</text><text x="415" y="95">21</text>
+          <text x="30" y="135" fill="#ef4444">22</text><text x="95" y="135">23</text><text x="160" y="135">24</text><text x="225" y="135" fill="#f97316" font-weight="900">25</text><text x="290" y="135">26</text><text x="355" y="135">27</text><text x="415" y="135">28</text>
+          <text x="30" y="175" fill="#ef4444">29</text><text x="95" y="175">30</text><text x="160" y="175">31</text>
+        </g>
+        
+        <rect x="0" y="325" width="440" height="85" rx="12" fill="#fff7ed" stroke="#fed7aa" />
+        <text x="220" y="358" fill="#ea580c" font-size="14" font-weight="900" text-anchor="middle" letter-spacing="1">ESPACIO PUBLICITARIO PERSONALIZADO</text>
+        <text x="220" y="385" fill="#78716c" font-size="12" font-weight="600" text-anchor="middle">Logotipo • Teléfonos • Dirección • Redes Sociales</text>
+      </g>
+    </g>
+    
+    <rect x="80" y="810" width="640" height="135" rx="20" fill="#0f172a" stroke="#334155" stroke-width="1.5" />
+    <rect x="105" y="835" width="120" height="34" rx="8" fill="#f97316" />
+    <text x="165" y="857" fill="#ffffff" font-family="monospace" font-size="14" font-weight="900" text-anchor="middle">REF: ${ref}</text>
+    <text x="245" y="858" fill="#f8fafc" font-family="system-ui, -apple-system, sans-serif" font-size="17" font-weight="800">${name.substring(0, 32)}</text>
+    <text x="105" y="905" fill="#94a3b8" font-family="system-ui, -apple-system, sans-serif" font-size="13" font-weight="500">${finish.substring(0, 52)}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}

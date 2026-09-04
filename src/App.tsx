@@ -178,15 +178,37 @@ export default function App() {
     }>;
     customLithoImages?: Record<string, string>;
     categories?: string[];
-  }>({
-    logoUrl: "/logo_atziluth.jpg",
-    webDesignMockup: "",
-    restaurantAppMockup: "",
-    municipalDirectoryBanner: "",
-    customBusinesses: [],
-    customAds: [],
-    customLithoImages: {},
-    categories: []
+  }>(() => {
+    // Immediate synchronous initialization from persistent client storage
+    try {
+      const stored = localStorage.getItem("atziluth_custom_config");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === "object") {
+          return {
+            logoUrl: parsed.logoUrl || "/logo_atziluth.jpg",
+            faviconUrl: parsed.faviconUrl,
+            webDesignMockup: parsed.webDesignMockup || "",
+            restaurantAppMockup: parsed.restaurantAppMockup || "",
+            municipalDirectoryBanner: parsed.municipalDirectoryBanner || "",
+            customBusinesses: Array.isArray(parsed.customBusinesses) ? parsed.customBusinesses : [],
+            customAds: Array.isArray(parsed.customAds) ? parsed.customAds : [],
+            customLithoImages: parsed.customLithoImages && typeof parsed.customLithoImages === "object" && !Array.isArray(parsed.customLithoImages) ? parsed.customLithoImages : {},
+            categories: Array.isArray(parsed.categories) ? parsed.categories : []
+          };
+        }
+      }
+    } catch (_) {}
+    return {
+      logoUrl: "/logo_atziluth.jpg",
+      webDesignMockup: "",
+      restaurantAppMockup: "",
+      municipalDirectoryBanner: "",
+      customBusinesses: [],
+      customAds: [],
+      customLithoImages: {},
+      categories: []
+    };
   });
 
   // Home portfolio showcase slider state
@@ -260,7 +282,7 @@ export default function App() {
 
   const safeActiveSlide = activeSlide < sliderImages.length ? activeSlide : 0;
 
-  // Fetch customizable image settings from server on boot with automatic localStorage fallback when container resets
+  // Fetch customizable image settings from server on boot with automatic localStorage and server synchronization
   useEffect(() => {
     const fetchImageSettings = async () => {
       try {
@@ -271,63 +293,96 @@ export default function App() {
           if (!serverConfig.customLithoImages || Array.isArray(serverConfig.customLithoImages)) {
             serverConfig.customLithoImages = {};
           }
-          const hasLitho = serverConfig.customLithoImages && Object.values(serverConfig.customLithoImages).some(v => v);
-          const hasServerData = 
-            Boolean(serverConfig.logoUrl && serverConfig.logoUrl !== "/logo_atziluth.png") ||
-            (serverConfig.customBusinesses && serverConfig.customBusinesses.length > 0) ||
-            (serverConfig.customAds && serverConfig.customAds.length > 0) ||
-            serverConfig.webDesignMockup ||
-            serverConfig.restaurantAppMockup ||
-            serverConfig.municipalDirectoryBanner ||
-            hasLitho;
 
+          let effectiveConfig = { ...serverConfig };
           const localStored = localStorage.getItem("atziluth_custom_config");
+          let localParsed: any = null;
+
           if (localStored) {
             try {
-              const parsedLocal = JSON.parse(localStored);
-              if (!parsedLocal.customLithoImages || Array.isArray(parsedLocal.customLithoImages)) {
-                parsedLocal.customLithoImages = {};
-              }
-              const hasLocalLitho = parsedLocal.customLithoImages && Object.values(parsedLocal.customLithoImages).some(v => v);
-              const hasLocalData = 
-                Boolean(parsedLocal.logoUrl && parsedLocal.logoUrl !== "/logo_atziluth.png") ||
-                (parsedLocal.customBusinesses && parsedLocal.customBusinesses.length > 0) ||
-                (parsedLocal.customAds && parsedLocal.customAds.length > 0) ||
-                parsedLocal.webDesignMockup ||
-                parsedLocal.restaurantAppMockup ||
-                parsedLocal.municipalDirectoryBanner ||
-                hasLocalLitho;
-
-              // If server has custom logoUrl, prioritize server logoUrl
-              if (serverConfig.logoUrl) {
-                parsedLocal.logoUrl = serverConfig.logoUrl;
-              }
-
-              // If the server was recently restarted (contains defaults / no custom data) but local storage has data, restore it!
-              if (!hasServerData && hasLocalData) {
-                console.log("Restoring configurations from local browser storage due to container reset...");
-                setImageConfig(parsedLocal);
-
-                // Auto-sync back to server in background if the login token is somehow still active
-                const token = localStorage.getItem("atziluth_admin_token");
-                if (token) {
-                  fetch("/api/admin/config", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      "Authorization": `Bearer ${token}`
-                    },
-                    body: JSON.stringify(parsedLocal)
-                  }).catch(console.error);
+              localParsed = JSON.parse(localStored);
+              if (localParsed && typeof localParsed === "object") {
+                if (!localParsed.customLithoImages || Array.isArray(localParsed.customLithoImages)) {
+                  localParsed.customLithoImages = {};
                 }
-                return;
+
+                // Merge: preserve local customized items if server returned defaults or missing entries
+                const hasServerCustomLogo = Boolean(serverConfig.logoUrl && !serverConfig.logoUrl.includes("logo_atziluth"));
+                const hasLocalCustomLogo = Boolean(localParsed.logoUrl && !localParsed.logoUrl.includes("logo_atziluth"));
+
+                if (!hasServerCustomLogo && hasLocalCustomLogo) {
+                  effectiveConfig.logoUrl = localParsed.logoUrl;
+                }
+                if (!effectiveConfig.faviconUrl && localParsed.faviconUrl) {
+                  effectiveConfig.faviconUrl = localParsed.faviconUrl;
+                }
+
+                if (!effectiveConfig.webDesignMockup && localParsed.webDesignMockup) {
+                  effectiveConfig.webDesignMockup = localParsed.webDesignMockup;
+                }
+                if (!effectiveConfig.restaurantAppMockup && localParsed.restaurantAppMockup) {
+                  effectiveConfig.restaurantAppMockup = localParsed.restaurantAppMockup;
+                }
+                if (!effectiveConfig.municipalDirectoryBanner && localParsed.municipalDirectoryBanner) {
+                  effectiveConfig.municipalDirectoryBanner = localParsed.municipalDirectoryBanner;
+                }
+
+                // Businesses merge
+                const bizMap = new Map<string, any>();
+                (localParsed.customBusinesses || []).forEach((b: any) => {
+                  if (b && b.id) bizMap.set(b.id, b);
+                });
+                (serverConfig.customBusinesses || []).forEach((b: any) => {
+                  if (b && b.id) {
+                    const existing = bizMap.get(b.id);
+                    if (existing && existing.imageUrl && (!b.imageUrl || b.imageUrl.trim() === "")) {
+                      bizMap.set(b.id, { ...b, imageUrl: existing.imageUrl });
+                    } else {
+                      bizMap.set(b.id, b);
+                    }
+                  }
+                });
+                effectiveConfig.customBusinesses = Array.from(bizMap.values());
+
+                // Ads merge
+                const adsMap = new Map<string, any>();
+                (localParsed.customAds || []).forEach((a: any) => {
+                  if (a && a.id) adsMap.set(a.id, a);
+                });
+                (serverConfig.customAds || []).forEach((a: any) => {
+                  if (a && a.id) adsMap.set(a.id, a);
+                });
+                effectiveConfig.customAds = Array.from(adsMap.values());
+
+                // Litho merge
+                effectiveConfig.customLithoImages = {
+                  ...(localParsed.customLithoImages || {}),
+                  ...(serverConfig.customLithoImages || {})
+                };
               }
             } catch (err) {
               console.error("Failed to parse local stored configuration:", err);
             }
           }
-          setImageConfig(serverConfig);
-          localStorage.setItem("atziluth_custom_config", JSON.stringify(serverConfig));
+
+          setImageConfig(effectiveConfig);
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(effectiveConfig));
+
+          // If local client had more data than server (e.g. container rebooted), sync back to server storage
+          const serverLacksData = 
+            (!serverConfig.webDesignMockup && effectiveConfig.webDesignMockup) ||
+            (!serverConfig.restaurantAppMockup && effectiveConfig.restaurantAppMockup) ||
+            (!serverConfig.municipalDirectoryBanner && effectiveConfig.municipalDirectoryBanner) ||
+            ((effectiveConfig.customBusinesses?.length || 0) > (serverConfig.customBusinesses?.length || 0)) ||
+            ((effectiveConfig.customAds?.length || 0) > (serverConfig.customAds?.length || 0));
+
+          if (serverLacksData) {
+            fetch("/api/config/sync", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ config: effectiveConfig })
+            }).catch((err) => console.warn("Background auto-sync to server:", err));
+          }
         }
       } catch (err) {
         console.error("Error fetching dynamic image configurations:", err);
@@ -343,8 +398,10 @@ export default function App() {
 
     fetchImageSettings();
     window.addEventListener("configUpdated", fetchImageSettings);
+    window.addEventListener("storage", fetchImageSettings);
     return () => {
       window.removeEventListener("configUpdated", fetchImageSettings);
+      window.removeEventListener("storage", fetchImageSettings);
     };
   }, []);
 
@@ -578,6 +635,13 @@ export default function App() {
                   src={imageConfig.logoUrl || "/logo_atziluth.jpg"}
                   alt="Logo Atziluth"
                   className="w-full h-full object-contain p-0.5"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (!target.src.endsWith("/logo_atziluth.jpg")) {
+                      target.src = "/logo_atziluth.jpg";
+                    }
+                  }}
                 />
               </div>
               <div>
