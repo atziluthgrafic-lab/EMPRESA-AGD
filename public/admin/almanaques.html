@@ -877,7 +877,7 @@
           const vJson = await vRes.json();
           if (vJson.success && vJson.vault) {
             const localVault = getImageVault();
-            const mergedVault = { ...vJson.vault, ...localVault };
+            const mergedVault = { ...localVault, ...vJson.vault };
             localStorage.setItem(IMAGE_VAULT_KEY, JSON.stringify(mergedVault));
           }
         } catch (_) {}
@@ -896,10 +896,15 @@
           }
 
           if (serverData.products.length > 0) {
-            // Apply vault images strictly to the server's ordered product list
+            // Apply vault images strictly to the server's ordered product list, preserving any custom server image
             const updatedProducts = serverData.products.map(sp => {
+              const key = sp.ref || sp.id;
+              if (sp.imageUrl && sp.imageUrl.trim() && !sp.imageUrl.includes("unsplash.com")) {
+                if (key) vault[key] = sp.imageUrl;
+                return sp;
+              }
               const vaultImg = vault[sp.ref] || vault[sp.id];
-              if (vaultImg && vaultImg.trim()) {
+              if (vaultImg && vaultImg.trim() && !vaultImg.includes("unsplash.com")) {
                 return { ...sp, imageUrl: vaultImg };
               }
               return sp;

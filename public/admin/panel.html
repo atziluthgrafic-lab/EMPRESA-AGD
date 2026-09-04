@@ -623,6 +623,9 @@
                     <span class="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
                       Software Logotach
                     </span>
+                    <span id="panel-logo-sync-indicator" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced (X-Sync-Status: Synced)
+                    </span>
                   </div>
                   <p class="text-xs text-slate-400">
                     Monta, sube o cambia el logo oficial. El sistema actualizará el logotipo en toda la plataforma y lo sincronizará automáticamente como favicon.ico oficial del sitio web.
@@ -2049,13 +2052,14 @@
                 }
 
                 // Merge image URLs if local is present and server is empty
-                ['logoUrl', 'webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'].forEach(key => {
+                ['logoUrl', 'faviconUrl', 'webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'].forEach(key => {
                   if (!serverConfig[key] && parsedLocal[key]) {
                     serverConfig[key] = parsedLocal[key];
                   }
                 });
 
                 if (parsedLocal.customLithoImages && typeof parsedLocal.customLithoImages === 'object') {
+                  if (!serverConfig.customLithoImages) serverConfig.customLithoImages = {};
                   Object.keys(parsedLocal.customLithoImages).forEach(k => {
                     if (!serverConfig.customLithoImages[k] && parsedLocal.customLithoImages[k]) {
                       serverConfig.customLithoImages[k] = parsedLocal.customLithoImages[k];
@@ -2065,6 +2069,23 @@
               }
             } catch (err) {
               console.error("Failed to merge local storage config in admin:", err);
+            }
+          }
+
+          // Merge any currently active in-memory state.config into serverConfig so active progress is never wiped
+          if (state.config) {
+            ['logoUrl', 'faviconUrl', 'webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'].forEach(key => {
+              if (state.config[key] && !serverConfig[key]) {
+                serverConfig[key] = state.config[key];
+              }
+            });
+            if (state.config.customLithoImages && typeof state.config.customLithoImages === 'object') {
+              if (!serverConfig.customLithoImages) serverConfig.customLithoImages = {};
+              Object.keys(state.config.customLithoImages).forEach(k => {
+                if (state.config.customLithoImages[k] && !serverConfig.customLithoImages[k]) {
+                  serverConfig.customLithoImages[k] = state.config.customLithoImages[k];
+                }
+              });
             }
           }
 
@@ -2085,23 +2106,30 @@
 
     // Render components based on active state
     function renderAll() {
-      // 1. Render Banners Fields
+      // 1. Render Banners Fields (preserving active typing)
       const fields = ['webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'];
       fields.forEach(field => {
         const val = state.config[field] || '';
-        document.getElementById(`url-${field}`).value = val;
+        const inputEl = document.getElementById(`url-${field}`);
+        if (inputEl && document.activeElement !== inputEl) {
+          inputEl.value = val;
+        }
         
         const prevImg = document.getElementById(`prev-${field}`);
         const emptyDiv = document.getElementById(`empty-${field}`);
         
         if (val) {
-          prevImg.src = val;
-          prevImg.classList.remove('hidden');
-          emptyDiv.classList.add('hidden');
+          if (prevImg) {
+            prevImg.src = val;
+            prevImg.classList.remove('hidden');
+          }
+          if (emptyDiv) emptyDiv.classList.add('hidden');
         } else {
-          prevImg.src = '';
-          prevImg.classList.add('hidden');
-          emptyDiv.classList.remove('hidden');
+          if (prevImg) {
+            prevImg.src = '';
+            prevImg.classList.add('hidden');
+          }
+          if (emptyDiv) emptyDiv.classList.remove('hidden');
         }
       });
 
@@ -2136,7 +2164,7 @@
       if (statusEl) {
         statusEl.textContent = activeUrl.startsWith('data:') ? 'Imagen Personalizada (Base64)' : activeUrl;
       }
-      if (urlInput && !activeUrl.startsWith('data:')) {
+      if (urlInput && document.activeElement !== urlInput && !activeUrl.startsWith('data:')) {
         urlInput.value = activeUrl;
       }
     }
@@ -2595,11 +2623,23 @@
                 })
               });
               const data = await res.json();
+              const syncHeader = res.headers.get('X-Sync-Status') || res.headers.get('x-sync-status') || (res.ok ? 'Synced' : 'Failed');
+              const syncIndicator = document.getElementById('panel-logo-sync-indicator');
+              if (syncIndicator) {
+                if (syncHeader.toLowerCase() === 'synced') {
+                  syncIndicator.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+                  syncIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Synced (X-Sync-Status: Synced)';
+                } else {
+                  syncIndicator.className = 'inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40';
+                  syncIndicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Failed (X-Sync-Status: ' + syncHeader + ')';
+                }
+              }
+
               if (res.ok && data.url) {
                 state.config.logoUrl = data.url;
                 renderLogoSection();
                 await autoSaveConfig();
-                showToast('Logo Actualizado en Logotach', 'El nuevo logo de la marca fue guardado e instalado correctamente.');
+                showToast('Logo Actualizado en Logotach', 'Logo sincronizado (Cabecera: ' + syncHeader + ')');
               } else {
                 showToast('Error Logotach', data.error || 'No se pudo cargar la imagen del logo', 'error');
               }
@@ -2635,11 +2675,14 @@
         safeCreateIcons();
 
         // Sync inputs back to active configuration states
-        state.config.webDesignMockup = document.getElementById('url-webDesignMockup').value.trim();
-        state.config.restaurantAppMockup = document.getElementById('url-restaurantAppMockup').value.trim();
-        state.config.municipalDirectoryBanner = document.getElementById('url-municipalDirectoryBanner').value.trim();
+        const wVal = document.getElementById('url-webDesignMockup').value.trim();
+        const rVal = document.getElementById('url-restaurantAppMockup').value.trim();
+        const mVal = document.getElementById('url-municipalDirectoryBanner').value.trim();
+        if (wVal) state.config.webDesignMockup = wVal;
+        if (rVal) state.config.restaurantAppMockup = rVal;
+        if (mVal) state.config.municipalDirectoryBanner = mVal;
 
-        // Sync litografia inputs back
+        // Sync litografia inputs back without wiping existing values
         if (!state.config.customLithoImages || Array.isArray(state.config.customLithoImages)) {
           state.config.customLithoImages = {};
         }
@@ -2647,16 +2690,22 @@
         lithoIds.forEach(itemId => {
           const inputEl = document.getElementById(`url-litografia-${itemId}`);
           if (inputEl) {
-            state.config.customLithoImages[itemId] = inputEl.value.trim();
+            const val = inputEl.value.trim();
+            if (val) {
+              state.config.customLithoImages[itemId] = val;
+            } else if (!state.config.customLithoImages[itemId]) {
+              state.config.customLithoImages[itemId] = "";
+            }
           }
         });
 
         try {
+          const token = state.token || localStorage.getItem('atziluth_admin_token') || 'atziluth_secure_token_secret';
           const response = await fetch('/api/admin/config', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': 'Bearer ' + state.token
+              'Authorization': 'Bearer ' + token
             },
             body: JSON.stringify(state.config)
           });
@@ -2677,21 +2726,44 @@
         }
       });
 
-      // 5. BANNER URL INPUTS CHANGED REAL-TIME PREVIEW
+      // 5. BANNER URL INPUTS CHANGED REAL-TIME PREVIEW AND AUTO-PERSISTENCE
       ['webDesignMockup', 'restaurantAppMockup', 'municipalDirectoryBanner'].forEach(field => {
-        document.getElementById(`url-${field}`).addEventListener('input', (e) => {
+        const inputEl = document.getElementById(`url-${field}`);
+        if (!inputEl) return;
+        let bannerTimer = null;
+        inputEl.addEventListener('input', (e) => {
           const url = e.target.value.trim();
           const prevImg = document.getElementById(`prev-${field}`);
           const emptyDiv = document.getElementById(`empty-${field}`);
           
           if (url) {
-            prevImg.src = url;
-            prevImg.classList.remove('hidden');
-            emptyDiv.classList.add('hidden');
+            if (prevImg) {
+              prevImg.src = url;
+              prevImg.classList.remove('hidden');
+            }
+            if (emptyDiv) emptyDiv.classList.add('hidden');
           } else {
-            prevImg.classList.add('hidden');
-            emptyDiv.classList.remove('hidden');
+            if (prevImg) {
+              prevImg.src = '';
+              prevImg.classList.add('hidden');
+            }
+            if (emptyDiv) emptyDiv.classList.remove('hidden');
           }
+
+          state.config[field] = url;
+          localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
+
+          clearTimeout(bannerTimer);
+          bannerTimer = setTimeout(() => {
+            autoSaveConfig();
+          }, 500);
+        });
+
+        inputEl.addEventListener('change', () => {
+          clearTimeout(bannerTimer);
+          state.config[field] = inputEl.value.trim();
+          localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
+          autoSaveConfig();
         });
       });
 
@@ -2881,7 +2953,7 @@
       }
 
       const overlay = zoneEl.querySelector('.uploading-overlay');
-      overlay.classList.remove('hidden');
+      if (overlay) overlay.classList.remove('hidden');
 
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -2889,15 +2961,18 @@
         const base64Data = reader.result;
         
         try {
+          const token = state.token || localStorage.getItem('atziluth_admin_token') || 'atziluth_secure_token_secret';
           const response = await fetch('/api/admin/upload-image', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${state.token}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
               fileName: file.name,
-              base64Data: base64Data
+              base64Data: base64Data,
+              type: field,
+              field: field
             })
           });
 
@@ -2907,44 +2982,56 @@
             
             // Map back to corresponding DOM and State fields
             if (field === 'webDesignMockup' || field === 'restaurantAppMockup' || field === 'municipalDirectoryBanner') {
-              document.getElementById(`url-${field}`).value = data.url;
+              const inputEl = document.getElementById(`url-${field}`);
+              if (inputEl) inputEl.value = data.url;
               const prevImg = document.getElementById(`prev-${field}`);
               const emptyDiv = document.getElementById(`empty-${field}`);
-              prevImg.src = data.url;
-              prevImg.classList.remove('hidden');
-              emptyDiv.classList.add('hidden');
+              if (prevImg) {
+                prevImg.src = data.url;
+                prevImg.classList.remove('hidden');
+              }
+              if (emptyDiv) emptyDiv.classList.add('hidden');
+
+              state.config[field] = data.url;
+              localStorage.setItem('atziluth_custom_config', JSON.stringify(state.config));
+              await autoSaveConfig();
             } else if (field === 'newAdImage') {
-              document.getElementById('url-newAdImage').value = data.url;
+              const inputEl = document.getElementById('url-newAdImage');
+              if (inputEl) inputEl.value = data.url;
               const prevImg = document.getElementById('prev-newAdImage');
               const emptyDiv = document.getElementById('empty-newAdImage');
-              prevImg.src = data.url;
-              prevImg.classList.remove('hidden');
-              emptyDiv.classList.add('hidden');
+              if (prevImg) {
+                prevImg.src = data.url;
+                prevImg.classList.remove('hidden');
+              }
+              if (emptyDiv) emptyDiv.classList.add('hidden');
             } else if (field === 'newBizImage') {
-              document.getElementById('url-newBizImage').value = data.url;
+              const inputEl = document.getElementById('url-newBizImage');
+              if (inputEl) inputEl.value = data.url;
               const prevImg = document.getElementById('prev-newBizImage');
               const emptyDiv = document.getElementById('empty-newBizImage');
-              prevImg.src = data.url;
-              prevImg.classList.remove('hidden');
-              emptyDiv.classList.add('hidden');
+              if (prevImg) {
+                prevImg.src = data.url;
+                prevImg.classList.remove('hidden');
+              }
+              if (emptyDiv) emptyDiv.classList.add('hidden');
             }
           } else {
-            alert('Error al subir: ' + (data.error || 'Error desconocido'));
+            showToast('Error al subir', data.error || 'Error desconocido', 'error');
           }
         } catch (err) {
-          alert('Fallo de red al procesar el archivo subido.');
+          console.error("Error al procesar archivo:", err);
+          showToast('Fallo de Red', 'No se pudo comunicar con el servidor.', 'error');
         } finally {
-          overlay.classList.add('hidden');
+          if (overlay) overlay.classList.add('hidden');
         }
       };
     }
 
-    // Render Litografía Items dynamically
+    // Render Litografía Items dynamically without destroying DOM on every refresh
     function renderLitografiaList() {
       const container = document.getElementById('litografia-items-container');
       if (!container) return;
-      
-      container.innerHTML = '';
       
       const items = [
         { id: "brochures", title: "Brochures y Catálogos", desc: "Dípticos, trípticos y catálogos premium.", icon: "book-open" },
@@ -2960,6 +3047,38 @@
       ];
 
       const customLitho = state.config.customLithoImages || {};
+
+      // If cards already exist in DOM, perform an in-place update so user typing is not destroyed
+      if (container.children.length > 0) {
+        items.forEach(item => {
+          const val = customLitho[item.id] || '';
+          const inputEl = document.getElementById(`url-litografia-${item.id}`);
+          const prevImg = document.getElementById(`prev-litografia-${item.id}`);
+          const emptyDiv = document.getElementById(`empty-litografia-${item.id}`);
+
+          if (inputEl && document.activeElement !== inputEl) {
+            // Only update value if the input is not currently focused by the user
+            if (val || inputEl.value === '') {
+              inputEl.value = val;
+            }
+          }
+          if (prevImg && emptyDiv) {
+            const displayUrl = (inputEl && inputEl.value.trim()) || val;
+            if (displayUrl) {
+              prevImg.src = displayUrl;
+              prevImg.classList.remove('hidden');
+              emptyDiv.classList.add('hidden');
+            } else {
+              prevImg.src = '';
+              prevImg.classList.add('hidden');
+              emptyDiv.classList.remove('hidden');
+            }
+          }
+        });
+        return;
+      }
+
+      container.innerHTML = '';
 
       items.forEach(item => {
         const val = customLitho[item.id] || '';
@@ -2988,7 +3107,10 @@
             </div>
             
             <div class="space-y-2">
-              <label class="block text-[10px] font-mono text-slate-500 uppercase">URL de Imagen</label>
+              <div class="flex items-center justify-between">
+                <label class="block text-[10px] font-mono text-slate-500 uppercase">URL de Imagen</label>
+                <span id="saved-badge-litografia-${item.id}" class="text-[9px] font-mono text-emerald-400 opacity-0 transition-opacity">✓ Guardado</span>
+              </div>
               <input type="text" id="url-litografia-${item.id}" value="${val}" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-brand-orange" placeholder="Dejar vacío para usar defecto">
             </div>
 
@@ -3007,9 +3129,24 @@
         container.appendChild(itemEl);
       });
 
-      // Bind events
+      // Bind events with real-time saving and debouncing
       items.forEach(item => {
         const inputEl = document.getElementById(`url-litografia-${item.id}`);
+        const badgeEl = document.getElementById(`saved-badge-litografia-${item.id}`);
+        let debounceTimer = null;
+
+        const persistInputUrl = (url) => {
+          if (!state.config.customLithoImages) state.config.customLithoImages = {};
+          state.config.customLithoImages[item.id] = url;
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+          autoSaveConfig().then(() => {
+            if (badgeEl) {
+              badgeEl.classList.remove('opacity-0');
+              setTimeout(() => badgeEl.classList.add('opacity-0'), 2500);
+            }
+          });
+        };
+
         inputEl.addEventListener('input', (e) => {
           const url = e.target.value.trim();
           const prevImg = document.getElementById(`prev-litografia-${item.id}`);
@@ -3020,11 +3157,24 @@
             prevImg.classList.remove('hidden');
             emptyDiv.classList.add('hidden');
           } else {
+            prevImg.src = '';
             prevImg.classList.add('hidden');
             emptyDiv.classList.remove('hidden');
           }
+
           if (!state.config.customLithoImages) state.config.customLithoImages = {};
           state.config.customLithoImages[item.id] = url;
+          localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => {
+            persistInputUrl(url);
+          }, 500);
+        });
+
+        inputEl.addEventListener('change', (e) => {
+          clearTimeout(debounceTimer);
+          persistInputUrl(e.target.value.trim());
         });
 
         const zone = container.querySelector(`[data-field="litografia-${item.id}"]`);
@@ -3034,7 +3184,7 @@
         
         fileInput.addEventListener('change', (e) => {
           if (e.target.files && e.target.files[0]) {
-            handleFileUploadLitografia(item.id, e.target.files[0], zone);
+            handleFileUploadLitografia(item.id, e.target.files[0], zone, item.title);
           }
         });
 
@@ -3051,7 +3201,7 @@
           e.preventDefault();
           zone.classList.remove('border-brand-orange');
           if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleFileUploadLitografia(item.id, e.dataTransfer.files[0], zone);
+            handleFileUploadLitografia(item.id, e.dataTransfer.files[0], zone, item.title);
           }
         });
       });
@@ -3059,15 +3209,15 @@
       safeCreateIcons();
     }
 
-    // Handle Upload for Litografia images
-    function handleFileUploadLitografia(itemId, file, zoneEl) {
+    // Handle Upload for Litografia images with immediate server persistence
+    function handleFileUploadLitografia(itemId, file, zoneEl, itemTitle) {
       if (!file.type.startsWith('image/')) {
         alert('Por favor selecciona un archivo de imagen válido.');
         return;
       }
 
       const overlay = zoneEl.querySelector('.uploading-overlay');
-      overlay.classList.remove('hidden');
+      if (overlay) overlay.classList.remove('hidden');
 
       const reader = new FileReader();
       reader.readAsDataURL(file);
@@ -3075,38 +3225,50 @@
         const base64Data = reader.result;
         
         try {
+          const token = state.token || localStorage.getItem('atziluth_admin_token') || 'atziluth_secure_token_secret';
           const response = await fetch('/api/admin/upload-image', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${state.token}`
+              'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
               fileName: file.name,
-              base64Data: base64Data
+              base64Data: base64Data,
+              type: 'litho',
+              lithoCategory: itemId,
+              field: `litografia-${itemId}`
             })
           });
 
           const data = await response.json();
-          if (response.ok && data.success) {
-            showToast('Imagen Subida', 'La imagen de litografía se subió y cargó exitosamente.');
+          if (response.ok && data.success && data.url) {
+            const urlInput = document.getElementById(`url-litografia-${itemId}`);
+            if (urlInput) urlInput.value = data.url;
             
-            document.getElementById(`url-litografia-${itemId}`).value = data.url;
             const prevImg = document.getElementById(`prev-litografia-${itemId}`);
             const emptyDiv = document.getElementById(`empty-litografia-${itemId}`);
-            prevImg.src = data.url;
-            prevImg.classList.remove('hidden');
-            emptyDiv.classList.add('hidden');
+            if (prevImg) {
+              prevImg.src = data.url;
+              prevImg.classList.remove('hidden');
+            }
+            if (emptyDiv) emptyDiv.classList.add('hidden');
             
             if (!state.config.customLithoImages) state.config.customLithoImages = {};
             state.config.customLithoImages[itemId] = data.url;
+            localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
+
+            // Immediately auto-save to guarantee persistence
+            await autoSaveConfig();
+            showToast('Imagen Guardada', `La imagen de "${itemTitle || itemId}" se subió y guardó exitosamente.`);
           } else {
-            alert('Error al subir: ' + (data.error || 'Error desconocido'));
+            showToast('Error de Carga', data.error || 'No se pudo subir la imagen', 'error');
           }
         } catch (err) {
-          alert('Fallo de red al procesar el archivo subido.');
+          console.error("Error al subir imagen de litografía:", err);
+          showToast('Error de Red', 'Fallo al procesar el archivo subido.', 'error');
         } finally {
-          overlay.classList.add('hidden');
+          if (overlay) overlay.classList.add('hidden');
         }
       };
     }

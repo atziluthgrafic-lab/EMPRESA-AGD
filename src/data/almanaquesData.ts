@@ -254,8 +254,13 @@ export async function fetchAlmanaquesDataServer(): Promise<AlmanaquesData> {
 
       if (serverData.products.length > 0) {
         const mergedProducts = serverData.products.map(sp => {
+          const key = sp.ref || sp.id;
+          if (sp.imageUrl && sp.imageUrl.trim() && !sp.imageUrl.includes("unsplash.com")) {
+            if (key) vault[key] = sp.imageUrl;
+            return sp;
+          }
           const vaultImg = vault[sp.ref] || vault[sp.id];
-          if (vaultImg && vaultImg.trim()) {
+          if (vaultImg && vaultImg.trim() && !vaultImg.includes("unsplash.com")) {
             return { ...sp, imageUrl: vaultImg };
           }
           return sp;

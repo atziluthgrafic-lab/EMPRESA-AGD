@@ -1,11 +1,15 @@
 {
-  "logoUrl": "/logo_atziluth.jpg",
-  "webDesignMockup": "",
+  "logoUrl": "/imagenes/1788534002198_912_test_logo.png",
+  "faviconUrl": "/imagenes/1788534002198_912_test_logo.png",
+  "webDesignMockup": "https://images.example.com/banner-mockup.jpg",
   "restaurantAppMockup": "",
   "municipalDirectoryBanner": "",
   "customBusinesses": [],
   "customAds": [],
-  "customLithoImages": {},
+  "customLithoImages": {
+    "brochures": "/imagenes/1788534002209_186_test_brochure.png",
+    "tarjetas": "https://images.example.com/tarjetas.jpg"
+  },
   "clients": [],
   "categories": [
     "Ferreterías",

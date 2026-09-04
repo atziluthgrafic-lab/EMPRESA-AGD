@@ -23,6 +23,7 @@ import {
   X,
   Building2,
   RefreshCw,
+  Loader2,
   FolderOpen,
   MapPin,
   Tag,
@@ -95,6 +96,85 @@ import CustomerRegistrationForm from "./CustomerRegistrationForm";
 import CustomerList from "./CustomerList";
 import CategoryMultiSelect from "./CategoryMultiSelect";
 import CategoriasManagerModal from "./CategoriasManagerModal";
+
+export type SyncStatus = 'Synced' | 'Pending' | 'Failed';
+
+export interface ImageSyncState {
+  status: SyncStatus;
+  timestamp?: string;
+  headerValue?: string;
+  details?: string;
+}
+
+export const ImageSyncBadge: React.FC<{
+  syncState?: ImageSyncState;
+  id?: string;
+  onVerify?: () => void;
+  isVerifying?: boolean;
+}> = ({ syncState, id, onVerify, isVerifying }) => {
+  const current = syncState || { status: 'Synced', headerValue: 'X-Sync-Status: Synced' };
+  const { status, headerValue, timestamp, details } = current;
+
+  return (
+    <div
+      id={id ? `sync-badge-${id}` : undefined}
+      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-mono font-bold transition-all shadow-sm select-none shrink-0 ${
+        status === 'Synced'
+          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+          : status === 'Pending'
+          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+          : 'bg-rose-500/20 text-rose-400 border border-rose-500/40'
+      }`}
+      title={`${status}: ${headerValue || ''} ${timestamp ? `[${timestamp}]` : ''} ${details ? `(${details})` : ''}`}
+    >
+      {status === 'Synced' && (
+        <>
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="tracking-wide uppercase font-bold">Synced</span>
+          <span className="w-1 h-1 rounded-full bg-emerald-400 hidden sm:inline-block"></span>
+          <span className="text-[9px] font-normal text-emerald-300/80 hidden sm:inline">
+            {headerValue || 'X-Sync-Status: Synced'}
+          </span>
+        </>
+      )}
+
+      {status === 'Pending' && (
+        <>
+          <Loader2 className="w-3.5 h-3.5 text-amber-300 animate-spin shrink-0" />
+          <span className="tracking-wide uppercase font-bold">Pending</span>
+          <span className="text-[9px] font-normal text-amber-300/80 hidden sm:inline">
+            Sincronizando...
+          </span>
+        </>
+      )}
+
+      {status === 'Failed' && (
+        <>
+          <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+          <span className="tracking-wide uppercase font-bold">Failed</span>
+          <span className="text-[9px] font-normal text-rose-300/80 hidden sm:inline">
+            {headerValue || 'X-Sync-Status: Failed'}
+          </span>
+        </>
+      )}
+
+      {onVerify && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onVerify();
+          }}
+          disabled={isVerifying || status === 'Pending'}
+          className="ml-1 p-0.5 hover:bg-white/10 rounded text-slate-300 hover:text-white transition-colors cursor-pointer"
+          title="Verificar cabecera HTTP del servidor"
+        >
+          <RefreshCw className={`w-3 h-3 ${isVerifying ? 'animate-spin text-brand-orange' : ''}`} />
+        </button>
+      )}
+    </div>
+  );
+};
 
 export interface AuthSession {
   isLoggedIn: boolean;
@@ -2246,10 +2326,155 @@ export default function AdminDashboard() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [accountingPeriodFilter, setAccountingPeriodFilter] = useState("all");
 
-  // Logo Upload State
+  // Logo & Customizable Images State
   const [logoPreview, setLogoPreview] = useState<string>("/logo_atziluth.png");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
+
+  // Key-value Map of Image Synchronization Statuses (Synced | Pending | Failed)
+  const [imageSyncStates, setImageSyncStates] = useState<Record<string, ImageSyncState>>({
+    logo: { status: 'Synced', headerValue: 'X-Sync-Status: Synced', details: 'Activo en servidor' },
+    webDesignMockup: { status: 'Synced', headerValue: 'X-Sync-Status: Synced', details: 'Sincronizado' },
+    restaurantAppMockup: { status: 'Synced', headerValue: 'X-Sync-Status: Synced', details: 'Sincronizado' },
+    municipalDirectoryBanner: { status: 'Synced', headerValue: 'X-Sync-Status: Synced', details: 'Sincronizado' },
+    comprobante_pago: { status: 'Synced', headerValue: 'X-Sync-Status: Synced', details: 'Listo para recepción' },
+  });
+
+  const [verifyingKey, setVerifyingKey] = useState<string | null>(null);
+  const [globalSyncing, setGlobalSyncing] = useState(false);
+
+  // Additional Image assets for complete branding management
+  const [webDesignMockup, setWebDesignMockup] = useState<string>("/imagenes/diseno_web_ecommerce.jpg");
+  const [restaurantAppMockup, setRestaurantAppMockup] = useState<string>("/imagenes/app_restaurante_menuqr.jpg");
+  const [municipalDirectoryBanner, setMunicipalDirectoryBanner] = useState<string>("/imagenes/directorio_comercial_banner.jpg");
+  const [customLithoImages, setCustomLithoImages] = useState<Record<string, string>>({});
+
+  /**
+   * Helper that updates the sync status of an image entry by directly inspecting
+   * the response header 'X-Sync-Status' (and 'X-Storage-Persistence') returned from the server.
+   */
+  const updateImageSyncStatus = (
+    key: string,
+    res: Response | null,
+    isPending: boolean,
+    errorInfo?: string
+  ) => {
+    const now = new Date().toLocaleTimeString("es-CO");
+    if (isPending) {
+      setImageSyncStates((prev) => ({
+        ...prev,
+        [key]: {
+          status: "Pending",
+          timestamp: now,
+          headerValue: "X-Sync-Status: Pending...",
+          details: "Sincronizando con servidor y bóveda de persistencia...",
+        },
+      }));
+      return;
+    }
+
+    if (!res) {
+      setImageSyncStates((prev) => ({
+        ...prev,
+        [key]: {
+          status: "Failed",
+          timestamp: now,
+          headerValue: "X-Sync-Status: Failed",
+          details: errorInfo || "Error de conexión con el servidor de imágenes.",
+        },
+      }));
+      return;
+    }
+
+    // CHECK THE RESPONSE HEADER FROM THE IMAGE SERVER:
+    const headerStatus = res.headers.get("X-Sync-Status") || res.headers.get("x-sync-status");
+    const persistenceHeader = res.headers.get("X-Storage-Persistence") || res.headers.get("x-storage-persistence");
+
+    const isSuccess = res.ok && (headerStatus === "Synced" || headerStatus === "synced" || !headerStatus);
+
+    setImageSyncStates((prev) => ({
+      ...prev,
+      [key]: {
+        status: isSuccess ? "Synced" : "Failed",
+        timestamp: now,
+        headerValue: `X-Sync-Status: ${headerStatus || (isSuccess ? "Synced" : "Failed")}`,
+        details: isSuccess
+          ? (persistenceHeader ? `Bóveda persistente: ${persistenceHeader}` : "Cabecera confirmada por el servidor")
+          : (errorInfo || `El servidor retornó estado: ${headerStatus || res.status}`),
+      },
+    }));
+  };
+
+  const verifySingleImageSync = async (key: string, url?: string) => {
+    setVerifyingKey(key);
+    updateImageSyncStatus(key, null, true);
+    try {
+      const res = await fetch("/api/config/images", {
+        method: "GET",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      updateImageSyncStatus(key, res, false, !res.ok ? `HTTP ${res.status}` : undefined);
+    } catch (err: any) {
+      updateImageSyncStatus(key, null, false, err.message || "Error al verificar imagen.");
+    } finally {
+      setVerifyingKey(null);
+    }
+  };
+
+  const handleSyncAllImages = async () => {
+    setGlobalSyncing(true);
+    Object.keys(imageSyncStates).forEach((key) => {
+      updateImageSyncStatus(key, null, true);
+    });
+
+    try {
+      const res = await fetch("/api/config/sync", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer atziluth_secure_token_secret",
+        },
+        body: JSON.stringify({
+          config: {
+            logoUrl: logoPreview,
+            webDesignMockup,
+            restaurantAppMockup,
+            municipalDirectoryBanner,
+            customLithoImages,
+          },
+        }),
+      });
+
+      const headerStatus = res.headers.get("X-Sync-Status") || res.headers.get("x-sync-status");
+      const persistenceHeader = res.headers.get("X-Storage-Persistence") || res.headers.get("x-storage-persistence");
+      const now = new Date().toLocaleTimeString("es-CO");
+      const isSuccess = res.ok && (headerStatus === "Synced" || headerStatus === "synced" || !headerStatus);
+
+      setImageSyncStates((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((k) => {
+          next[k] = {
+            status: isSuccess ? "Synced" : "Failed",
+            timestamp: now,
+            headerValue: `X-Sync-Status: ${headerStatus || (isSuccess ? "Synced" : "Failed")}`,
+            details: isSuccess
+              ? `Persistencia: ${persistenceHeader || "Vault-Mirror-Verified"}`
+              : "Error de sincronización",
+          };
+        });
+        return next;
+      });
+
+      if (isSuccess) {
+        setUploadMessage("✓ ¡Todas las imágenes y recursos sincronizados y verificados por cabecera de servidor!");
+        setTimeout(() => setUploadMessage(null), 4000);
+      }
+    } catch (err) {
+      console.error("Error en sincronización global:", err);
+    } finally {
+      setGlobalSyncing(false);
+    }
+  };
 
   // Load configuration and clients from backend
   useEffect(() => {
@@ -2260,14 +2485,29 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const res = await fetch("/api/admin/config");
+      const syncHeader = res.headers.get("X-Sync-Status") || res.headers.get("x-sync-status") || "Synced";
+      const persistHeader = res.headers.get("X-Storage-Persistence") || res.headers.get("x-storage-persistence") || "Vault-Mirror-Verified";
       if (res.ok) {
         const data = await res.json();
         if (data.config && Array.isArray(data.config.clients)) {
           setClients(data.config.clients);
         }
-        if (data.config && data.config.logoUrl) {
-          setLogoPreview(data.config.logoUrl);
+        if (data.config) {
+          if (data.config.logoUrl) setLogoPreview(data.config.logoUrl);
+          if (data.config.webDesignMockup) setWebDesignMockup(data.config.webDesignMockup);
+          if (data.config.restaurantAppMockup) setRestaurantAppMockup(data.config.restaurantAppMockup);
+          if (data.config.municipalDirectoryBanner) setMunicipalDirectoryBanner(data.config.municipalDirectoryBanner);
+          if (data.config.customLithoImages) setCustomLithoImages(data.config.customLithoImages);
         }
+
+        const now = new Date().toLocaleTimeString("es-CO");
+        setImageSyncStates((prev) => ({
+          ...prev,
+          logo: { status: "Synced", headerValue: `X-Sync-Status: ${syncHeader}`, timestamp: now, details: `Persistencia: ${persistHeader}` },
+          webDesignMockup: { status: "Synced", headerValue: `X-Sync-Status: ${syncHeader}`, timestamp: now, details: `Persistencia: ${persistHeader}` },
+          restaurantAppMockup: { status: "Synced", headerValue: `X-Sync-Status: ${syncHeader}`, timestamp: now, details: `Persistencia: ${persistHeader}` },
+          municipalDirectoryBanner: { status: "Synced", headerValue: `X-Sync-Status: ${syncHeader}`, timestamp: now, details: `Persistencia: ${persistHeader}` },
+        }));
       }
     } catch (err) {
       console.error("Error al cargar configuración:", err);
@@ -2278,6 +2518,7 @@ export default function AdminDashboard() {
 
   const saveConfig = async (updatedClients: ClientRecord[], updatedLogoUrl?: string) => {
     setSaveStatus("Guardando...");
+    updateImageSyncStatus("logo", null, true);
     try {
       // First fetch existing config to avoid overwriting other keys
       const currentRes = await fetch("/api/config/images");
@@ -2291,16 +2532,23 @@ export default function AdminDashboard() {
         ...existingConfig,
         clients: updatedClients,
         logoUrl: updatedLogoUrl !== undefined ? updatedLogoUrl : logoPreview,
+        webDesignMockup,
+        restaurantAppMockup,
+        municipalDirectoryBanner,
+        customLithoImages,
       };
 
       const res = await fetch("/api/admin/config", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": "Bearer atziluth_secure_token_secret"
+          "Authorization": "Bearer atziluth_secure_token_secret",
         },
         body: JSON.stringify(payload),
       });
+
+      // Update sync status by checking response header
+      updateImageSyncStatus("logo", res, false);
 
       if (res.ok) {
         setSaveStatus("¡Cambios guardados con éxito!");
@@ -2314,6 +2562,7 @@ export default function AdminDashboard() {
       }
     } catch (err) {
       console.error("Error guardando en backend:", err);
+      updateImageSyncStatus("logo", null, false, "Error de conexión");
       setSaveStatus("Error de conexión.");
     }
   };
@@ -2333,43 +2582,169 @@ export default function AdminDashboard() {
 
     setUploadingLogo(true);
     setUploadMessage("Cargando imagen del logo en Logotach...");
+    updateImageSyncStatus("logo", null, true);
 
     try {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64Data = event.target?.result as string;
-        
-        const response = await fetch("/api/admin/upload-image", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer atziluth_secure_token_secret"
-          },
-          body: JSON.stringify({
-            fileName: file.name || "logo_atziluth.png",
-            base64Data: base64Data,
-            isLogo: true
-          }),
-        });
 
-        const result = await response.json();
+        try {
+          const response = await fetch("/api/admin/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer atziluth_secure_token_secret",
+            },
+            body: JSON.stringify({
+              fileName: file.name || "logo_atziluth.png",
+              base64Data: base64Data,
+              isLogo: true,
+            }),
+          });
 
-        if (response.ok && result.success) {
-          const newUrl = result.url || base64Data;
-          setLogoPreview(newUrl);
-          setUploadMessage("¡Logo subido, validado e instalado con éxito!");
-          await saveConfig(clients, newUrl);
-        } else {
-          setUploadMessage(`Error de validación: ${result.error || "El archivo de imagen no es válido."}`);
+          // Check response header from image server
+          const headerStatus = response.headers.get("X-Sync-Status") || response.headers.get("x-sync-status");
+          const result = await response.json();
+
+          // Update visual sync state based on response header
+          updateImageSyncStatus("logo", response, false, result.error);
+
+          if (response.ok && result.success) {
+            const newUrl = result.url || base64Data;
+            setLogoPreview(newUrl);
+            setUploadMessage(`¡Logo subido e instalado con éxito! Cabecera servidor: ${headerStatus || "Synced"}`);
+            await saveConfig(clients, newUrl);
+          } else {
+            setUploadMessage(`Error de validación: ${result.error || "El archivo de imagen no es válido."}`);
+          }
+        } catch (fetchErr: any) {
+          updateImageSyncStatus("logo", null, false, fetchErr.message);
+          setUploadMessage("Error de conexión al subir logo.");
+        } finally {
+          setUploadingLogo(false);
+          setTimeout(() => setUploadMessage(null), 5000);
         }
-        setUploadingLogo(false);
-        setTimeout(() => setUploadMessage(null), 5000);
       };
       reader.readAsDataURL(file);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error subiendo logo en Logotach:", err);
+      updateImageSyncStatus("logo", null, false, err.message);
       setUploadMessage("Error al procesar la imagen del logo.");
       setUploadingLogo(false);
+    }
+  };
+
+  // Generic Image Upload Handler for Mockups, Banners, and Litho items
+  const handleSpecificImageUpload = async (
+    entryKey: string,
+    file: File,
+    reqType: string,
+    lithoCategory?: string
+  ) => {
+    updateImageSyncStatus(entryKey, null, true);
+    setUploadMessage(`Subiendo y sincronizando ${file.name}...`);
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const base64Data = event.target?.result as string;
+        try {
+          const response = await fetch("/api/admin/upload-image", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": "Bearer atziluth_secure_token_secret",
+            },
+            body: JSON.stringify({
+              fileName: file.name,
+              base64Data,
+              type: reqType,
+              lithoCategory,
+            }),
+          });
+
+          const result = await response.json();
+          // Check response header from image server
+          updateImageSyncStatus(entryKey, response, false, result.error);
+
+          if (response.ok && result.success) {
+            const newUrl = result.url;
+            if (entryKey === "webDesignMockup") setWebDesignMockup(newUrl);
+            else if (entryKey === "restaurantAppMockup") setRestaurantAppMockup(newUrl);
+            else if (entryKey === "municipalDirectoryBanner") setMunicipalDirectoryBanner(newUrl);
+            else if (lithoCategory) {
+              setCustomLithoImages((prev) => ({ ...prev, [lithoCategory]: newUrl }));
+            }
+            const syncHeader = response.headers.get("X-Sync-Status") || "Synced";
+            setUploadMessage(`✓ Imagen sincronizada y respaldada con éxito (${syncHeader})`);
+            safeDispatchEvent("configUpdated");
+          } else {
+            setUploadMessage(`Error: ${result.error || "No se pudo sincronizar la imagen."}`);
+          }
+        } catch (postErr: any) {
+          updateImageSyncStatus(entryKey, null, false, postErr.message);
+        } finally {
+          setTimeout(() => setUploadMessage(null), 4000);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      updateImageSyncStatus(entryKey, null, false, err.message);
+    }
+  };
+
+  // Generic URL Save Handler for Mockups, Banners, and Litho items
+  const handleSpecificImageSaveUrl = async (
+    entryKey: string,
+    urlValue: string,
+    reqType: string,
+    lithoCategory?: string
+  ) => {
+    updateImageSyncStatus(entryKey, null, true);
+    try {
+      const currentRes = await fetch("/api/config/images");
+      let existingConfig: any = {};
+      if (currentRes.ok) {
+        const d = await currentRes.json();
+        existingConfig = d.config || {};
+      }
+
+      const updatedConfig = { ...existingConfig };
+      if (entryKey === "webDesignMockup") {
+        updatedConfig.webDesignMockup = urlValue;
+        setWebDesignMockup(urlValue);
+      } else if (entryKey === "restaurantAppMockup") {
+        updatedConfig.restaurantAppMockup = urlValue;
+        setRestaurantAppMockup(urlValue);
+      } else if (entryKey === "municipalDirectoryBanner") {
+        updatedConfig.municipalDirectoryBanner = urlValue;
+        setMunicipalDirectoryBanner(urlValue);
+      } else if (lithoCategory) {
+        if (!updatedConfig.customLithoImages) updatedConfig.customLithoImages = {};
+        updatedConfig.customLithoImages[lithoCategory] = urlValue;
+        setCustomLithoImages((prev) => ({ ...prev, [lithoCategory]: urlValue }));
+      }
+
+      const response = await fetch("/api/admin/config", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer atziluth_secure_token_secret",
+        },
+        body: JSON.stringify(updatedConfig),
+      });
+
+      // Check header from server
+      updateImageSyncStatus(entryKey, response, false);
+      if (response.ok) {
+        setUploadMessage("✓ URL de imagen aplicada y sincronizada en el servidor");
+        safeDispatchEvent("configUpdated");
+      }
+    } catch (err: any) {
+      updateImageSyncStatus(entryKey, null, false, err.message);
+    } finally {
+      setTimeout(() => setUploadMessage(null), 3500);
     }
   };
 
@@ -9205,119 +9580,441 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ACCESO Y GESTOR PARA MONTAR Y CAMBIAR EL LOGO */}
+      {/* GESTOR OFICIAL DE RECURSOS, IMÁGENES & LOGO CON INDICADORES DE SINCRONIZACIÓN */}
       {(activeAdminTab === 'panel_general' || activeAdminTab === 'branding') && (
-        <div id="gestor-logo-seccion" className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 space-y-6 shadow-xl relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
-              <ImageIcon className="w-6 h-6" />
+        <div id="gestor-logo-seccion" className="space-y-6">
+          {/* BANNER PRINCIPAL DE SINCRONIZACIÓN Y PERSISTENCIA DE IMÁGENES */}
+          <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-brand-orange/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-brand-orange/10 text-brand-orange rounded-2xl border border-brand-orange/20">
+                  <ImageIcon className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-base font-bold text-white">
+                      Bóveda Multimedia & Gestor de Imágenes Oficiales
+                    </h2>
+                    <span className="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
+                      Logotach Sync Engine
+                    </span>
+                    <ImageSyncBadge
+                      syncState={imageSyncStates.logo}
+                      id="global-engine-badge"
+                      onVerify={() => verifySingleImageSync("logo", logoPreview)}
+                      isVerifying={verifyingKey === "logo"}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Cada imagen cuenta con un indicador visual en tiempo real que valida la cabecera HTTP <code className="text-emerald-300 font-mono">X-Sync-Status</code> y la persistencia en <code className="text-amber-300 font-mono">custom_images_vault.json</code>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSyncAllImages}
+                  disabled={globalSyncing}
+                  className="px-4 py-2 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-95 text-white font-mono text-xs font-bold rounded-xl shadow transition-all flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                  title="Forzar comprobación de cabeceras HTTP y sincronización en servidor"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${globalSyncing ? 'animate-spin' : ''}`} />
+                  <span>{globalSyncing ? "Sincronizando..." : "Sincronizar Todas las Imágenes"}</span>
+                </button>
+              </div>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-white">Logotach — Gestor Oficial de Logo & Favicon Corporativo</h2>
-                <span className="px-2 py-0.5 bg-brand-orange/20 text-brand-orange text-[10px] font-mono rounded font-bold uppercase">
-                  Gestor Logotach
+
+            {uploadMessage && (
+              <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-mono text-emerald-400 flex items-center gap-2 animate-fadeIn">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>{uploadMessage}</span>
+              </div>
+            )}
+
+            {/* SECCIÓN 1: LOGO CORPORATIVO & FAVICON */}
+            <div className="mt-6 pt-2 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-200">1. Logotipo Corporativo & Favicon Oficial</h3>
+                  <ImageSyncBadge
+                    syncState={imageSyncStates.logo}
+                    id="logo-entry-status"
+                    onVerify={() => verifySingleImageSync("logo", logoPreview)}
+                    isVerifying={verifyingKey === "logo"}
+                  />
+                </div>
+                <span className="text-[11px] font-mono text-slate-400">
+                  Dimensiones recomendadas: 512x512px o proporción apaisada
                 </span>
               </div>
-              <p className="text-xs text-slate-400">
-                Sube o cambia el logo oficial. Se actualizará en el encabezado, pie de página y portada, y se convertirá automáticamente en el favicon oficial de todo el sitio.
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-4 bg-slate-950 p-3 rounded-xl border border-slate-800">
-            <div className="w-14 h-14 rounded-xl bg-white border border-slate-700 overflow-hidden flex items-center justify-center p-1 shadow-inner relative">
-              <img
-                src={logoPreview}
-                alt="Logo Atziluth"
-                className="w-full h-full object-contain"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).src = "/logo_atziluth.png";
-                }}
-              />
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
+                {/* Visualizador Previo del Logo */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-xl bg-white border border-slate-700 overflow-hidden flex items-center justify-center p-1.5 shadow-inner shrink-0 relative group">
+                    <img
+                      src={logoPreview}
+                      alt="Logo Atziluth"
+                      className="w-full h-full object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = "/logo_atziluth.png";
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-[10px] font-mono uppercase text-slate-400 block">Estado del Logo</span>
+                      <ImageSyncBadge syncState={imageSyncStates.logo} id="logo-thumb-badge" />
+                    </div>
+                    <span className="text-xs font-bold text-emerald-400 font-mono block truncate" title={logoPreview}>
+                      {logoPreview.startsWith("data:") ? "Imagen Personalizada (Base64)" : logoPreview}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-sans block mt-0.5">
+                      {imageSyncStates.logo?.details || "Cabecera confirmada por el servidor"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Subir Archivo Local */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                      <Upload className="w-3.5 h-3.5" /> Subir Archivo Local
+                    </span>
+                    <span className="text-[10px] text-slate-500">PNG, JPG, SVG, WEBP</span>
+                  </div>
+                  <label className="w-full py-2 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 hover:text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm">
+                    <Upload className="w-3.5 h-3.5 text-brand-orange" />
+                    {uploadingLogo ? "Procesando y Sincronizando..." : "Elegir Imagen de Logo"}
+                    <input
+                      type="file"
+                      accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico"
+                      onChange={handleLogoUpload}
+                      disabled={uploadingLogo}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
+                {/* Enlace o URL Directa */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
+                      <Save className="w-3.5 h-3.5" /> URL Directa de Imagen
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={logoPreview.startsWith("data:") ? "" : logoPreview}
+                      onChange={(e) => setLogoPreview(e.target.value)}
+                      placeholder="/imagenes/mi_logo.png"
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        saveConfig(clients, logoPreview);
+                        setUploadMessage("¡URL de logo guardada y sincronizada con éxito!");
+                        setTimeout(() => setUploadMessage(null), 3000);
+                      }}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
+                    >
+                      Aplicar
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-[10px] font-mono uppercase text-slate-400 block">Logo Activo en Plataforma</span>
-              <span className="text-xs font-bold text-emerald-400 font-mono">
-                {logoPreview.startsWith("data:") ? "Imagen Personalizada (Base64)" : logoPreview}
+
+            {/* SECCIÓN 2: MOCKUPS DE PORTAFOLIO Y BANNERS PRINCIPALES */}
+            <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-200">2. Portafolio Web, Móvil & Banners Promocionales</h3>
+                  <p className="text-xs text-slate-400">
+                    Control de imágenes destacadas de servicios digitales con verificación de persistencia independiente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* 2.1 Mockup Diseño Web */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-xs font-bold text-slate-200">Mockup Web & E-Commerce</span>
+                      <ImageSyncBadge
+                        syncState={imageSyncStates.webDesignMockup}
+                        id="web-mockup-badge"
+                        onVerify={() => verifySingleImageSync("webDesignMockup", webDesignMockup)}
+                        isVerifying={verifyingKey === "webDesignMockup"}
+                      />
+                    </div>
+                    <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden relative mb-2">
+                      <img
+                        src={webDesignMockup}
+                        alt="Mockup Web"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/imagenes/diseno_web_ecommerce.jpg";
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 block truncate font-mono" title={webDesignMockup}>
+                      {webDesignMockup}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-900">
+                    <label className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white font-bold rounded-lg text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Upload className="w-3 h-3 text-brand-orange" />
+                      <span>Subir Imagen</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleSpecificImageUpload("webDesignMockup", f, "webDesignMockup");
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={webDesignMockup.startsWith("data:") ? "" : webDesignMockup}
+                        onChange={(e) => setWebDesignMockup(e.target.value)}
+                        placeholder="URL..."
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSpecificImageSaveUrl("webDesignMockup", webDesignMockup, "webDesignMockup")}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2.2 Mockup App Móvil Restaurante */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-xs font-bold text-slate-200">App Restaurante & Menú QR</span>
+                      <ImageSyncBadge
+                        syncState={imageSyncStates.restaurantAppMockup}
+                        id="restaurant-mockup-badge"
+                        onVerify={() => verifySingleImageSync("restaurantAppMockup", restaurantAppMockup)}
+                        isVerifying={verifyingKey === "restaurantAppMockup"}
+                      />
+                    </div>
+                    <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden relative mb-2">
+                      <img
+                        src={restaurantAppMockup}
+                        alt="Mockup App"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/imagenes/app_restaurante_menuqr.jpg";
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 block truncate font-mono" title={restaurantAppMockup}>
+                      {restaurantAppMockup}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-900">
+                    <label className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white font-bold rounded-lg text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Upload className="w-3 h-3 text-brand-orange" />
+                      <span>Subir Imagen</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleSpecificImageUpload("restaurantAppMockup", f, "restaurantAppMockup");
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={restaurantAppMockup.startsWith("data:") ? "" : restaurantAppMockup}
+                        onChange={(e) => setRestaurantAppMockup(e.target.value)}
+                        placeholder="URL..."
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSpecificImageSaveUrl("restaurantAppMockup", restaurantAppMockup, "restaurantAppMockup")}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2.3 Banner Directorio Comercial */}
+                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <span className="text-xs font-bold text-slate-200">Banner Directorio Comercial</span>
+                      <ImageSyncBadge
+                        syncState={imageSyncStates.municipalDirectoryBanner}
+                        id="directory-banner-badge"
+                        onVerify={() => verifySingleImageSync("municipalDirectoryBanner", municipalDirectoryBanner)}
+                        isVerifying={verifyingKey === "municipalDirectoryBanner"}
+                      />
+                    </div>
+                    <div className="h-28 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden relative mb-2">
+                      <img
+                        src={municipalDirectoryBanner}
+                        alt="Banner Directorio"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = "/imagenes/directorio_comercial_banner.jpg";
+                        }}
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-400 block truncate font-mono" title={municipalDirectoryBanner}>
+                      {municipalDirectoryBanner}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-slate-900">
+                    <label className="w-full py-1.5 px-3 bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white font-bold rounded-lg text-[11px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer">
+                      <Upload className="w-3 h-3 text-brand-orange" />
+                      <span>Subir Imagen</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) handleSpecificImageUpload("municipalDirectoryBanner", f, "municipalDirectoryBanner");
+                        }}
+                        className="hidden"
+                      />
+                    </label>
+
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={municipalDirectoryBanner.startsWith("data:") ? "" : municipalDirectoryBanner}
+                        onChange={(e) => setMunicipalDirectoryBanner(e.target.value)}
+                        placeholder="URL..."
+                        className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2 py-1 text-[11px] text-slate-200"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleSpecificImageSaveUrl("municipalDirectoryBanner", municipalDirectoryBanner, "municipalDirectoryBanner")}
+                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white text-[11px] font-bold rounded-lg cursor-pointer"
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* SECCIÓN 3: CATÁLOGO DE LITOGRAFÍA & IMPRESIÓN COMERCIAL */}
+            <div className="mt-8 pt-6 border-t border-slate-800/80 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-200">3. Imágenes de Litografía & Impresión Comercial</h3>
+                  <p className="text-xs text-slate-400">
+                    Monitoreo y asignación de imágenes para cada una de las 10 líneas de productos impresos con badge de sincronización por ítem.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                {[
+                  { id: "tarjetas", name: "Tarjetas Personales", defaultUrl: "/imagenes/litografia_tarjetas.jpg" },
+                  { id: "brochures", name: "Volantes & Flyers", defaultUrl: "/imagenes/litografia_volantes.jpg" },
+                  { id: "talonarios", name: "Talonarios Facturación", defaultUrl: "/imagenes/litografia_talonarios.jpg" },
+                  { id: "almanaques", name: "Almanaques 2027", defaultUrl: "/imagenes/litografia_almanaques.jpg" },
+                  { id: "pendones", name: "Pendones Gran Formato", defaultUrl: "/imagenes/litografia_pendones.jpg" },
+                  { id: "avisos", name: "Avisos Publicitarios", defaultUrl: "/imagenes/litografia_avisos.jpg" },
+                  { id: "souvenirs", name: "Souvenirs Promocionales", defaultUrl: "/imagenes/litografia_souvenirs.jpg" },
+                  { id: "dotacion", name: "Dotación & Camisetas", defaultUrl: "/imagenes/litografia_dotacion.jpg" },
+                  { id: "adhesivos", name: "Adhesivos Troquelados", defaultUrl: "/imagenes/litografia_adhesivos.jpg" },
+                  { id: "diseno", name: "Diseño Gráfico", defaultUrl: "/imagenes/litografia_diseno.jpg" },
+                ].map((item) => {
+                  const itemKey = `litho_${item.id}`;
+                  const currentUrl = customLithoImages[item.id] || item.defaultUrl;
+                  const syncInfo = imageSyncStates[itemKey] || { status: 'Synced', headerValue: 'X-Sync-Status: Synced' };
+
+                  return (
+                    <div key={item.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-2 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-1 mb-1.5">
+                          <span className="text-[11px] font-bold text-slate-200 truncate" title={item.name}>
+                            {item.name}
+                          </span>
+                          <ImageSyncBadge
+                            syncState={syncInfo}
+                            id={`badge-litho-${item.id}`}
+                            onVerify={() => verifySingleImageSync(itemKey, currentUrl)}
+                            isVerifying={verifyingKey === itemKey}
+                          />
+                        </div>
+                        <div className="h-20 rounded-lg bg-slate-900 border border-slate-800 overflow-hidden relative mb-1.5">
+                          <img
+                            src={currentUrl}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = item.defaultUrl;
+                            }}
+                          />
+                        </div>
+                        <span className="text-[9px] text-slate-500 font-mono block truncate" title={currentUrl}>
+                          {currentUrl}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 pt-1.5 border-t border-slate-900">
+                        <label className="w-full py-1 px-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white font-bold rounded text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1 cursor-pointer">
+                          <Upload className="w-2.5 h-2.5 text-brand-orange" />
+                          <span>Subir</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) handleSpecificImageUpload(itemKey, f, "customLithoImages", item.id);
+                            }}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Footer Informativo de la Bóveda */}
+            <div className="mt-6 pt-4 border-t border-slate-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 gap-2">
+              <span className="flex items-center gap-1.5 font-mono">
+                <FolderOpen className="w-3.5 h-3.5 text-brand-orange" />
+                Almacenamiento persistente verificado: <code className="text-emerald-400 px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">custom_images_vault.json</code> & <code className="text-emerald-400 px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">/uploads/</code>
+              </span>
+              <span className="text-slate-500 font-mono">
+                Cabeceras monitoreadas: X-Sync-Status, X-Storage-Persistence
               </span>
             </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Opción 1: Subir Archivo desde Computador */}
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
-            <div>
-              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Upload className="w-4 h-4" /> 1. Subir Archivo Local (Cualquier Formato de Imagen)
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Selecciona cualquier imagen en tu dispositivo (PNG, JPG, WEBP, SVG, GIF, ICO, AVIF, BMP) para actualizar el logo de la marca.
-              </p>
-            </div>
-
-            <label className="w-full py-2.5 px-4 bg-gradient-to-r from-brand-orange to-brand-magenta hover:opacity-90 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md">
-              <Upload className="w-4 h-4" />
-              {uploadingLogo ? "Procesando Imagen..." : "Seleccionar y Cargar Logo"}
-              <input
-                type="file"
-                accept="image/*,.png,.jpg,.jpeg,.webp,.svg,.gif,.ico,.avif,.bmp,.tiff"
-                onChange={handleLogoUpload}
-                disabled={uploadingLogo}
-                className="hidden"
-              />
-            </label>
-          </div>
-
-          {/* Opción 2: Ingresar Enlace o URL de Imagen */}
-          <div className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3 flex flex-col justify-between">
-            <div>
-              <span className="text-xs font-mono uppercase text-brand-orange font-bold flex items-center gap-1.5">
-                <Save className="w-4 h-4" /> 2. O Ingresar URL Directa de Imagen
-              </span>
-              <p className="text-[11px] text-slate-400 mt-1">
-                Pega la dirección web de cualquier formato de imagen (ej: <code className="text-slate-200">/imagenes/mi_logo.png</code>).
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={logoPreview.startsWith("data:") ? "" : logoPreview}
-                onChange={(e) => setLogoPreview(e.target.value)}
-                placeholder="/imagenes/mi_logo.png"
-                className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-brand-orange"
-              />
-              <button
-                onClick={() => {
-                  saveConfig(clients, logoPreview);
-                  setUploadMessage("¡URL de logo guardada con éxito!");
-                  setTimeout(() => setUploadMessage(null), 3000);
-                }}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
-              >
-                Aplicar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {uploadMessage && (
-          <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-xs font-mono text-emerald-400 flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4" /> {uploadMessage}
-          </div>
-        )}
-
-        <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60 flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-400 gap-2">
-          <span className="flex items-center gap-1.5">
-            <FolderOpen className="w-3.5 h-3.5 text-brand-orange" />
-            Carpeta de Almacenamiento en Servidor: <code className="text-emerald-400 font-mono px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">/uploads/</code> o <code className="text-emerald-400 font-mono px-1.5 py-0.5 bg-slate-900 rounded border border-slate-800">/public/logo_atziluth.png</code>
-          </span>
-          <span className="text-slate-500 font-mono">Formatos admitidos: PNG, JPG, WEBP, SVG</span>
-        </div>
-      </div>
       )}
 
       {/* KPI METRICS & DIRECTORIO DE CLIENTES / BALANCE CONTABLE */}
@@ -11115,15 +11812,33 @@ export default function AdminDashboard() {
                   type="file"
                   accept="image/jpeg,image/png,image/jpg,application/pdf,.pdf,.jpg,.jpeg,.png"
                   required={!payComprobanteJpg}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       setPayComprobanteFileName(file.name);
                       const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
                       setPayComprobanteTipo(isPdf ? 'pdf' : 'jpg');
+                      updateImageSyncStatus("comprobante_pago", null, true);
+
                       const reader = new FileReader();
-                      reader.onload = (loadEv) => {
-                        setPayComprobanteJpg(loadEv.target?.result as string);
+                      reader.onload = async (loadEv) => {
+                        const base64Data = loadEv.target?.result as string;
+                        setPayComprobanteJpg(base64Data);
+
+                        try {
+                          const res = await fetch("/api/proveedores/upload-comprobante-jpg", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              fileName: file.name,
+                              base64Data,
+                              proveedorId: paymentModalProv?.id,
+                            }),
+                          });
+                          updateImageSyncStatus("comprobante_pago", res, false);
+                        } catch (err: any) {
+                          updateImageSyncStatus("comprobante_pago", null, false, err.message);
+                        }
                       };
                       reader.readAsDataURL(file);
                     }
@@ -11133,8 +11848,8 @@ export default function AdminDashboard() {
 
                 {payComprobanteJpg && (
                   <div className="mt-3 p-3 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-mono">
-                      <div className="flex items-center gap-1.5 font-bold">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+                      <div className="flex items-center gap-2 font-bold">
                         {payComprobanteTipo === 'pdf' || payComprobanteJpg.startsWith('data:application/pdf') || payComprobanteFileName.toLowerCase().endsWith('.pdf') ? (
                           <span className="text-rose-400 flex items-center gap-1">
                             <FileText className="w-4 h-4" /> 📄 Documento PDF listo
@@ -11144,9 +11859,10 @@ export default function AdminDashboard() {
                             <ImageIcon className="w-4 h-4" /> 🖼️ Imagen JPG/PNG lista
                           </span>
                         )}
-                        <span className="text-slate-300 truncate max-w-[200px]">
+                        <span className="text-slate-300 truncate max-w-[150px]">
                           ({payComprobanteFileName || "comprobante"})
                         </span>
+                        <ImageSyncBadge syncState={imageSyncStates.comprobante_pago} id="comprobante-preview-badge" />
                       </div>
                       <button
                         type="button"

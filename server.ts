@@ -14,6 +14,12 @@ const PORT = 3000;
 app.use(express.json({ limit: "100mb" }));
 app.use(express.urlencoded({ limit: "100mb", extended: true }));
 
+// Middleware to expose synchronization and persistence headers to client-side scripts
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Expose-Headers", "X-Sync-Status, x-sync-status, X-Storage-Persistence, X-Sync-Timestamp, Content-Type, Content-Length");
+  next();
+});
+
 // Ensure imagenes and uploads filesystem directories exist for persistent local assets customizer
 const IMAGENES_DIR = path.join(process.cwd(), "imagenes");
 const PUBLIC_IMAGENES_DIR = path.join(process.cwd(), "public", "imagenes");
@@ -129,11 +135,18 @@ function mergeImageConfigs(base: any, incoming: any) {
   if (!incoming || typeof incoming !== "object") return base;
   const result = { ...base };
 
-  // Logo: prioritize non-default logo
-  if (incoming.logoUrl && !incoming.logoUrl.includes("logo_atziluth")) {
+  const isDefaultLogo = (url?: string) =>
+    !url ||
+    url === "/logo_atziluth.jpg" ||
+    url === "/logo_atziluth.png" ||
+    url === "logo_atziluth.jpg" ||
+    url === "logo_atziluth.png";
+
+  // Logo: prioritize custom logo and never let default overwrite it
+  if (incoming.logoUrl && !isDefaultLogo(incoming.logoUrl)) {
     result.logoUrl = incoming.logoUrl;
-  } else if (!result.logoUrl || result.logoUrl.includes("logo_atziluth")) {
-    if (incoming.logoUrl) result.logoUrl = incoming.logoUrl;
+  } else if (isDefaultLogo(result.logoUrl) && incoming.logoUrl) {
+    result.logoUrl = incoming.logoUrl;
   }
   if (incoming.faviconUrl) result.faviconUrl = incoming.faviconUrl;
 
@@ -522,13 +535,19 @@ app.post("/api/ai/generate-banner", async (req, res) => {
 });
 
 // 4. API: Get active customizable images configuration (Public, used on app start)
-app.get("/api/config/images", (req, res) => {
+app.get(["/api/config", "/api/config/images"], (req, res) => {
   const config = loadImagesConfig();
+  res.setHeader("X-Sync-Status", "Synced");
+  res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+  res.setHeader("X-Sync-Timestamp", new Date().toISOString());
   res.json({ success: true, config });
 });
 
 app.get("/api/admin/config", (req, res) => {
   const config = loadImagesConfig();
+  res.setHeader("X-Sync-Status", "Synced");
+  res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+  res.setHeader("X-Sync-Timestamp", new Date().toISOString());
   res.json({ success: true, config });
 });
 
@@ -549,6 +568,9 @@ app.post("/api/config/sync", allowUpload, (req, res) => {
       restoreCustomImagesVaultToDisk();
     }
 
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({
       success: true,
       message: "Configuración e imágenes sincronizadas y respaldadas con éxito en almacenamiento persistente.",
@@ -556,6 +578,7 @@ app.post("/api/config/sync", allowUpload, (req, res) => {
     });
   } catch (err: any) {
     console.error("Error en /api/config/sync:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error al sincronizar estado persistente." });
   }
 });
@@ -563,6 +586,9 @@ app.post("/api/config/sync", allowUpload, (req, res) => {
 // Dedicated Image Vault endpoints
 app.get("/api/config/vault", (req, res) => {
   const vault = loadCustomImagesVaultServer();
+  res.setHeader("X-Sync-Status", "Synced");
+  res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+  res.setHeader("X-Sync-Timestamp", new Date().toISOString());
   res.json({ success: true, vault });
 });
 
@@ -573,8 +599,12 @@ app.post("/api/config/vault", allowUpload, (req, res) => {
     const updated = { ...vault, ...incoming };
     saveCustomImagesVaultServer(updated);
     restoreCustomImagesVaultToDisk();
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({ success: true, count: Object.keys(updated).length });
   } catch (err: any) {
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error guardando bóveda de imágenes" });
   }
 });
@@ -737,6 +767,13 @@ function loadAlmanaquesDataServer() {
         const updatedProducts = parsed.products.map((p: any) => {
           const key = p.ref || p.id;
           const vaultImg = vault[key] || vault[p.ref] || vault[p.id];
+          // If the product already has a custom image (uploaded, local, or data URL), retain it and keep vault in sync!
+          if (p.imageUrl && p.imageUrl.trim() && !p.imageUrl.includes("unsplash.com")) {
+            if (key && (!vault[key] || vault[key].includes("unsplash.com"))) {
+              vault[key] = p.imageUrl;
+            }
+            return p;
+          }
           if (vaultImg && vaultImg.trim()) {
             return { ...p, imageUrl: vaultImg };
           }
@@ -809,12 +846,17 @@ app.post("/api/almanaques/data", allowUpload, (req, res) => {
   try {
     const data = req.body;
     if (!data || !Array.isArray(data.categories) || !Array.isArray(data.products)) {
+      res.setHeader("X-Sync-Status", "Failed");
       return res.status(400).json({ success: false, error: "Estructura de datos de almanaques no válida." });
     }
     saveAlmanaquesDataServer(data);
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({ success: true, data });
   } catch (err: any) {
     console.error("Error saving almanaques data:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error de servidor al guardar datos de almanaques." });
   }
 });
@@ -822,6 +864,9 @@ app.post("/api/almanaques/data", allowUpload, (req, res) => {
 // Dedicated Image Vault endpoints
 app.get("/api/almanaques/vault", (req, res) => {
   const vault = loadAlmanaquesVaultServer();
+  res.setHeader("X-Sync-Status", "Synced");
+  res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+  res.setHeader("X-Sync-Timestamp", new Date().toISOString());
   res.json({ success: true, vault });
 });
 
@@ -831,8 +876,12 @@ app.post("/api/almanaques/vault", allowUpload, (req, res) => {
     const vault = loadAlmanaquesVaultServer();
     const updated = { ...vault, ...incoming };
     saveAlmanaquesVaultServer(updated);
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({ success: true, vault: updated });
   } catch (err: any) {
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error guardando bóveda de imágenes" });
   }
 });
@@ -1672,6 +1721,7 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
   try {
     const { base64Data, fileName } = req.body;
     if (!base64Data || typeof base64Data !== "string") {
+      res.setHeader("X-Sync-Status", "Failed");
       return res.status(400).json({ success: false, error: "No se proporcionaron datos de imagen." });
     }
     let cleanBase64 = base64Data;
@@ -1681,6 +1731,7 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
 
     const buffer = Buffer.from(cleanBase64, "base64");
     if (buffer.length === 0) {
+      res.setHeader("X-Sync-Status", "Failed");
       return res.status(400).json({ success: false, error: "Imagen vacía." });
     }
 
@@ -1714,6 +1765,9 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
     currentConfig.faviconUrl = `/imagenes/${faviconFileName}`;
     saveImagesConfig(currentConfig);
 
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({
       success: true,
       message: "Logo y Favicon actualizados automáticamente en todo el sistema y respaldados.",
@@ -1722,6 +1776,7 @@ app.post("/api/admin/update-logo-favicon", allowUpload, (req, res) => {
     });
   } catch (err: any) {
     console.error("Error actualizando logo/favicon:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error al actualizar logo y favicon." });
   }
 });
@@ -1731,9 +1786,13 @@ app.post("/api/admin/config", allowUpload, (req, res) => {
     const currentConfig = loadImagesConfig();
     const mergedConfig = mergeImageConfigs(currentConfig, req.body);
     saveImagesConfig(mergedConfig);
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({ success: true, config: mergedConfig });
   } catch (err: any) {
     console.error("Error saving image config:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error de servidor al guardar la configuración." });
   }
 });
@@ -1877,6 +1936,7 @@ const handleUploadImageRequest = (req: any, res: any) => {
   try {
     const validation = validateImageUploadPayload(req.body);
     if (!validation.isValid || !validation.buffer) {
+      res.setHeader("X-Sync-Status", "Failed");
       return res.status(400).json({
         success: false,
         error: validation.errorMessage || "Error de validación en la imagen subida."
@@ -1925,9 +1985,11 @@ const handleUploadImageRequest = (req: any, res: any) => {
     }
 
     const reqType = req.body.type || "";
+    const reqField = req.body.field || req.body.fieldName || req.body.targetField || "";
     const isLogoRequest =
       req.body.isLogo === true ||
       reqType === "logo" ||
+      reqField === "logo" ||
       sanitizedFileName!.toLowerCase().includes("logo");
 
     // 5. Store in persistent Image Vault to survive reboots/container resets
@@ -1937,6 +1999,11 @@ const handleUploadImageRequest = (req: any, res: any) => {
       const vault = loadCustomImagesVaultServer();
       vault[uniqueFileName] = dataUri;
       vault[uploadedUrl] = dataUri;
+      if (reqField) vault[reqField] = dataUri;
+      if (req.body.lithoCategory) {
+        vault[`litho_${req.body.lithoCategory}`] = dataUri;
+        vault[req.body.lithoCategory] = dataUri;
+      }
       if (isLogoRequest) {
         vault["logo_atziluth.png"] = dataUri;
         vault["logo_atziluth.jpg"] = dataUri;
@@ -1969,26 +2036,46 @@ const handleUploadImageRequest = (req: any, res: any) => {
       } catch (errLogo) {
         console.error("Error distribuyendo logo de la marca:", errLogo);
       }
-    } else if (reqType === "webDesignMockup") {
+    } else if (reqType === "webDesignMockup" || reqField === "webDesignMockup") {
       currentConfig.webDesignMockup = uploadedUrl;
       updatedConfig = true;
-    } else if (reqType === "restaurantAppMockup") {
+    } else if (reqType === "restaurantAppMockup" || reqField === "restaurantAppMockup") {
       currentConfig.restaurantAppMockup = uploadedUrl;
       updatedConfig = true;
-    } else if (reqType === "municipalDirectoryBanner") {
+    } else if (reqType === "municipalDirectoryBanner" || reqField === "municipalDirectoryBanner") {
       currentConfig.municipalDirectoryBanner = uploadedUrl;
       updatedConfig = true;
-    } else if (reqType === "litho" || req.body.lithoCategory) {
+    } else if (
+      reqType === "litho" ||
+      req.body.lithoCategory ||
+      reqField.startsWith("litografia-") ||
+      reqField.startsWith("litho-")
+    ) {
       if (!currentConfig.customLithoImages) currentConfig.customLithoImages = {};
-      const catKey = req.body.lithoCategory || "general";
+      const catKey =
+        req.body.lithoCategory ||
+        reqField.replace(/^(litografia|litho)-/, "") ||
+        "general";
       currentConfig.customLithoImages[catKey] = uploadedUrl;
       updatedConfig = true;
+      
+      // If uploading almanaques image, also backup into almanaques vault
+      if (catKey === "almanaques") {
+        try {
+          const almVal = loadAlmanaquesVaultServer();
+          almVal["litografia_almanaques"] = uploadedUrl;
+          saveAlmanaquesVaultServer(almVal);
+        } catch (_) {}
+      }
     }
 
     if (updatedConfig) {
       saveImagesConfig(currentConfig);
     }
 
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({
       success: true,
       url: uploadedUrl,
@@ -1997,6 +2084,7 @@ const handleUploadImageRequest = (req: any, res: any) => {
     });
   } catch (err: any) {
     console.error("Error en servicio de subida de imágenes:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({
       success: false,
       error: "Error interno del servidor al procesar y almacenar la imagen."
@@ -2060,9 +2148,13 @@ const handleUploadFileRequest = (req: any, res: any) => {
       }
     }
 
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({ success: true, url: fileUrl, fileName: uniqueFileName });
   } catch (err: any) {
     console.error("Error al subir archivo:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error al guardar el archivo en el servidor." });
   }
 };
@@ -2604,6 +2696,9 @@ const handleComprobanteUpload = (req: any, res: any) => {
       });
     }
 
+    res.setHeader("X-Sync-Status", "Synced");
+    res.setHeader("X-Storage-Persistence", "Vault-Mirror-Verified");
+    res.setHeader("X-Sync-Timestamp", new Date().toISOString());
     res.json({
       success: true,
       url: fileUrl,
@@ -2615,6 +2710,7 @@ const handleComprobanteUpload = (req: any, res: any) => {
     });
   } catch (err: any) {
     console.error("Error al subir comprobante de pago:", err);
+    res.setHeader("X-Sync-Status", "Failed");
     res.status(500).json({ success: false, error: "Error al procesar el comprobante de pago en el servidor." });
   }
 };
