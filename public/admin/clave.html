@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="robots" content="noindex" />
+  <title>Cambiar contraseña · Atziluth</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0a0a0a; color: #e5e5e5; font: 14px/1.5 system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
+    form { width: 100%; max-width: 380px; background: #171717; border: 1px solid #262626; border-radius: 16px; padding: 24px; display: grid; gap: 12px; }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    p { margin: 0; color: #a3a3a3; font-size: 13px; }
+    label { display: grid; gap: 4px; font-size: 12px; color: #a3a3a3; }
+    input { background: #0a0a0a; border: 1px solid #333; border-radius: 10px; padding: 10px 12px; color: #fff; font-size: 14px; }
+    button { background: #22d3ee; color: #0a0a0a; border: 0; border-radius: 10px; padding: 12px; font-weight: 700; cursor: pointer; }
+    #msg { min-height: 20px; font-size: 13px; }
+    .ok { color: #4ade80; } .err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <form id="f">
+    <h1>Cambiar contraseña de administrador</h1>
+    <p>Primero inicia sesión en <a href="/admin/panel" style="color:#22d3ee">el panel</a>. Usa mínimo 10 caracteres.</p>
+    <label>Contraseña actual <input type="password" id="current" required autocomplete="current-password" /></label>
+    <label>Nueva contraseña <input type="password" id="new" required minlength="10" autocomplete="new-password" /></label>
+    <label>Repite la nueva <input type="password" id="repeat" required minlength="10" autocomplete="new-password" /></label>
+    <button type="submit">Guardar nueva contraseña</button>
+    <div id="msg"></div>
+  </form>
+  <script>
+    const msg = (text, ok) => { const m = document.getElementById('msg'); m.textContent = text; m.className = ok ? 'ok' : 'err'; };
+    document.getElementById('f').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const current = document.getElementById('current').value;
+      const next = document.getElementById('new').value;
+      if (next !== document.getElementById('repeat').value) return msg('Las dos contraseñas nuevas no coinciden.');
+      try {
+        const res = await fetch('/api/admin/password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ current, new: next }) });
+        const data = await res.json();
+        if (res.status === 401) return msg('Tu sesión no está activa. Entra primero al panel como administrador.');
+        if (!data.success) return msg(data.error || 'No se pudo cambiar la contraseña.');
+        e.target.reset();
+        msg('Listo. Desde ahora solo funciona la nueva contraseña.', true);
+      } catch (_) { msg('No se pudo conectar con el servidor.'); }
+    });
+  </script>
+</body>
+</html>

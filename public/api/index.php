@@ -4,28 +4,94 @@
  * Handles all dynamic panel requests in standard PHP-compatible environments.
  */
 
-// Enable CORS and define JSON response type
-header("Access-Control-Allow-Origin: *");
-header("Access-Control-Allow-Headers: Content-Type, Authorization");
-header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+// Same-origin API: no CORS headers (the panels live on this same domain)
 header("Content-Type: application/json; charset=utf-8");
+header("X-Content-Type-Options: nosniff");
 
-// Handle preflight CORS requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit(0);
 }
 
-// Fallback implementation for getallheaders() if not running under Apache mod_php
-if (!function_exists('getallheaders')) {
-    function getallheaders() {
-        $headers = [];
-        foreach ($_SERVER as $name => $value) {
-            if (substr($name, 0, 5) == 'HTTP_') {
-                $headers[str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr($name, 5)))))] = $value;
-            }
-        }
-        return $headers;
+// ==================== SEGURIDAD: SESIONES Y ROLES ====================
+// Server-side session (HttpOnly cookie). Replaces the fixed token that was visible in the public code.
+// Private files live one level ABOVE public_html (__DIR__/../../), where the web cannot reach them.
+define('PRIVATE_DIR', __DIR__ . '/../..');
+define('ADMINS', ['admin', 'supervisor']);
+define('STAFF', ['admin', 'supervisor', 'vendedor']);
+define('ADMIN_USERS', ['estiven', 'estivenson', 'estiven arango', 'estivenarango']);
+
+function startSecureSession() {
+    if (session_status() === PHP_SESSION_NONE) {
+        session_name('agd_sid');
+        session_set_cookie_params(['lifetime' => 43200, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Lax']);
+        session_start();
     }
+}
+
+function currentRole() {
+    if (empty($_COOKIE['agd_sid'])) return null; // anonymous visitors do not open a session
+    startSecureSession();
+    return isset($_SESSION['role']) ? $_SESSION['role'] : null;
+}
+
+function requireRole(array $roles) {
+    if (!in_array(currentRole(), $roles, true)) {
+        http_response_code(401);
+        echo json_encode(["success" => false, "error" => "No autorizado. Inicia sesión de nuevo."]);
+        exit;
+    }
+}
+
+// Opens a session for the role and returns a random token (the panels still store one; auth uses the cookie)
+function loginAs($role, $sellerId = null) {
+    startSecureSession();
+    session_regenerate_id(true);
+    $_SESSION['role'] = $role;
+    $_SESSION['sellerId'] = $sellerId;
+    return bin2hex(random_bytes(24));
+}
+
+function adminPasswordOk($password) {
+    $hashFile = PRIVATE_DIR . '/agd_admin_password.hash';
+    if (file_exists($hashFile)) {
+        return password_verify($password, trim(file_get_contents($hashFile)));
+    }
+    // ponytail: previous password (SHA-256) accepted ONLY until a new one is set in /admin/clave.html
+    $legacy = [
+        '634d5f425577734ef1bc06c95e7f77bac19b5cc1cbd551fab1ee01f28bad5573',
+        '27c23dd47bbe1d6929e305d8dad731bc75a6b72b89082d973670ac6ae771d3e2'
+    ];
+    return in_array(hash('sha256', $password), $legacy, true);
+}
+
+function failLogin($message) {
+    sleep(1); // slows down password guessing
+    echo json_encode(["success" => false, "error" => $message]);
+    exit;
+}
+
+function readJsonFile($file) {
+    return file_exists($file) ? (json_decode(file_get_contents($file), true) ?: []) : [];
+}
+
+function writeJsonFile($file, $data) {
+    // Keep the previous version as .bak before writing: data is never lost by an overwrite
+    if (file_exists($file)) {
+        copy($file, $file . '.bak');
+    }
+    return file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
+}
+
+// Only these file types can be uploaded (never .php or other executables)
+function safeUploadName($fileName, array $allowedExt) {
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExt, true)) {
+        http_response_code(400);
+        echo json_encode(["success" => false, "error" => "Tipo de archivo no permitido."]);
+        exit;
+    }
+    $base = preg_replace('/[^a-zA-Z0-9\-_]/', '_', pathinfo($fileName, PATHINFO_FILENAME));
+    return time() . '_' . substr($base, 0, 80) . '.' . $ext;
 }
 
 // Get requested route
@@ -83,29 +149,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode($rawInput, true) ?: [];
 }
 
-/**
- * Validates authentication token in headers
- */
-function requireAdmin() {
-    $headers = getallheaders();
-    $authHeader = '';
-    foreach ($headers as $key => $val) {
-        if (strcasecmp($key, 'Authorization') === 0) {
-            $authHeader = $val;
-            break;
-        }
-    }
-    
-    if ($authHeader !== 'Bearer atziluth_secure_token_secret') {
-        http_response_code(401);
-        echo json_encode(["success" => false, "error" => "No autorizado. Sesión inválida."]);
-        exit;
-    }
-}
-
 // ==================== ROUTING SYSTEM ====================
 
-if ($route === 'config/images') {
+if ($route === 'auth/logout') {
+    startSecureSession();
+    $_SESSION = [];
+    session_destroy();
+    echo json_encode(["success" => true]);
+    exit;
+} elseif ($route === 'auth/me') {
+    echo json_encode(["success" => true, "role" => currentRole()]);
+    exit;
+} elseif ($route === 'admin/password') {
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireRole(['admin']);
+        $current = isset($input['current']) ? (string)$input['current'] : '';
+        $new = isset($input['new']) ? (string)$input['new'] : '';
+        if (!adminPasswordOk($current)) failLogin("La contraseña actual no es correcta.");
+        if (strlen($new) < 10) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "error" => "La nueva contraseña debe tener al menos 10 caracteres."]);
+            exit;
+        }
+        if (file_put_contents(PRIVATE_DIR . '/agd_admin_password.hash', password_hash($new, PASSWORD_DEFAULT), LOCK_EX) === false) {
+            http_response_code(500);
+            echo json_encode(["success" => false, "error" => "No se pudo guardar la nueva contraseña."]);
+            exit;
+        }
+        echo json_encode(["success" => true]);
+        exit;
+    }
+} elseif ($route === 'config/images') {
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         $config = loadImagesConfig($configFile);
         echo json_encode(["success" => true, "config" => $config]);
@@ -116,25 +190,22 @@ if ($route === 'config/images') {
         $username = isset($input['username']) ? trim($input['username']) : '';
         $password = isset($input['password']) ? trim($input['password']) : '';
         
-        $isAdminUser = in_array(strtolower($username), ['estiven', 'admin', 'estiven arango', 'estivenarango']);
-        $isAdminPass = in_array(strtolower($password), ['lmrv1979', 'lmrv.1979', '2026', '123456', 'admin123']);
-        
-        if ($isAdminUser && $isAdminPass) {
-            echo json_encode(["success" => true, "token" => "atziluth_secure_token_secret", "role" => "admin"]);
+        if (in_array(strtolower($username), ADMIN_USERS, true) && adminPasswordOk($password)) {
+            echo json_encode(["success" => true, "token" => loginAs('admin'), "role" => "admin"]);
             exit;
         }
-        
+
         // Check sellers_data.json for supervisor
-        $sellersFile = __DIR__ . '/../../sellers_data.json';
-        if (file_exists($sellersFile)) {
+        $sellersFile = PRIVATE_DIR . '/sellers_data.json';
+        if (file_exists($sellersFile) && $password !== '') {
             $sellers = json_decode(file_get_contents($sellersFile), true) ?: [];
             foreach ($sellers as $s) {
-                if (strcasecmp($s['username'], $username) === 0 && $s['password'] === $password) {
+                if (isset($s['username'], $s['password']) && strcasecmp($s['username'], $username) === 0 && hash_equals((string)$s['password'], $password)) {
                     $isSupervisor = (isset($s['role']) && strtolower($s['role']) === 'supervisor') ||
                                     (isset($s['isSupervisor']) && $s['isSupervisor'] === true) ||
                                     (isset($s['zone']) && stripos($s['zone'], 'supervisor') !== false);
                     if ($isSupervisor) {
-                        echo json_encode(["success" => true, "token" => "atziluth_secure_token_secret", "role" => "supervisor"]);
+                        echo json_encode(["success" => true, "token" => loginAs('supervisor', $s['id']), "role" => "supervisor"]);
                         exit;
                     } else {
                         http_response_code(403);
@@ -148,12 +219,11 @@ if ($route === 'config/images') {
             }
         }
 
-        echo json_encode(["success" => false, "error" => "Usuario o contraseña de administrador / supervisor incorrectos."]);
-        exit;
+        failLogin("Usuario o contraseña de administrador / supervisor incorrectos.");
     }
 } elseif ($route === 'admin/config') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        requireAdmin();
+        requireRole(ADMINS);
         
         $webDesignMockup = isset($input['webDesignMockup']) ? $input['webDesignMockup'] : "";
         $restaurantAppMockup = isset($input['restaurantAppMockup']) ? $input['restaurantAppMockup'] : "";
@@ -197,7 +267,7 @@ if ($route === 'config/images') {
             mkdir($dir, 0755, true);
         }
         
-        $saved = file_put_contents($configFile, json_encode($newConfig, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        $saved = writeJsonFile($configFile, $newConfig);
         
         if ($saved !== false) {
             echo json_encode(["success" => true, "config" => $newConfig]);
@@ -210,8 +280,8 @@ if ($route === 'config/images') {
     }
 } elseif ($route === 'admin/upload-image') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        requireAdmin();
-        
+        requireRole(ADMINS);
+
         $fileName = isset($input['fileName']) ? $input['fileName'] : '';
         $base64Data = isset($input['base64Data']) ? $input['base64Data'] : '';
         
@@ -225,20 +295,18 @@ if ($route === 'config/images') {
         $base64Clean = preg_replace('/^data:image\/\w+;base64,/', '', $base64Data);
         $binaryData = base64_decode($base64Clean);
         
-        if ($binaryData === false) {
+        if ($binaryData === false || @getimagesizefromstring($binaryData) === false && stripos($fileName, '.svg') === false) {
             http_response_code(400);
             echo json_encode(["success" => false, "error" => "Los datos de imagen base64 no son válidos."]);
             exit;
         }
-        
+
         // Create uploads folder if not exists
         if (!file_exists($uploadsDir)) {
             mkdir($uploadsDir, 0755, true);
         }
-        
-        $timestamp = time();
-        $safeName = preg_replace('/[^a-zA-Z0-9.\-_]/', '_', $fileName);
-        $uniqueFileName = $timestamp . '_' . $safeName;
+
+        $uniqueFileName = safeUploadName($fileName, ['jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico']);
         $targetPath = $uploadsDir . '/' . $uniqueFileName;
         
         if (file_put_contents($targetPath, $binaryData) !== false) {
@@ -252,6 +320,7 @@ if ($route === 'config/images') {
     }
 } elseif ($route === 'admin/upload-file' || $route === 'upload-file') {
     if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireRole(ADMINS);
         $fileName = isset($input['fileName']) ? $input['fileName'] : 'archivo.pdf';
         $base64Data = isset($input['base64Data']) ? $input['base64Data'] : '';
         
@@ -274,11 +343,9 @@ if ($route === 'config/images') {
             mkdir($uploadsDir, 0755, true);
         }
         
-        $timestamp = time();
-        $safeName = preg_replace('/[^a-zA-Z0-9.\-_]/', '_', $fileName);
-        $uniqueFileName = $timestamp . '_' . $safeName;
+        $uniqueFileName = safeUploadName($fileName, ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'svg', 'ico']);
         $targetPath = $uploadsDir . '/' . $uniqueFileName;
-        
+
         if (file_put_contents($targetPath, $binaryData) !== false) {
             echo json_encode(["success" => true, "url" => "/uploads/" . $uniqueFileName, "fileName" => $uniqueFileName]);
             exit;
@@ -300,8 +367,9 @@ if ($route === 'config/images') {
         }
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireRole(ADMINS);
         if ($input) {
-            file_put_contents($almanaquesFile, json_encode($input, JSON_PRETTY_PRINT));
+            writeJsonFile($almanaquesFile, $input);
             echo json_encode(["success" => true, "data" => $input]);
         } else {
             http_response_code(400);
@@ -314,10 +382,8 @@ if ($route === 'config/images') {
         $username = isset($input['username']) ? trim($input['username']) : '';
         $password = isset($input['password']) ? trim($input['password']) : '';
         
-        $isAdminUser = in_array(strtolower($username), ['estiven', 'admin', 'estiven arango', 'estivenarango']);
-        $isAdminPass = in_array(strtolower($password), ['lmrv1979', 'lmrv.1979', '2026', '123456', 'admin123']);
-        
-        if ($isAdminUser && $isAdminPass) {
+        if (in_array(strtolower($username), ADMIN_USERS, true) && adminPasswordOk($password)) {
+            $token = loginAs('admin');
             echo json_encode([
                 "success" => true,
                 "role" => "admin",
@@ -329,17 +395,17 @@ if ($route === 'config/images') {
                     "municipalities" => ["Todos los Municipios"],
                     "categories" => ["Almanaque para el 2027", "Litografía Completa"]
                 ],
-                "token" => "atziluth_secure_token_secret"
+                "token" => $token
             ]);
             exit;
         }
-        
+
         // Check sellers_data.json
-        $sellersFile = __DIR__ . '/../../sellers_data.json';
-        if (file_exists($sellersFile)) {
+        $sellersFile = PRIVATE_DIR . '/sellers_data.json';
+        if (file_exists($sellersFile) && $password !== '') {
             $sellers = json_decode(file_get_contents($sellersFile), true) ?: [];
             foreach ($sellers as $s) {
-                if (strcasecmp($s['username'], $username) === 0 && $s['password'] === $password) {
+                if (isset($s['username'], $s['password']) && strcasecmp($s['username'], $username) === 0 && hash_equals((string)$s['password'], $password)) {
                     if (isset($s['status']) && $s['status'] === 'INACTIVO') {
                         echo json_encode(["success" => false, "error" => "El usuario vendedor se encuentra inactivo."]);
                         exit;
@@ -355,24 +421,23 @@ if ($route === 'config/images') {
                             "municipalities" => isset($s['municipalities']) ? $s['municipalities'] : [],
                             "categories" => isset($s['categories']) ? $s['categories'] : []
                         ],
-                        "token" => "seller_token_" . $s['id']
+                        "token" => loginAs('vendedor', $s['id'])
                     ]);
                     exit;
                 }
             }
         }
-        
-        echo json_encode(["success" => false, "error" => "Usuario o contraseña de ventas/admin incorrectos."]);
-        exit;
+
+        failLogin("Usuario o contraseña de ventas/admin incorrectos.");
     }
 } elseif ($route === 'sales/orders') {
-    $ordersFile = __DIR__ . '/../../sales_orders_data.json';
+    requireRole(STAFF);
+    $ordersFile = PRIVATE_DIR . '/sales_orders_data.json';
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $orders = file_exists($ordersFile) ? (json_decode(file_get_contents($ordersFile), true) ?: []) : [];
-        echo json_encode(["success" => true, "orders" => $orders]);
+        echo json_encode(["success" => true, "orders" => readJsonFile($ordersFile)]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $orders = file_exists($ordersFile) ? (json_decode(file_get_contents($ordersFile), true) ?: []) : [];
+        $orders = readJsonFile($ordersFile);
         $orderNumStr = "PED-" . (1000 + count($orders) + 1);
         $totalAmount = isset($input['totalAmount']) ? floatval($input['totalAmount']) : 0;
         $initialAbono = isset($input['initialAbono']) ? floatval($input['initialAbono']) : 0;
@@ -416,47 +481,63 @@ if ($route === 'config/images') {
             "updatedAt" => date("c")
         ];
         array_unshift($orders, $newOrder);
-        file_put_contents($ordersFile, json_encode($orders, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+        writeJsonFile($ordersFile, $orders);
         echo json_encode(["success" => true, "order" => $newOrder, "orders" => $orders]);
         exit;
     }
 } elseif ($route === 'sales/clients') {
-    $clientsFile = __DIR__ . '/../../clients_data.json';
+    $clientsFile = PRIVATE_DIR . '/clients_data.json';
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $clients = file_exists($clientsFile) ? (json_decode(file_get_contents($clientsFile), true) ?: []) : [];
-        echo json_encode(["success" => true, "clients" => $clients]);
+        requireRole(STAFF);
+        echo json_encode(["success" => true, "clients" => readJsonFile($clientsFile)]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $clients = file_exists($clientsFile) ? (json_decode(file_get_contents($clientsFile), true) ?: []) : [];
+        // Public registration form: anyone may CREATE a client, but only staff gets the list back
+        $field = function ($key, $default = '') use ($input) {
+            // Max 300 characters (UTF-8 safe, does not depend on the mbstring extension)
+            return isset($input[$key]) ? preg_replace('/^(.{0,300}).*$/us', '$1', trim((string)$input[$key])) : $default;
+        };
+        $clients = readJsonFile($clientsFile);
         $newClient = [
-            "id" => "cli-" . time(),
-            "name" => isset($input['name']) ? $input['name'] : 'Cliente Nuevo',
-            "nitCc" => isset($input['nitCc']) ? $input['nitCc'] : 'Sin NIT',
-            "contact" => isset($input['contact']) ? $input['contact'] : '',
-            "phone" => isset($input['phone']) ? $input['phone'] : '',
-            "email" => isset($input['email']) ? $input['email'] : '',
-            "address" => isset($input['address']) ? $input['address'] : 'Medellín',
-            "municipality" => isset($input['municipality']) ? $input['municipality'] : 'Medellín',
+            "id" => "cli-" . time() . "-" . bin2hex(random_bytes(3)),
+            "name" => $field('name', 'Cliente Nuevo'),
+            "nitCc" => $field('nitCc', 'Sin NIT'),
+            "contact" => $field('contact'),
+            "phone" => $field('phone'),
+            "email" => $field('email'),
+            "address" => $field('address', 'Medellín'),
+            "municipality" => $field('municipality', 'Medellín'),
             "createdAt" => date("c")
         ];
         array_unshift($clients, $newClient);
-        file_put_contents($clientsFile, json_encode($clients, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        echo json_encode(["success" => true, "client" => $newClient, "clients" => $clients]);
+        writeJsonFile($clientsFile, $clients);
+        $isStaff = in_array(currentRole(), STAFF, true);
+        echo json_encode($isStaff
+            ? ["success" => true, "client" => $newClient, "clients" => $clients]
+            : ["success" => true, "client" => $newClient]);
         exit;
     }
 } elseif ($route === 'admin/sellers') {
-    $sellersFile = __DIR__ . '/../../sellers_data.json';
+    $sellersFile = PRIVATE_DIR . '/sellers_data.json';
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        $sellers = file_exists($sellersFile) ? (json_decode(file_get_contents($sellersFile), true) ?: []) : [];
+        requireRole(STAFF);
+        // Never send passwords to the browser
+        $sellers = array_map(function ($s) { unset($s['password']); return $s; }, readJsonFile($sellersFile));
         echo json_encode(["success" => true, "sellers" => $sellers]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        $sellers = file_exists($sellersFile) ? (json_decode(file_get_contents($sellersFile), true) ?: []) : [];
+        requireRole(ADMINS);
+        if (empty($input['username']) || empty($input['password']) || strlen((string)$input['password']) < 6) {
+            http_response_code(400);
+            echo json_encode(["success" => false, "error" => "Usuario y contraseña (mínimo 6 caracteres) son obligatorios."]);
+            exit;
+        }
+        $sellers = readJsonFile($sellersFile);
         $newSeller = [
             "id" => "sel-" . time(),
             "name" => isset($input['name']) ? $input['name'] : 'Vendedor',
-            "username" => isset($input['username']) ? $input['username'] : 'vendedor',
-            "password" => isset($input['password']) ? $input['password'] : '123',
+            "username" => $input['username'],
+            "password" => (string)$input['password'],
             "zone" => isset($input['zone']) ? $input['zone'] : 'General',
             "municipalities" => isset($input['municipalities']) ? $input['municipalities'] : [],
             "categories" => isset($input['categories']) ? $input['categories'] : [],
@@ -464,8 +545,10 @@ if ($route === 'config/images') {
             "createdAt" => date("c")
         ];
         array_unshift($sellers, $newSeller);
-        file_put_contents($sellersFile, json_encode($sellers, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        echo json_encode(["success" => true, "seller" => $newSeller, "sellers" => $sellers]);
+        writeJsonFile($sellersFile, $sellers);
+        $public = array_map(function ($s) { unset($s['password']); return $s; }, $sellers);
+        unset($newSeller['password']);
+        echo json_encode(["success" => true, "seller" => $newSeller, "sellers" => $public]);
         exit;
     }
 }

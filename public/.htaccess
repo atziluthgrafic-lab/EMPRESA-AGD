@@ -3,6 +3,14 @@
 # 1. EVITAR LISTADO DE DIRECTORIOS (Seguridad)
 Options -Indexes
 
+# 1b. DATOS PRIVADOS: nunca se descargan desde la web (los archivos NO se borran, solo se bloquean)
+<FilesMatch "^(proveedores_.*|clients_data|sellers_data|sales_orders_data|leads_data)\.json$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.(bak|hash|md|ts|lock)$">
+  Require all denied
+</FilesMatch>
+
 # 2. CONFIGURACIÓN DE MIME-TYPES (Evita errores de carga de CSS/JS en Apache/Hostinger)
 <IfModule mod_mime.c>
   AddType application/javascript .js

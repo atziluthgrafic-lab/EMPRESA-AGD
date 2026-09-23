@@ -1014,25 +1014,11 @@
           document.getElementById("login-screen").classList.add("hidden");
           document.getElementById("admin-panel").classList.remove("hidden");
           renderAll();
-        } else if (pass === "2026" || pass === "Lmrv1979" || pass === "Lmrv.1979") {
-          authToken = "atziluth_secure_token_secret";
-          localStorage.setItem("atziluth_admin_token", authToken);
-          document.getElementById("login-screen").classList.add("hidden");
-          document.getElementById("admin-panel").classList.remove("hidden");
-          renderAll();
         } else {
           errDiv.classList.remove("hidden");
         }
       } catch (err) {
-        if (pass === "2026" || pass === "Lmrv1979" || pass === "Lmrv.1979") {
-          authToken = "atziluth_secure_token_secret";
-          localStorage.setItem("atziluth_admin_token", authToken);
-          document.getElementById("login-screen").classList.add("hidden");
-          document.getElementById("admin-panel").classList.remove("hidden");
-          renderAll();
-        } else {
-          errDiv.classList.remove("hidden");
-        }
+        errDiv.classList.remove("hidden");
       }
     });
 

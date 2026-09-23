@@ -912,15 +912,11 @@ app.post("/api/admin/login", (req, res) => {
   const envPassword = process.env.ADMIN_PASSWORD;
   
   const isAdminUser = cleanUsername && [
-    "estiven", "admin", "estiven arango", "estivenarango", "direccion.general"
+    "estiven", "estivenson", "estiven arango", "estivenarango", "direccion.general"
   ].includes(cleanUsername.toLowerCase());
   
-  const isAdminPassword = 
-    cleanPassword === "Lmrv1979" || 
-    cleanPassword === "Lmrv.1979" || 
-    cleanPassword === "2026" ||
-    cleanPassword === "123456" ||
-    (envPassword && cleanPassword === envPassword);
+  // Admin password only comes from .env (ADMIN_PASSWORD); never written in the code
+  const isAdminPassword = !!envPassword && cleanPassword === envPassword;
 
   // 1. Direct Administrator Authentication
   if (isAdminUser && isAdminPassword) {
@@ -1188,22 +1184,11 @@ app.post("/api/sales/login", (req, res) => {
     "estiven arango",
     "estivenarango",
     "direccion.general"
-  ].includes(cleanUsername) || cleanUsername.includes("estiven") || cleanUsername.includes("admin");
+  ].includes(cleanUsername);
 
-  const isAdminPass = [
-    "lmrv1979",
-    "lmrv.1979",
-    "2026",
-    "123456",
-    "admin123",
-    "admin",
-    "estivenson"
-  ].includes(cleanPassword.toLowerCase());
+  const isAdminPass = !!process.env.ADMIN_PASSWORD && cleanPassword === process.env.ADMIN_PASSWORD;
 
-  if (isAdminUser) {
-    if (!isAdminPass && cleanPassword.length > 0) {
-      // allow flexible admin login
-    }
+  if (isAdminUser && isAdminPass) {
     return res.json({
       success: true,
       role: "admin",
@@ -1227,31 +1212,13 @@ app.post("/api/sales/login", (req, res) => {
     const sPass = s.password || "123";
 
     const userMatches =
-      sUser === cleanUsername ||
-      sUser.startsWith(cleanUsername) ||
-      cleanUsername.startsWith(sUser.split(".")[0]) ||
-      sName.includes(cleanUsername) ||
-      cleanUsername.includes("carlos") ||
-      cleanUsername.includes("ventas");
+      sUser === cleanUsername || sName === cleanUsername;
 
-    const passMatches =
-      cleanPassword === sPass ||
-      cleanPassword.toLowerCase() === sPass.toLowerCase() ||
-      ["123", "1234", "123456", "carlos", "ventas", "admin", ""].includes(cleanPassword.toLowerCase());
+    // Exact password only: no generic passwords and no "any user" fallback
+    const passMatches = !!s.password && cleanPassword === s.password;
 
     return userMatches && passMatches;
   });
-
-  if (!seller && (cleanUsername.includes("carlos") || cleanUsername.includes("ventas") || cleanUsername.length > 0)) {
-    seller = sellers[0] || {
-      id: "sel-101",
-      name: "Carlos Mario Arango",
-      username: "carlos.ventas",
-      zone: "Valle de Aburrá Norte",
-      municipalities: ["Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota"],
-      categories: ["Gran Formato & Pendones", "Agendas y Libretas"]
-    };
-  }
 
   if (seller) {
     return res.json({

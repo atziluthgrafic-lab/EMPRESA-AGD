@@ -12,7 +12,7 @@ Aquí tienes los detalles de lo que se ha configurado y el paso a paso exacto pa
    - **El Problema**: Los hostings compartidos de Hostinger no ejecutan servidores de Node.js de forma predeterminada, sino que sirven archivos estáticos y scripts de **PHP**. Al no tener un servidor de Node.js corriendo para procesar las rutas de la API (`/api/admin/login`, etc.), el servidor Apache de Hostinger redirigía estas llamadas al archivo `index.html`, causando el error *"Respuesta inesperada del servidor (Estado: 200)"*.
    - **La Solución**: He creado un backend en PHP 100% compatible y ultraligero que simula exactamente las mismas funciones del servidor de desarrollo. Este archivo se encuentra en `public/api/index.php`. Al compilar tu proyecto, Vite lo moverá a la carpeta `dist/api/index.php` automáticamente.
    - **Características**:
-     - **Inicio de Sesión**: Valida de manera segura las credenciales del Administrador (`Estiven` / `Lmrv.1979` o `Lmrv1979`).
+     - **Inicio de Sesión**: Valida las credenciales del Administrador en el servidor (la contraseña nunca va escrita en el código).
      - **Guardado de Configuración**: Escribe los cambios en un archivo `custom_images_config.json` en tu carpeta raíz de Hostinger.
      - **Subida de Imágenes**: Procesa y guarda de forma segura los archivos subidos de banners, logos y anuncios en la carpeta pública `uploads/` de tu hosting.
 

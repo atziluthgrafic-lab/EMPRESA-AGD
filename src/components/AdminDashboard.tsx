@@ -1239,7 +1239,7 @@ export default function AdminDashboard() {
   });
 
   const [loginUsername, setLoginUsername] = useState("Estivenson");
-  const [loginPassword, setLoginPassword] = useState("Lmrv1979");
+  const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginMode, setLoginMode] = useState<'vendedor' | 'admin'>('admin');
 
@@ -1479,151 +1479,47 @@ export default function AdminDashboard() {
     }
   };
 
-  // Auth Handlers
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  // Auth Handlers: the SERVER checks the password and opens the session (cookie). Nothing is validated in the browser.
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError(null);
 
-    const cleanUsername = loginUsername.trim().toLowerCase();
-    const cleanPassword = loginPassword.trim();
-
-    if (!cleanUsername || !cleanPassword) {
+    const username = loginUsername.trim();
+    const password = loginPassword.trim();
+    if (!username || !password) {
       setLoginError("Por favor ingrese usuario y contraseña.");
       return;
     }
 
-    // 1. Admin Credentials
-    const isAdminUser = [
-      "estivenson",
-      "estivensonavarro",
-      "estivenson navarro",
-      "estiven",
-      "admin",
-      "estiven arango",
-      "estivenarango",
-      "direccion.general"
-    ].includes(cleanUsername) || cleanUsername.includes("estiven") || cleanUsername.includes("admin");
-
-    const isAdminPass = [
-      "lmrv1979",
-      "lmrv.1979",
-      "2026",
-      "123456",
-      "admin123",
-      "admin",
-      "estivenson"
-    ].includes(cleanPassword.toLowerCase());
-
-    if (loginMode === 'admin' || (isAdminUser && isAdminPass)) {
-      if (isAdminUser && !isAdminPass) {
-        setLoginError("Contraseña incorrecta para Administrador General.");
+    try {
+      const res = await fetch("/api/sales/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+      const json = await res.json();
+      if (!json.success || !json.seller) {
+        setLoginError(json.error || "Usuario o contraseña incorrectos.");
         return;
       }
-      if (isAdminUser && isAdminPass) {
-        const session: AuthSession = {
-          isLoggedIn: true,
-          role: "admin",
-          username: "Estivenson",
-          name: "Estivenson Navarro (Administrador General)",
-        };
-        setAuthSession(session);
-        localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
-        setLoginUsername("");
-        setLoginPassword("");
-        return;
-      }
-    }
 
-    // 2. Seller Credentials from localStorage ('atziluth_vendedores')
-    const savedSellersRaw = localStorage.getItem("atziluth_vendedores") || localStorage.getItem("atziluth_sellers_data");
-    let currentSellersList: SellerRecord[] = sellers && sellers.length > 0 ? sellers : DEFAULT_SELLERS;
-    if (savedSellersRaw) {
-      try {
-        const parsed = JSON.parse(savedSellersRaw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          currentSellersList = parsed;
-        }
-      } catch (_) {}
-    }
-
-    // Flexible seller matching by username, first name or full name
-    const matchedSeller = currentSellersList.find((s) => {
-      const sUser = (s.username || "").trim().toLowerCase();
-      const sName = (s.name || "").trim().toLowerCase();
-      const sPass = s.password || "123";
-
-      const userMatches =
-        sUser === cleanUsername ||
-        sUser.startsWith(cleanUsername) ||
-        cleanUsername.startsWith(sUser.split(".")[0]) ||
-        sName.includes(cleanUsername) ||
-        cleanUsername.includes(sUser);
-
-      const passMatches =
-        cleanPassword === sPass ||
-        cleanPassword.toLowerCase() === sPass.toLowerCase() ||
-        ["123", "1234", "123456", "carlos", "ventas", "admin"].includes(cleanPassword.toLowerCase());
-
-      return userMatches && passMatches;
-    }) || (
-      // Fallback default seller if user entered carlos/camila/andres or loginMode === 'vendedor'
-      loginMode === 'vendedor' && (cleanUsername.includes("carlos") || cleanUsername.includes("ventas"))
-        ? DEFAULT_SELLERS[0]
-        : null
-    );
-
-    if (matchedSeller) {
-      const session: AuthSession = {
-        isLoggedIn: true,
-        role: "vendedor",
-        username: matchedSeller.username,
-        name: matchedSeller.name,
-        sellerId: matchedSeller.id,
-        sellerRecord: matchedSeller,
-      };
+      const seller = json.seller as SellerRecord;
+      const session: AuthSession =
+        json.role === "admin"
+          ? { isLoggedIn: true, role: "admin", username: seller.username, name: seller.name }
+          : { isLoggedIn: true, role: "vendedor", username: seller.username, name: seller.name, sellerId: seller.id, sellerRecord: seller };
       setAuthSession(session);
       localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
-      
-      // Auto select seller in order creation
-      setOrdSellerId(matchedSeller.id);
-
+      if (session.role === "vendedor") setOrdSellerId(seller.id);
       setLoginUsername("");
       setLoginPassword("");
-      return;
+    } catch (_) {
+      setLoginError("No se pudo conectar con el servidor. Intenta de nuevo.");
     }
-
-    setLoginError("Credenciales inválidas. Para Vendedor use 'carlos.ventas' con clave '123'.");
-  };
-
-  // Direct instant login helpers
-  const handleInstantLoginSeller = (sellerUsername = "carlos.ventas") => {
-    const list = sellers.length > 0 ? sellers : DEFAULT_SELLERS;
-    const found = list.find((s) => s.username === sellerUsername) || DEFAULT_SELLERS[0];
-    const session: AuthSession = {
-      isLoggedIn: true,
-      role: "vendedor",
-      username: found.username,
-      name: found.name,
-      sellerId: found.id,
-      sellerRecord: found,
-    };
-    setAuthSession(session);
-    localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
-    setOrdSellerId(found.id);
-  };
-
-  const handleInstantLoginAdmin = () => {
-    const session: AuthSession = {
-      isLoggedIn: true,
-      role: "admin",
-      username: "Estivenson",
-      name: "Estivenson Navarro (Administrador General)",
-    };
-    setAuthSession(session);
-    localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
   };
 
   const handleLogout = () => {
+    fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
     setAuthSession(null);
     localStorage.removeItem("atziluth_admin_session");
   };
@@ -3084,7 +2980,7 @@ export default function AdminDashboard() {
           <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800">
             <button
               type="button"
-              onClick={() => { setLoginMode('vendedor'); setLoginUsername('carlos.ventas'); setLoginPassword('123'); setLoginError(null); }}
+              onClick={() => { setLoginMode('vendedor'); setLoginUsername(''); setLoginPassword(''); setLoginError(null); }}
               className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 loginMode === 'vendedor'
                   ? 'bg-emerald-600 text-white shadow-md'
@@ -3095,7 +2991,7 @@ export default function AdminDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => { setLoginMode('admin'); setLoginUsername('Estivenson'); setLoginPassword('Lmrv1979'); setLoginError(null); }}
+              onClick={() => { setLoginMode('admin'); setLoginUsername(''); setLoginPassword(''); setLoginError(null); }}
               className={`py-2 px-3 rounded-xl text-xs font-mono font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                 loginMode === 'admin'
                   ? 'bg-brand-orange text-white shadow-md'
@@ -3160,36 +3056,6 @@ export default function AdminDashboard() {
               <span>Ingresar como {loginMode === 'vendedor' ? 'Vendedor' : 'Administrador'}</span>
             </button>
           </form>
-
-          <div className="pt-4 border-t border-slate-800/80 space-y-2 text-[11px] font-mono text-slate-400">
-            <span className="block text-[10px] uppercase text-slate-500 text-center font-bold">
-              Acceso Directo Un Clic:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleInstantLoginSeller('carlos.ventas')}
-                className="p-2.5 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-800/80 rounded-xl text-left transition-all cursor-pointer shadow flex items-center justify-between"
-              >
-                <div>
-                  <strong className="text-emerald-400 block font-bold text-xs">Carlos (Vendedor)</strong>
-                  <span className="text-[10px] text-emerald-300/80 block">Acceso Directo Ventas →</span>
-                </div>
-                <Users className="w-4 h-4 text-emerald-400 shrink-0" />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleInstantLoginAdmin()}
-                className="p-2.5 bg-amber-950/40 hover:bg-amber-900/60 border border-amber-800/80 rounded-xl text-left transition-all cursor-pointer shadow flex items-center justify-between"
-              >
-                <div>
-                  <strong className="text-brand-orange block font-bold text-xs">Estivenson (Admin)</strong>
-                  <span className="text-[10px] text-amber-300/80 block">Acceso Directo Admin →</span>
-                </div>
-                <Lock className="w-4 h-4 text-brand-orange shrink-0" />
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     );
