@@ -123,14 +123,25 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
     setIsOrderModalOpen(true);
   };
 
-  // Discount calculation
+  // Volume discount from the 2027 suggested price list (public/precios_almanaques_2027.json):
+  // unit price at each quantity vs. the unit price at the reference's minimum quantity.
+  // Never decreases when ordering more (keeps the best discount reached).
+  const [priceTable, setPriceTable] = useState<Record<string, { totales: Record<string, number> }>>({});
+  useEffect(() => {
+    fetch("/precios_almanaques_2027.json")
+      .then((r) => r.json())
+      .then((d) => setPriceTable(d.referencias || {}))
+      .catch(() => {});
+  }, []);
+
   const getDiscountRate = (qty: number) => {
-    if (qty >= 2500) return 0.25;
-    if (qty >= 1000) return 0.20;
-    if (qty >= 500) return 0.15;
-    if (qty >= 250) return 0.10;
-    if (qty >= 100) return 0.05;
-    return 0;
+    const entry = priceTable[String(selectedProduct?.ref || "").replace(/\D/g, "")];
+    if (!entry) return 0;
+    const tiers = Object.keys(entry.totales).map(Number).sort((a, b) => a - b);
+    const baseUnit = entry.totales[tiers[0]] / tiers[0];
+    let rate = 0;
+    for (const q of tiers) if (qty >= q) rate = Math.max(rate, 1 - entry.totales[q] / q / baseUnit);
+    return rate;
   };
 
   const getBrandingMultiplier = (opt: string) => {
@@ -524,7 +535,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
                 </div>
 
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
-                  {[50, 100, 250, 500, 1000, 2500].map((q) => (
+                  {[50, 100, 200, 300, 500, 1000].map((q) => (
                     <button
                       key={q}
                       type="button"
@@ -633,7 +644,7 @@ export default function AlmanaquesSection({ onOpenAsistencia }: AlmanaquesSectio
                 </div>
                 <div className="flex justify-between text-xs text-slate-300">
                   <span>Descuento por volumen:</span>
-                  <span className="text-emerald-400">{Math.round(getDiscountRate(orderQty) * 100)}% Dcto</span>
+                  <span className="text-emerald-400">{(getDiscountRate(orderQty) * 100).toFixed(1)}% Dcto</span>
                 </div>
                 <div className="flex justify-between text-sm font-bold border-t border-slate-800 pt-2 text-yellow-400">
                   <span>TOTAL ESTIMADO:</span>

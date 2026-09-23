@@ -240,6 +240,10 @@ const DEFAULT_SELLERS: SellerRecord[] = [
   }
 ];
 
+export const CORDOBA_MUNICIPALITIES = [
+  "Montería", "Ayapel", "Buenavista", "Canalete", "Cereté", "Chimá", "Chinú", "Ciénaga de Oro", "Cotorra", "La Apartada", "Lorica", "Los Córdobas", "Momil", "Moñitos", "Montelíbano", "Planeta Rica", "Pueblo Nuevo", "Puerto Escondido", "Puerto Libertador", "Purísima", "Sahagún", "San Andrés de Sotavento", "San Antero", "San Bernardo del Viento", "San Carlos", "San José de Uré", "San Pelayo", "Tierralta", "Tuchín", "Valencia"
+];
+
 export const ANTIOQUIA_MUNICIPALITIES = [
   // Valle de Aburrá
   "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota", "Caldas", "La Estrella", "Barbosa",
@@ -250,7 +254,9 @@ export const ANTIOQUIA_MUNICIPALITIES = [
   // Suroeste
   "Amagá", "Andes", "Ciudad Bolívar", "Jericó", "Fredonia", "Santa Bárbara", "Támesis",
   // Bajo Cauca, Norte & Magdalena Medio
-  "Caucasia", "El Bagre", "Zaragoza", "Yarumal", "Santa Rosa de Osos", "Puerto Berrío", "Segovia", "Remedios"
+  "Caucasia", "El Bagre", "Zaragoza", "Yarumal", "Santa Rosa de Osos", "Puerto Berrío", "Segovia", "Remedios",
+  // Departamento de Córdoba
+  ...CORDOBA_MUNICIPALITIES
 ];
 
 export const BUSINESS_CATEGORIES = [
@@ -1407,12 +1413,14 @@ export default function AdminDashboard() {
     setShowPasswords((prev) => ({ ...prev, [sellerId]: !prev[sellerId] }));
   };
 
-  const selectMunicipalitiesPreset = (type: 'aburra' | 'oriente' | 'all' | 'clear', isEdit = false) => {
+  const selectMunicipalitiesPreset = (type: 'aburra' | 'oriente' | 'cordoba' | 'all' | 'clear', isEdit = false) => {
     let targetList: string[] = [];
     if (type === 'aburra') {
       targetList = ["Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota", "Caldas", "La Estrella", "Barbosa"];
     } else if (type === 'oriente') {
       targetList = ["Rionegro", "Marinilla", "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Guatapé", "San Vicente", "La Unión", "Sonsón"];
+    } else if (type === 'cordoba') {
+      targetList = [...CORDOBA_MUNICIPALITIES];
     } else if (type === 'all') {
       targetList = [...ANTIOQUIA_MUNICIPALITIES];
     } else if (type === 'clear') {
@@ -4826,6 +4834,7 @@ export default function AdminDashboard() {
                 <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
                 <option value="Oriente Antioqueño">Oriente Antioqueño</option>
                 <option value="Occidente / Urabá">Occidente / Urabá</option>
+                <option value="Córdoba">Córdoba (departamento)</option>
                 <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
                 <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
               </select>
@@ -4883,6 +4892,13 @@ export default function AdminDashboard() {
                   className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
                 >
                   + Oriente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => selectMunicipalitiesPreset('cordoba', false)}
+                  className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                >
+                  + Córdoba
                 </button>
                 <button
                   type="button"
@@ -10571,6 +10587,7 @@ export default function AdminDashboard() {
                     <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
                     <option value="Oriente Antioqueño">Oriente Antioqueño</option>
                     <option value="Occidente / Urabá">Occidente / Urabá</option>
+                <option value="Córdoba">Córdoba (departamento)</option>
                     <option value="Suroeste Antioqueño">Suroeste Antioqueño</option>
                     <option value="Toda Antioquia">Toda Antioquia (Consolidado)</option>
                   </select>
@@ -10624,6 +10641,13 @@ export default function AdminDashboard() {
                       className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
                     >
                       + Oriente
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectMunicipalitiesPreset('cordoba', true)}
+                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer"
+                    >
+                      + Córdoba
                     </button>
                     <button
                       type="button"

@@ -272,10 +272,10 @@
           <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-2">
             <button type="button" onclick="setQuantity(50)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">50</button>
             <button type="button" onclick="setQuantity(100)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">100</button>
-            <button type="button" onclick="setQuantity(250)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">250</button>
+            <button type="button" onclick="setQuantity(200)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">200</button>
+            <button type="button" onclick="setQuantity(300)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">300</button>
             <button type="button" onclick="setQuantity(500)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">500</button>
             <button type="button" onclick="setQuantity(1000)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">1,000</button>
-            <button type="button" onclick="setQuantity(2500)" class="qty-btn border py-2 text-xs font-mono font-bold rounded-xl transition-all hover:border-brand-orange">2,500</button>
           </div>
           <div class="flex items-center gap-2">
             <span class="text-xs text-slate-500 font-mono">Otra cantidad:</span>
@@ -849,6 +849,22 @@
       calculateModalPrice();
     }
 
+
+    // Descuento por cantidad según la lista de precios sugeridos 2027 (public/precios_almanaques_2027.json).
+    // Se compara el precio por unidad de cada cantidad contra el de la cantidad mínima de esa referencia.
+    // Nunca baja al pedir más unidades (si la tabla trae un salto raro, se conserva el mejor descuento alcanzado).
+    let PRICE_TABLE_2027 = {};
+    fetch('/precios_almanaques_2027.json').then(r => r.json()).then(d => { PRICE_TABLE_2027 = d.referencias || {}; if (typeof calculateModalPrice === 'function') calculateModalPrice(); }).catch(() => {});
+    function volumeDiscountFor(ref, qty) {
+      const entry = PRICE_TABLE_2027[String(ref || '').replace(/\D/g, '')];
+      if (!entry) return 0;
+      const tiers = Object.keys(entry.totales).map(Number).sort((a, b) => a - b);
+      const baseUnit = entry.totales[tiers[0]] / tiers[0];
+      let rate = 0;
+      for (const q of tiers) if (qty >= q) rate = Math.max(rate, 1 - (entry.totales[q] / q) / baseUnit);
+      return rate;
+    }
+
     function calculateModalPrice() {
       const select = document.getElementById('modal-product-select');
       const customQty = document.getElementById('modal-custom-qty');
@@ -885,12 +901,7 @@
       }
 
       // Cálculo de descuento por escala de volumen
-      let discountRate = 0;
-      if (qty >= 2500) discountRate = 0.25;
-      else if (qty >= 1000) discountRate = 0.20;
-      else if (qty >= 500) discountRate = 0.15;
-      else if (qty >= 250) discountRate = 0.10;
-      else if (qty >= 100) discountRate = 0.05;
+      const discountRate = volumeDiscountFor(product.ref, qty);
 
       // Ajuste por tipo de marca
       let brandingMultiplier = 1.0;
@@ -903,7 +914,7 @@
       const total = Math.round(unitPrice * qty);
 
       if (summaryUnit) summaryUnit.textContent = `${formatCOP(unitPrice)} COP`;
-      if (summaryDiscount) summaryDiscount.textContent = `${Math.round(discountRate * 100)}% Dcto por Volumen`;
+      if (summaryDiscount) summaryDiscount.textContent = `${(discountRate * 100).toFixed(1)}% Dcto por Volumen`;
       if (summaryTotal) summaryTotal.textContent = `${formatCOP(total)} COP`;
     }
 

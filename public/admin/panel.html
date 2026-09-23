@@ -964,6 +964,7 @@
                   <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
                   <option value="Oriente Antioqueño">Oriente Antioqueño</option>
                   <option value="Occidente / Urabá">Occidente / Urabá</option>
+                  <option value="Córdoba">Córdoba (departamento)</option>
                   <option value="Suroeste / Antioquia">Suroeste / Antioquia</option>
                   <option value="Bajo Cauca & Norte">Bajo Cauca & Norte</option>
                 </select>
@@ -985,6 +986,7 @@
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <button type="button" onclick="presetPanelMunicipalities('aburra', false)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer">+ Valle Aburrá</button>
                   <button type="button" onclick="presetPanelMunicipalities('oriente', false)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer">+ Oriente</button>
+                <button type="button" onclick="presetPanelMunicipalities('cordoba', false)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer">+ Córdoba</button>
                   <button type="button" onclick="presetPanelMunicipalities('all', false)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer">Todos</button>
                   <button type="button" onclick="presetPanelMunicipalities('clear', false)" class="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-rose-300 text-[10px] font-mono rounded border border-slate-700 cursor-pointer">Limpiar</button>
                 </div>
@@ -1482,6 +1484,7 @@
             <option value="Medellín Centro & Comercial">Medellín Centro & Comercial</option>
             <option value="Oriente Antioqueño">Oriente Antioqueño</option>
             <option value="Occidente / Urabá">Occidente / Urabá</option>
+                  <option value="Córdoba">Córdoba (departamento)</option>
             <option value="Suroeste / Antioquia">Suroeste / Antioquia</option>
             <option value="Bajo Cauca & Norte">Bajo Cauca & Norte</option>
           </select>
@@ -1499,6 +1502,7 @@
           <div class="flex items-center gap-1.5">
             <button type="button" onclick="presetPanelMunicipalities('aburra', true)" class="px-2 py-0.5 bg-slate-950 text-slate-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer">+ Valle Aburrá</button>
             <button type="button" onclick="presetPanelMunicipalities('oriente', true)" class="px-2 py-0.5 bg-slate-950 text-slate-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer">+ Oriente</button>
+                <button type="button" onclick="presetPanelMunicipalities('cordoba', true)" class="px-2 py-0.5 bg-slate-950 text-slate-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer">+ Córdoba</button>
             <button type="button" onclick="presetPanelMunicipalities('all', true)" class="px-2 py-0.5 bg-slate-950 text-slate-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer">Todos</button>
             <button type="button" onclick="presetPanelMunicipalities('clear', true)" class="px-2 py-0.5 bg-slate-950 text-rose-300 text-[10px] font-mono rounded border border-slate-800 cursor-pointer">Limpiar</button>
           </div>
@@ -3842,12 +3846,18 @@
     }
 
     // ==================== VENDEDORES CRUD CONTROLLER ====================
+    const CORDOBA_PANEL_MUNICIPALITIES = [
+      "Montería", "Ayapel", "Buenavista", "Canalete", "Cereté", "Chimá", "Chinú", "Ciénaga de Oro", "Cotorra", "La Apartada", "Lorica", "Los Córdobas", "Momil", "Moñitos", "Montelíbano", "Planeta Rica", "Pueblo Nuevo", "Puerto Escondido", "Puerto Libertador", "Purísima", "Sahagún", "San Andrés de Sotavento", "San Antero", "San Bernardo del Viento", "San Carlos", "San José de Uré", "San Pelayo", "Tierralta", "Tuchín", "Valencia"
+    ];
+
     const ANTIOQUIA_PANEL_MUNICIPALITIES = [
       "Medellín", "Bello", "Envigado", "Itagüí", "Sabaneta", "Copacabana", "Girardota", "Caldas", "La Estrella", "Barbosa",
       "Rionegro", "Marinilla", "Guarne", "La Ceja", "El Retiro", "Carmen de Viboral", "Guatapé", "San Vicente", "La Unión", "Sonsón",
       "Santa Fe de Antioquia", "Sopetrán", "San Jerónimo", "Apartadó", "Turbo", "Chigorodó", "Carepa", "Necoclí",
       "Amagá", "Andes", "Ciudad Bolívar", "Jericó", "Fredonia", "Santa Bárbara", "Támesis",
-      "Caucasia", "El Bagre", "Zaragoza", "Yarumal", "Santa Rosa de Osos", "Puerto Berrío", "Segovia", "Remedios"
+      "Caucasia", "El Bagre", "Zaragoza", "Yarumal", "Santa Rosa de Osos", "Puerto Berrío", "Segovia", "Remedios",
+      // Departamento de Córdoba (30 municipios)
+      ...CORDOBA_PANEL_MUNICIPALITIES
     ];
 
     let panelSellers = [];
@@ -3891,6 +3901,8 @@
           if (aburra.includes(cb.value)) cb.checked = true;
         } else if (presetType === 'oriente') {
           if (oriente.includes(cb.value)) cb.checked = true;
+        } else if (presetType === 'cordoba') {
+          if (CORDOBA_PANEL_MUNICIPALITIES.includes(cb.value)) cb.checked = true;
         }
       });
     }
