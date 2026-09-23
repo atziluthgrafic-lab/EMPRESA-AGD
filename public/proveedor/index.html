@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Oficina de Proveedores — Atziluth Gráfic Digital</title>
+  <link rel="icon" href="/favicon_atziluth.jpg" type="image/jpeg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .mono { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-200">
+
+  <!-- INGRESO -->
+  <section id="login" class="min-h-screen flex items-center justify-center p-4">
+    <form id="login-form" class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
+      <div class="text-center space-y-1">
+        <h1 class="text-lg font-bold text-white">Oficina de Proveedores</h1>
+        <p class="text-xs text-slate-400">Atziluth Gráfic Digital</p>
+      </div>
+      <label class="block text-xs text-slate-400">Usuario
+        <input id="l-user" required autocomplete="username" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white">
+      </label>
+      <label class="block text-xs text-slate-400">Contraseña
+        <input id="l-pass" type="password" required autocomplete="current-password" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white">
+      </label>
+      <p id="l-error" class="text-xs text-rose-400 hidden"></p>
+      <button class="w-full py-3 bg-orange-500 hover:bg-orange-400 text-white font-bold rounded-xl text-sm">Entrar</button>
+      <p class="text-[11px] text-slate-500 text-center">¿No tienes usuario? Pídeselo a Atziluth por WhatsApp.</p>
+    </form>
+  </section>
+
+  <!-- OFICINA -->
+  <section id="office" class="hidden max-w-5xl mx-auto p-4 space-y-5">
+    <header class="flex flex-wrap items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-4">
+      <div>
+        <p class="text-[11px] mono text-orange-400" id="p-code"></p>
+        <h1 class="text-lg font-bold text-white" id="p-name"></h1>
+        <p class="text-xs text-slate-400" id="p-services"></p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="showProfile()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs">Mis datos y cuenta bancaria</button>
+        <button onclick="logout()" class="px-3 py-2 bg-rose-950 border border-rose-900 text-rose-300 rounded-xl text-xs">Salir</button>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="stats"></div>
+
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl">
+      <div class="p-4 border-b border-slate-800">
+        <h2 class="font-bold text-white text-sm">Mis órdenes de pedido</h2>
+        <p class="text-xs text-slate-400">Marca "En producción" y luego "Despachado". Cuando Atziluth confirme que recibió todo, podrás cargar tu factura.</p>
+      </div>
+      <div id="orders" class="divide-y divide-slate-800"></div>
+    </div>
+  </section>
+
+  <!-- MODAL FACTURA -->
+  <div id="m-invoice" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+    <form id="invoice-form" class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+      <h3 class="font-bold text-white">Cargar factura — <span id="inv-order" class="mono text-orange-400"></span></h3>
+      <input type="hidden" id="inv-id">
+      <label class="block text-xs text-slate-400">Número de tu factura
+        <input id="inv-number" required class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+      </label>
+      <label class="block text-xs text-slate-400">Valor total facturado (COP)
+        <input id="inv-value" type="number" min="1" required class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+      </label>
+      <label class="block text-xs text-slate-400">Archivo de la factura (PDF, JPG o PNG, máximo 10 MB)
+        <input id="inv-file" type="file" accept=".pdf,.jpg,.jpeg,.png" required class="mt-1 w-full text-xs">
+      </label>
+      <p id="inv-error" class="text-xs text-rose-400 hidden"></p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal('m-invoice')" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">Cancelar</button>
+        <button class="px-4 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">Enviar factura</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- MODAL PERFIL -->
+  <div id="m-profile" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+    <form id="profile-form" class="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+      <h3 class="font-bold text-white">Mis datos</h3>
+      <label class="block text-xs text-slate-400">Persona de contacto <input id="pf-contact" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"></label>
+      <label class="block text-xs text-slate-400">WhatsApp <input id="pf-phone" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"></label>
+      <label class="block text-xs text-slate-400">Correo <input id="pf-email" type="email" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"></label>
+      <label class="block text-xs text-slate-400">Dirección del taller <input id="pf-address" class="mt-1 w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"></label>
+      <p class="text-xs text-slate-300 font-bold pt-2">Cuenta para tus pagos</p>
+      <div class="grid grid-cols-2 gap-2">
+        <input id="pf-bank" placeholder="Banco" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+        <select id="pf-type" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white"><option>Ahorros</option><option>Corriente</option><option>Nequi</option><option>Daviplata</option></select>
+        <input id="pf-account" placeholder="Número de cuenta" class="col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+        <input id="pf-holder" placeholder="Titular" class="col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm text-white">
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal('m-profile')" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">Cerrar</button>
+        <button class="px-4 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">Guardar</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    const STATE_LABEL = {
+      enviada: ['Nueva', 'bg-sky-500/20 text-sky-300'],
+      en_produccion: ['En producción', 'bg-amber-500/20 text-amber-300'],
+      despachada: ['Despachada — esperando recibido de Atziluth', 'bg-violet-500/20 text-violet-300'],
+      recibida: ['Recibida — carga tu factura', 'bg-emerald-500/20 text-emerald-300'],
+      facturada: ['Facturada — pago pendiente', 'bg-orange-500/20 text-orange-300'],
+      pagada: ['Pagada', 'bg-emerald-600/30 text-emerald-200']
+    };
+    let me = null, orders = [];
+
+    const cop = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const closeModal = (id) => document.getElementById(id).classList.add('hidden');
+
+    async function api(path, body) {
+      const res = await fetch('/api/' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { showLogin(); throw new Error(data.error || 'Sesión vencida'); }
+      if (!res.ok || data.success === false) throw new Error(data.error || 'No se pudo completar la acción.');
+      return data;
+    }
+
+    function showLogin() {
+      document.getElementById('office').classList.add('hidden');
+      document.getElementById('login').classList.remove('hidden');
+    }
+
+    async function load() {
+      try {
+        const data = await api('proveedor/me');
+        me = data.proveedor; orders = data.ordenes || [];
+        document.getElementById('login').classList.add('hidden');
+        document.getElementById('office').classList.remove('hidden');
+        render();
+      } catch (_) { showLogin(); }
+    }
+
+    function render() {
+      document.getElementById('p-code').textContent = me.codigo || '';
+      document.getElementById('p-name').textContent = me.nombreComercial;
+      document.getElementById('p-services').textContent = (me.servicios || []).join(' · ');
+      const pending = orders.filter(o => ['enviada', 'en_produccion'].includes(o.estado)).length;
+      const toPay = orders.filter(o => o.ordenPago && o.ordenPago.estado === 'pendiente').reduce((s, o) => s + o.ordenPago.valor, 0);
+      const paid = orders.filter(o => o.ordenPago && o.ordenPago.estado === 'pagada').reduce((s, o) => s + o.ordenPago.valor, 0);
+      document.getElementById('stats').innerHTML = [
+        ['Órdenes activas', pending], ['Total órdenes', orders.length], ['Por cobrar', cop(toPay)], ['Pagado', cop(paid)]
+      ].map(([t, v]) => `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-[11px] text-slate-400">${t}</p><p class="text-lg font-bold text-white mono">${v}</p></div>`).join('');
+
+      const box = document.getElementById('orders');
+      if (!orders.length) { box.innerHTML = '<p class="p-6 text-center text-sm text-slate-500">Todavía no tienes órdenes de pedido.</p>'; return; }
+      box.innerHTML = orders.slice().reverse().map(o => {
+        const [label, cls] = STATE_LABEL[o.estado] || [o.estado, 'bg-slate-800'];
+        let action = '';
+        if (o.estado === 'enviada') action = `<button onclick="move('${o.id}','en_produccion')" class="px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold">Iniciar producción</button>`;
+        if (o.estado === 'en_produccion') action = `<button onclick="move('${o.id}','despachada')" class="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-xs font-bold">Marcar despachado / entregado</button>`;
+        if (o.estado === 'recibida') action = `<button onclick="openInvoice('${o.id}')" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold">Cargar factura</button>`;
+        const fac = o.factura ? `<p class="text-[11px] text-slate-400">Tu factura <b class="text-slate-200">${esc(o.factura.numero)}</b> por ${cop(o.factura.valor)} · Orden de pago <b class="mono text-orange-300">${esc(o.ordenPago.numero)}</b> ${o.ordenPago.estado === 'pagada' ? '· pagada ' + new Date(o.ordenPago.fechaPago).toLocaleDateString('es-CO') : '· pendiente'}</p>` : '';
+        return `<div class="p-4 flex flex-wrap gap-3 items-start justify-between">
+          <div class="space-y-1 min-w-0">
+            <p class="text-xs mono text-orange-400">${esc(o.numero)} <span class="ml-2 px-2 py-0.5 rounded-full text-[10px] ${cls}">${label}</span></p>
+            <p class="text-sm text-white font-bold">${esc(o.descripcion)}</p>
+            <p class="text-[11px] text-slate-400">Cantidad: ${o.cantidad || '-'} · Valor acordado: ${cop(o.valorAcordado)}${o.fechaEntrega ? ' · Entregar: ' + esc(o.fechaEntrega) : ''}</p>
+            ${fac}
+          </div>
+          <div>${action}</div>
+        </div>`;
+      }).join('');
+    }
+
+    async function move(id, estado) {
+      const msg = estado === 'despachada' ? '¿Confirmas que despachaste o entregaste el trabajo completo?' : '¿Iniciar producción de esta orden?';
+      if (!confirm(msg)) return;
+      try { await api(`proveedor/ordenes/${id}/estado`, { estado }); await load(); } catch (e) { alert(e.message); }
+    }
+
+    function openInvoice(id) {
+      const o = orders.find(x => x.id === id);
+      document.getElementById('inv-id').value = id;
+      document.getElementById('inv-order').textContent = o.numero;
+      document.getElementById('inv-value').value = o.valorAcordado || '';
+      document.getElementById('inv-error').classList.add('hidden');
+      document.getElementById('m-invoice').classList.remove('hidden');
+    }
+
+    document.getElementById('invoice-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('inv-error');
+      const file = document.getElementById('inv-file').files[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) { err.textContent = 'El archivo supera 10 MB.'; err.classList.remove('hidden'); return; }
+      const base64Data = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(file); });
+      try {
+        await api(`proveedor/ordenes/${document.getElementById('inv-id').value}/factura`, {
+          numero: document.getElementById('inv-number').value.trim(),
+          valor: Number(document.getElementById('inv-value').value),
+          fileName: file.name, base64Data
+        });
+        closeModal('m-invoice'); e.target.reset(); await load();
+      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+    });
+
+    function showProfile() {
+      const b = me.datosBancarios || {};
+      document.getElementById('pf-contact').value = me.contactoNombre || '';
+      document.getElementById('pf-phone').value = me.telefonoWhatsapp || '';
+      document.getElementById('pf-email').value = me.email || '';
+      document.getElementById('pf-address').value = me.direccionTaller || '';
+      document.getElementById('pf-bank').value = b.banco || '';
+      document.getElementById('pf-type').value = b.tipoCuenta || 'Ahorros';
+      document.getElementById('pf-account').value = b.numeroCuenta || '';
+      document.getElementById('pf-holder').value = b.titular || '';
+      document.getElementById('m-profile').classList.remove('hidden');
+    }
+
+    document.getElementById('profile-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = await api('proveedor/perfil', {
+          contactoNombre: document.getElementById('pf-contact').value.trim(),
+          telefonoWhatsapp: document.getElementById('pf-phone').value.trim(),
+          email: document.getElementById('pf-email').value.trim(),
+          direccionTaller: document.getElementById('pf-address').value.trim(),
+          datosBancarios: {
+            ...(me.datosBancarios || {}),
+            banco: document.getElementById('pf-bank').value.trim(),
+            tipoCuenta: document.getElementById('pf-type').value,
+            numeroCuenta: document.getElementById('pf-account').value.trim(),
+            titular: document.getElementById('pf-holder').value.trim()
+          }
+        });
+        me = data.proveedor; closeModal('m-profile'); render();
+      } catch (ex) { alert(ex.message); }
+    });
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = document.getElementById('l-error');
+      err.classList.add('hidden');
+      try {
+        await api('proveedor/login', { username: document.getElementById('l-user').value.trim(), password: document.getElementById('l-pass').value });
+        document.getElementById('l-pass').value = '';
+        await load();
+      } catch (ex) { err.textContent = ex.message; err.classList.remove('hidden'); }
+    });
+
+    async function logout() {
+      await fetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      showLogin();
+    }
+
+    load();
+  </script>
+</body>
+</html>

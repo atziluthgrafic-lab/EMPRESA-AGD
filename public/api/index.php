@@ -185,6 +185,361 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode($rawInput, true) ?: [];
 }
 
+// ==================== PROVEEDORES (oficina nueva) ====================
+// Private files: providers, their production orders and invoices. Access is always filtered
+// by the provider in the SESSION, never by what the browser sends.
+define('PROV_FILE', PRIVATE_DIR . '/proveedores_v2.json');
+define('PROV_ORD_FILE', PRIVATE_DIR . '/ordenes_proveedor.json');
+define('PROV_INVOICE_DIR', PRIVATE_DIR . '/facturas_proveedor');
+define('PROV_EDITABLE', ['nombreComercial', 'nit', 'contactoNombre', 'telefonoWhatsapp', 'email', 'municipio', 'direccionTaller', 'servicios', 'datosBancarios', 'notasInternas', 'activo']);
+
+function jsonFail($code, $message) {
+    http_response_code($code);
+    echo json_encode(["success" => false, "error" => $message]);
+    exit;
+}
+
+// Copies the providers of the old office (static file) the first time. Nothing is deleted.
+function loadProveedores() {
+    if (file_exists(PROV_FILE)) return readJsonFile(PROV_FILE);
+    $list = [];
+    foreach (readJsonFile(__DIR__ . '/../proveedores_data.json') as $p) {
+        if (is_array($p) && !empty($p['id'])) $list[] = mergeLegacyProveedor([], $p);
+    }
+    writeJsonFile(PROV_FILE, $list);
+    return $list;
+}
+
+function mergeLegacyProveedor(array $current, array $legacy) {
+    $servicios = $legacy['servicios'] ?? $legacy['categorias'] ?? (isset($legacy['categoria']) ? [$legacy['categoria']] : []);
+    $base = [
+        "id" => $legacy['id'],
+        "codigo" => $legacy['codigo'] ?? '',
+        "nombreComercial" => $legacy['nombreComercial'] ?? '',
+        "nit" => $legacy['nit'] ?? '',
+        "contactoNombre" => $legacy['contactoNombre'] ?? '',
+        "telefonoWhatsapp" => $legacy['telefonoWhatsapp'] ?? '',
+        "email" => $legacy['email'] ?? '',
+        "municipio" => $legacy['municipio'] ?? '',
+        "direccionTaller" => $legacy['direccionTaller'] ?? '',
+        "servicios" => array_values((array)$servicios),
+        "datosBancarios" => $legacy['datosBancarios'] ?? null,
+        "notasInternas" => $legacy['notasInternas'] ?? '',
+        "activo" => $legacy['activo'] ?? true,
+        "username" => strtolower((string)($legacy['codigo'] ?? $legacy['id'])),
+        "createdAt" => $legacy['createdAt'] ?? date("c"),
+    ];
+    // Values already in the new office win; the old record is kept whole in "legacy"
+    $merged = array_merge($base, array_filter($current, function ($v) { return $v !== '' && $v !== null; }));
+    $merged['legacy'] = $current['legacy'] ?? $legacy;
+    return $merged;
+}
+
+function proveedorPublico(array $p) {
+    $p['tieneClave'] = !empty($p['passwordHash']);
+    unset($p['passwordHash'], $p['legacy']);
+    return $p;
+}
+
+function findIndexById(array $list, $id) {
+    foreach ($list as $i => $x) { if (($x['id'] ?? null) === $id) return $i; }
+    return -1;
+}
+
+function nextNumber(array $list, array $path, $prefix) {
+    $max = 0;
+    foreach ($list as $x) {
+        $v = $x;
+        foreach ($path as $k) { $v = (is_array($v) && isset($v[$k])) ? $v[$k] : null; }
+        if (is_string($v) && preg_match('/(\d+)$/', $v, $mm)) $max = max($max, (int)$mm[1]);
+    }
+    return $prefix . str_pad((string)($max + 1), 4, '0', STR_PAD_LEFT);
+}
+
+function readablePassword() {
+    $chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    $out = '';
+    for ($i = 0; $i < 10; $i++) $out .= $chars[random_int(0, strlen($chars) - 1)];
+    return $out;
+}
+
+function addHistory(array &$order, $event) {
+    $order['historial'][] = ["fecha" => date("c"), "evento" => $event, "por" => currentRole()];
+    $order['updatedAt'] = date("c");
+}
+
+// Only the provider that owns the order (or an admin) can touch it
+function loadOrderFor($id, $asProveedor) {
+    $orders = readJsonFile(PROV_ORD_FILE);
+    $i = findIndexById($orders, $id);
+    if ($i < 0) jsonFail(404, "Orden no encontrada.");
+    if ($asProveedor && ($orders[$i]['proveedorId'] ?? '') !== ($_SESSION['proveedorId'] ?? '')) jsonFail(404, "Orden no encontrada.");
+    return [$orders, $i];
+}
+
+function saveUploadedInvoice($orderId, $fileName, $base64) {
+    $ext = strtolower(pathinfo((string)$fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, ['pdf', 'jpg', 'jpeg', 'png'], true)) jsonFail(400, "La factura debe ser PDF, JPG o PNG.");
+    $bin = base64_decode(preg_replace('/^data:[^;]+;base64,/', '', (string)$base64), true);
+    if ($bin === false || strlen($bin) === 0) jsonFail(400, "El archivo de la factura no es válido.");
+    if (strlen($bin) > 10 * 1024 * 1024) jsonFail(400, "La factura supera 10 MB.");
+    if (!is_dir(PROV_INVOICE_DIR)) mkdir(PROV_INVOICE_DIR, 0750, true);
+    $name = preg_replace('/[^A-Za-z0-9_\-]/', '_', $orderId) . '_' . time() . '.' . $ext;
+    file_put_contents(PROV_INVOICE_DIR . '/' . $name, $bin, LOCK_EX);
+    return $name;
+}
+
+if ($route === 'proveedor/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $username = strtolower(trim((string)($input['username'] ?? '')));
+    $password = (string)($input['password'] ?? '');
+    foreach (loadProveedores() as $p) {
+        if (($p['username'] ?? '') === $username && !empty($p['passwordHash']) && ($p['activo'] ?? true) && password_verify($password, $p['passwordHash'])) {
+            loginAs('proveedor');
+            $_SESSION['proveedorId'] = $p['id'];
+            echo json_encode(["success" => true, "proveedor" => proveedorPublico($p)]);
+            exit;
+        }
+    }
+    failLogin("Usuario o contraseña de proveedor incorrectos.");
+} elseif ($route === 'proveedor/me' && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    requireRole(['proveedor']);
+    $list = loadProveedores();
+    $i = findIndexById($list, $_SESSION['proveedorId']);
+    if ($i < 0) jsonFail(401, "Proveedor no encontrado.");
+    $mine = array_values(array_filter(readJsonFile(PROV_ORD_FILE), function ($o) { return ($o['proveedorId'] ?? '') === $_SESSION['proveedorId']; }));
+    echo json_encode(["success" => true, "proveedor" => proveedorPublico($list[$i]), "ordenes" => $mine]);
+    exit;
+} elseif ($route === 'proveedor/perfil' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireRole(['proveedor']);
+    $list = loadProveedores();
+    $i = findIndexById($list, $_SESSION['proveedorId']);
+    if ($i < 0) jsonFail(401, "Proveedor no encontrado.");
+    foreach (['contactoNombre', 'telefonoWhatsapp', 'email', 'direccionTaller', 'datosBancarios'] as $k) {
+        if (array_key_exists($k, $input)) $list[$i][$k] = $input[$k];
+    }
+    $list[$i]['updatedAt'] = date("c");
+    writeJsonFile(PROV_FILE, $list);
+    echo json_encode(["success" => true, "proveedor" => proveedorPublico($list[$i])]);
+    exit;
+} elseif (preg_match('#^proveedor/ordenes/([A-Za-z0-9_\-]+)/estado$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // The provider moves its own order: sent -> in production -> dispatched
+    requireRole(['proveedor']);
+    [$orders, $i] = loadOrderFor($m[1], true);
+    $next = (string)($input['estado'] ?? '');
+    $allowed = ['enviada' => 'en_produccion', 'en_produccion' => 'despachada'];
+    if (($allowed[$orders[$i]['estado']] ?? null) !== $next) jsonFail(400, "Ese cambio de estado no es posible ahora.");
+    $orders[$i]['estado'] = $next;
+    if ($next === 'despachada') $orders[$i]['entrega']['proveedor'] = date("c");
+    addHistory($orders[$i], $next === 'despachada' ? 'Proveedor marcó despachado / entregado' : 'Proveedor inició producción');
+    writeJsonFile(PROV_ORD_FILE, $orders);
+    echo json_encode(["success" => true, "orden" => $orders[$i]]);
+    exit;
+} elseif (preg_match('#^proveedor/ordenes/([A-Za-z0-9_\-]+)/factura$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Only after BOTH confirmations (dispatched by the provider + received by the admin)
+    requireRole(['proveedor']);
+    [$orders, $i] = loadOrderFor($m[1], true);
+    if ($orders[$i]['estado'] !== 'recibida') jsonFail(400, "Puedes cargar la factura cuando Atziluth confirme que recibió el trabajo.");
+    $numero = trim((string)($input['numero'] ?? ''));
+    $valor = (float)($input['valor'] ?? 0);
+    if ($numero === '' || $valor <= 0) jsonFail(400, "Número y valor de la factura son obligatorios.");
+    $archivo = saveUploadedInvoice($orders[$i]['id'], $input['fileName'] ?? '', $input['base64Data'] ?? '');
+    $orders[$i]['factura'] = ["numero" => $numero, "valor" => $valor, "archivo" => $archivo, "fecha" => date("c")];
+    $orders[$i]['ordenPago'] = ["numero" => nextNumber($orders, ['ordenPago', 'numero'], 'OP-'), "valor" => $valor, "estado" => "pendiente", "fecha" => date("c")];
+    $orders[$i]['estado'] = 'facturada';
+    addHistory($orders[$i], "Proveedor cargó la factura $numero; se generó la orden de pago " . $orders[$i]['ordenPago']['numero']);
+    writeJsonFile(PROV_ORD_FILE, $orders);
+    echo json_encode(["success" => true, "orden" => $orders[$i]]);
+    exit;
+} elseif (preg_match('#^(proveedor|admin)/ordenes-proveedor/([A-Za-z0-9_\-]+)/factura-archivo$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    $asProveedor = $m[1] === 'proveedor';
+    requireRole($asProveedor ? ['proveedor'] : ADMINS);
+    [$orders, $i] = loadOrderFor($m[2], $asProveedor);
+    $file = PROV_INVOICE_DIR . '/' . basename((string)($orders[$i]['factura']['archivo'] ?? ''));
+    if (!is_file($file)) jsonFail(404, "La orden no tiene factura cargada.");
+    $types = ['pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png'];
+    header('Content-Type: ' . ($types[strtolower(pathinfo($file, PATHINFO_EXTENSION))] ?? 'application/octet-stream'));
+    header('Content-Disposition: inline; filename="factura-' . basename($file) . '"');
+    readfile($file);
+    exit;
+} elseif ($route === 'admin/proveedores') {
+    requireRole(ADMINS);
+    $list = loadProveedores();
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        echo json_encode(["success" => true, "proveedores" => array_map('proveedorPublico', $list)]);
+        exit;
+    }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $id = (string)($input['id'] ?? '');
+        $i = $id !== '' ? findIndexById($list, $id) : -1;
+        $username = strtolower(trim((string)($input['username'] ?? ($i >= 0 ? $list[$i]['username'] : ''))));
+        $nombre = trim((string)($input['nombreComercial'] ?? ($i >= 0 ? $list[$i]['nombreComercial'] : '')));
+        if ($nombre === '' || $username === '') jsonFail(400, "Nombre del proveedor y usuario son obligatorios.");
+        foreach ($list as $j => $p) { if ($j !== $i && ($p['username'] ?? '') === $username) jsonFail(400, "Ese usuario ya lo tiene otro proveedor."); }
+        $p = $i >= 0 ? $list[$i] : ["id" => "prv_" . time() . "_" . bin2hex(random_bytes(2)), "codigo" => nextNumber($list, ['codigo'], 'PRV-'), "activo" => true, "createdAt" => date("c")];
+        foreach (PROV_EDITABLE as $k) { if (array_key_exists($k, $input)) $p[$k] = $input[$k]; }
+        $p['username'] = $username;
+        $pass = (string)($input['password'] ?? '');
+        if ($pass !== '') {
+            if (strlen($pass) < 6) jsonFail(400, "La contraseña debe tener mínimo 6 caracteres.");
+            $p['passwordHash'] = password_hash($pass, PASSWORD_DEFAULT);
+        }
+        $p['updatedAt'] = date("c");
+        if ($i >= 0) $list[$i] = $p; else $list[] = $p;
+        writeJsonFile(PROV_FILE, $list);
+        echo json_encode(["success" => true, "proveedor" => proveedorPublico($p), "proveedores" => array_map('proveedorPublico', $list)]);
+        exit;
+    }
+} elseif (preg_match('#^admin/proveedores/([A-Za-z0-9_\-]+)/generar-clave$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // The server creates the password and shows it ONCE so the admin can send it to the provider
+    requireRole(ADMINS);
+    $list = loadProveedores();
+    $i = findIndexById($list, $m[1]);
+    if ($i < 0) jsonFail(404, "Proveedor no encontrado.");
+    $pass = readablePassword();
+    $list[$i]['passwordHash'] = password_hash($pass, PASSWORD_DEFAULT);
+    $list[$i]['updatedAt'] = date("c");
+    writeJsonFile(PROV_FILE, $list);
+    echo json_encode(["success" => true, "username" => $list[$i]['username'], "password" => $pass]);
+    exit;
+} elseif ($route === 'admin/proveedores/importar' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Copies what the old office left in the admin's browser. Merges by id, never deletes.
+    requireRole(ADMINS);
+    $list = loadProveedores();
+    $added = 0;
+    foreach ((array)($input['proveedores'] ?? []) as $legacy) {
+        if (!is_array($legacy) || empty($legacy['id'])) continue;
+        $i = findIndexById($list, $legacy['id']);
+        if ($i >= 0) { $list[$i] = mergeLegacyProveedor($list[$i], $legacy); }
+        else { $list[] = mergeLegacyProveedor([], $legacy); $added++; }
+    }
+    writeJsonFile(PROV_FILE, $list);
+    $legacyFile = PRIVATE_DIR . '/proveedores_legacy_navegador.json';
+    $prev = readJsonFile($legacyFile);
+    $prev[] = ["fecha" => date("c"), "ordenes" => $input['ordenes'] ?? [], "pagos" => $input['pagos'] ?? []];
+    writeJsonFile($legacyFile, $prev);
+    echo json_encode(["success" => true, "nuevos" => $added, "total" => count($list), "proveedores" => array_map('proveedorPublico', $list)]);
+    exit;
+} elseif ($route === 'admin/ordenes-proveedor') {
+    requireRole(ADMINS);
+    $orders = readJsonFile(PROV_ORD_FILE);
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        echo json_encode(["success" => true, "ordenes" => $orders]);
+        exit;
+    }
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $prov = null;
+        foreach (loadProveedores() as $p) { if ($p['id'] === ($input['proveedorId'] ?? '')) $prov = $p; }
+        if (!$prov) jsonFail(400, "Selecciona un proveedor válido.");
+        if (trim((string)($input['descripcion'] ?? '')) === '') jsonFail(400, "Describe el trabajo de la orden.");
+        $orden = [
+            "id" => "opr_" . time() . "_" . bin2hex(random_bytes(2)),
+            "numero" => nextNumber($orders, ['numero'], 'OPR-'),
+            "proveedorId" => $prov['id'],
+            "proveedorNombre" => $prov['nombreComercial'],
+            "pedidoClienteId" => (string)($input['pedidoClienteId'] ?? ''),
+            "clienteNombre" => (string)($input['clienteNombre'] ?? ''),
+            "descripcion" => (string)$input['descripcion'],
+            "cantidad" => (int)($input['cantidad'] ?? 0),
+            "valorAcordado" => (float)($input['valorAcordado'] ?? 0),
+            "fechaEntrega" => (string)($input['fechaEntrega'] ?? ''),
+            "estado" => "enviada",
+            "entrega" => ["proveedor" => null, "admin" => null],
+            "historial" => [],
+            "createdAt" => date("c")
+        ];
+        addHistory($orden, "Orden creada y enviada al proveedor");
+        $orders[] = $orden;
+        writeJsonFile(PROV_ORD_FILE, $orders);
+        echo json_encode(["success" => true, "orden" => $orden, "ordenes" => $orders]);
+        exit;
+    }
+} elseif (preg_match('#^admin/ordenes-proveedor/([A-Za-z0-9_\-]+)/recibir$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Second confirmation: Atziluth received the work the provider dispatched
+    requireRole(ADMINS);
+    [$orders, $i] = loadOrderFor($m[1], false);
+    if ($orders[$i]['estado'] !== 'despachada') jsonFail(400, "El proveedor todavía no ha marcado la orden como despachada.");
+    $orders[$i]['estado'] = 'recibida';
+    $orders[$i]['entrega']['admin'] = date("c");
+    addHistory($orders[$i], "Atziluth confirmó que recibió el trabajo completo");
+    writeJsonFile(PROV_ORD_FILE, $orders);
+    echo json_encode(["success" => true, "orden" => $orders[$i]]);
+    exit;
+} elseif (preg_match('#^admin/ordenes-proveedor/([A-Za-z0-9_\-]+)/pagar$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireRole(ADMINS);
+    [$orders, $i] = loadOrderFor($m[1], false);
+    if (($orders[$i]['ordenPago']['estado'] ?? '') !== 'pendiente') jsonFail(400, "Esta orden no tiene una orden de pago pendiente.");
+    $orders[$i]['ordenPago'] = array_merge($orders[$i]['ordenPago'], [
+        "estado" => "pagada",
+        "fechaPago" => date("c"),
+        "metodo" => (string)($input['metodo'] ?? ''),
+        "referencia" => (string)($input['referencia'] ?? '')
+    ]);
+    $orders[$i]['estado'] = 'pagada';
+    addHistory($orders[$i], "Orden de pago " . $orders[$i]['ordenPago']['numero'] . " marcada como pagada");
+    writeJsonFile(PROV_ORD_FILE, $orders);
+    echo json_encode(["success" => true, "orden" => $orders[$i]]);
+    exit;
+}
+
+// ==================== VENTAS: abonos, entrega con doble confirmación y factura ====================
+function loadSalesOrderFor($id) {
+    $file = PRIVATE_DIR . '/sales_orders_data.json';
+    $orders = readJsonFile($file);
+    $i = findIndexById($orders, $id);
+    if ($i < 0) jsonFail(404, "Pedido no encontrado.");
+    // A seller can only touch his own orders
+    if (currentRole() === 'vendedor' && ($orders[$i]['sellerId'] ?? '') !== ($_SESSION['sellerId'] ?? '')) jsonFail(404, "Pedido no encontrado.");
+    return [$file, $orders, $i];
+}
+
+if (preg_match('#^sales/orders/([A-Za-z0-9_\-]+)/abono$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    requireRole(STAFF);
+    [$file, $orders, $i] = loadSalesOrderFor($m[1]);
+    $amount = (float)($input['amount'] ?? 0);
+    if ($amount <= 0) jsonFail(400, "El valor del abono debe ser mayor a cero.");
+    $allAbonos = [];
+    foreach ($orders as $x) { foreach ((array)($x['abonos'] ?? []) as $a) $allAbonos[] = $a; }
+    $o = $orders[$i];
+    $o['abonos'][] = [
+        "id" => "ab-" . (count($o['abonos'] ?? []) + 1),
+        "date" => date("d/m/Y"),
+        "amount" => $amount,
+        "paymentMethod" => (string)($input['paymentMethod'] ?? 'Efectivo / Transferencia'),
+        "note" => (string)($input['note'] ?? ''),
+        "receiptNumber" => nextNumber($allAbonos, ['receiptNumber'], 'REC-')
+    ];
+    $o['totalPaid'] = array_sum(array_map(function ($a) { return (float)$a['amount']; }, $o['abonos']));
+    $o['balance'] = max(0, (float)$o['totalAmount'] - $o['totalPaid']);
+    $o['status'] = $o['balance'] == 0 ? "PAGADO_TOTAL" : "PAGO_PARCIAL";
+    $o['updatedAt'] = date("c");
+    $orders[$i] = $o;
+    writeJsonFile($file, $orders);
+    echo json_encode(["success" => true, "order" => $o]);
+    exit;
+} elseif (preg_match('#^sales/orders/([A-Za-z0-9_\-]+)/entregado$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // First confirmation: the seller delivered the product to the client
+    requireRole(STAFF);
+    [$file, $orders, $i] = loadSalesOrderFor($m[1]);
+    $orders[$i]['entrega']['vendedor'] = date("c");
+    $orders[$i]['updatedAt'] = date("c");
+    writeJsonFile($file, $orders);
+    echo json_encode(["success" => true, "order" => $orders[$i]]);
+    exit;
+} elseif (preg_match('#^sales/orders/([A-Za-z0-9_\-]+)/confirmar-entrega$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Second confirmation (admin): generates the client's invoice
+    requireRole(ADMINS);
+    [$file, $orders, $i] = loadSalesOrderFor($m[1]);
+    if (empty($orders[$i]['entrega']['vendedor'])) jsonFail(400, "Primero el vendedor debe marcar el pedido como entregado.");
+    if (empty($orders[$i]['invoice'])) {
+        $orders[$i]['entrega']['admin'] = date("c");
+        $orders[$i]['invoice'] = ["numero" => nextNumber($orders, ['invoice', 'numero'], 'FAC-'), "fecha" => date("d/m/Y"), "tipo" => "interna"];
+        $orders[$i]['updatedAt'] = date("c");
+        writeJsonFile($file, $orders);
+    }
+    echo json_encode(["success" => true, "order" => $orders[$i]]);
+    exit;
+}
+
 // ==================== ROUTING SYSTEM ====================
 
 if ($route === 'auth/logout') {
@@ -470,7 +825,12 @@ if ($route === 'auth/logout') {
     requireRole(STAFF);
     $ordersFile = PRIVATE_DIR . '/sales_orders_data.json';
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-        echo json_encode(["success" => true, "orders" => readJsonFile($ordersFile)]);
+        $orders = readJsonFile($ordersFile);
+        if (currentRole() === 'vendedor') {
+            // A seller only sees his own sales
+            $orders = array_values(array_filter($orders, function ($o) { return ($o['sellerId'] ?? '') === ($_SESSION['sellerId'] ?? ''); }));
+        }
+        echo json_encode(["success" => true, "orders" => $orders]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $orders = readJsonFile($ordersFile);
@@ -491,11 +851,22 @@ if ($route === 'auth/logout') {
             ];
         }
         
+        if (currentRole() === 'vendedor') {
+            // The seller's name and zone come from the server, not from the browser
+            foreach (readJsonFile(SELLERS_FILE) as $sv) {
+                if (($sv['id'] ?? '') === $_SESSION['sellerId']) {
+                    $input['sellerName'] = $sv['name'] ?? '';
+                    $input['sellerUsername'] = $sv['username'] ?? '';
+                    $input['sellerZone'] = $sv['zone'] ?? 'General';
+                }
+            }
+        }
         $newOrder = [
-            "id" => "ord-" . time(),
+            "id" => "ord-" . time() . "-" . bin2hex(random_bytes(3)),
             "orderNumber" => $orderNumStr,
             "date" => date("d/m/Y"),
-            "sellerId" => isset($input['sellerId']) ? $input['sellerId'] : 'sel-admin',
+            // A seller always registers the order under his own id
+            "sellerId" => currentRole() === 'vendedor' ? $_SESSION['sellerId'] : (isset($input['sellerId']) ? $input['sellerId'] : 'sel-admin'),
             "sellerName" => isset($input['sellerName']) ? $input['sellerName'] : 'Estivenson Navarro',
             "sellerUsername" => isset($input['sellerUsername']) ? $input['sellerUsername'] : 'Estivenson',
             "sellerZone" => isset($input['sellerZone']) ? $input['sellerZone'] : 'General',
@@ -518,6 +889,9 @@ if ($route === 'auth/logout') {
         ];
         array_unshift($orders, $newOrder);
         writeJsonFile($ordersFile, $orders);
+        if (currentRole() === 'vendedor') {
+            $orders = array_values(array_filter($orders, function ($o) { return ($o['sellerId'] ?? '') === ($_SESSION['sellerId'] ?? ''); }));
+        }
         echo json_encode(["success" => true, "order" => $newOrder, "orders" => $orders]);
         exit;
     }
@@ -572,7 +946,7 @@ if ($route === 'auth/logout') {
             echo json_encode(["success" => false, "error" => "Usuario y contraseña (mínimo 6 caracteres) son obligatorios."]);
             exit;
         }
-        $seller = array_merge($existing ?: ["id" => "sel-" . time(), "status" => "ACTIVO", "createdAt" => date("c")], [
+        $seller = array_merge($existing ?: ["id" => "sel-" . time() . "-" . bin2hex(random_bytes(3)), "status" => "ACTIVO", "createdAt" => date("c")], [
             "name" => $input['name'] ?? ($existing['name'] ?? 'Vendedor'),
             "username" => $username,
             "password" => $password !== '' ? $password : ($existing['password'] ?? ''),

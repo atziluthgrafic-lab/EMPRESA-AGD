@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>Proveedores — Panel Atziluth</title>
+  <link rel="icon" href="/favicon_atziluth.jpg" type="image/jpeg">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .mono { font-family: ui-monospace, "JetBrains Mono", Consolas, monospace; }
+    .in { width: 100%; background: #020617; border: 1px solid #1e293b; border-radius: .75rem; padding: .5rem .75rem; font-size: .8rem; color: #fff; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-200">
+
+  <section id="need-login" class="hidden min-h-screen flex items-center justify-center p-4">
+    <div class="max-w-sm text-center bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-3">
+      <h1 class="font-bold text-white">Proveedores</h1>
+      <p class="text-sm text-slate-400">Entra primero al panel como administrador.</p>
+      <a href="/admin/panel.html" class="inline-block px-4 py-2 bg-orange-500 text-white font-bold rounded-xl text-sm">Ir al panel</a>
+    </div>
+  </section>
+
+  <main id="app" class="hidden max-w-6xl mx-auto p-4 space-y-5">
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-xl font-bold text-white">Proveedores</h1>
+        <p class="text-xs text-slate-400">Crea proveedores con su acceso, envíales órdenes de pedido, confirma lo recibido y paga sus facturas.</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/admin/panel.html" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">← Panel general</a>
+        <button onclick="openProvider()" class="px-3 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">+ Nuevo proveedor</button>
+      </div>
+    </header>
+
+    <p id="import-note" class="hidden text-xs bg-emerald-950 border border-emerald-900 text-emerald-300 rounded-xl p-3"></p>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3" id="stats"></div>
+
+    <!-- PROVEEDORES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl overflow-x-auto">
+      <div class="p-4 border-b border-slate-800"><h2 class="font-bold text-white text-sm">Proveedores registrados</h2></div>
+      <table class="w-full text-xs">
+        <thead class="text-slate-400 text-left"><tr>
+          <th class="p-3">Proveedor</th><th class="p-3">Servicios</th><th class="p-3">Usuario</th><th class="p-3">Acceso</th>
+          <th class="p-3 text-right">Órdenes</th><th class="p-3 text-right">Por pagar</th><th class="p-3 text-right">Pagado</th><th class="p-3"></th>
+        </tr></thead>
+        <tbody id="providers" class="divide-y divide-slate-800"></tbody>
+      </table>
+    </section>
+
+    <!-- ÓRDENES -->
+    <section class="bg-slate-900 border border-slate-800 rounded-2xl">
+      <div class="p-4 border-b border-slate-800 flex flex-wrap justify-between gap-2 items-center">
+        <div>
+          <h2 class="font-bold text-white text-sm">Órdenes de pedido a proveedores</h2>
+          <p class="text-[11px] text-slate-400">Flujo: Nueva → En producción → Despachada (proveedor) → Recibida (tú) → Facturada (orden de pago) → Pagada</p>
+        </div>
+        <button onclick="openOrder()" class="px-3 py-2 bg-sky-600 text-white font-bold rounded-xl text-xs">+ Nueva orden de pedido</button>
+      </div>
+      <div id="orders" class="divide-y divide-slate-800"></div>
+    </section>
+  </main>
+
+  <!-- MODAL PROVEEDOR -->
+  <div id="m-provider" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50 overflow-y-auto">
+    <form id="provider-form" class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+      <h3 class="font-bold text-white" id="pv-title">Nuevo proveedor</h3>
+      <input type="hidden" id="pv-id">
+      <div class="grid grid-cols-2 gap-2">
+        <label class="col-span-2 text-xs text-slate-400">Nombre comercial *<input id="pv-name" required class="in mt-1"></label>
+        <label class="text-xs text-slate-400">NIT / CC<input id="pv-nit" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Persona de contacto<input id="pv-contact" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">WhatsApp<input id="pv-phone" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Correo<input id="pv-email" type="email" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Municipio<input id="pv-muni" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Dirección del taller<input id="pv-address" class="in mt-1"></label>
+        <label class="col-span-2 text-xs text-slate-400">Servicios que hace (separados por coma)
+          <input id="pv-services" placeholder="Tarjetas brillo, Tarjetas mate con reserva, Pendones" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Usuario de ingreso *<input id="pv-user" required class="in mt-1 mono"></label>
+        <label class="text-xs text-slate-400">Contraseña <span class="text-slate-500">(vacía = no cambiar)</span><input id="pv-pass" type="text" autocomplete="new-password" class="in mt-1 mono"></label>
+        <label class="col-span-2 text-xs text-slate-400">Notas internas<input id="pv-notes" class="in mt-1"></label>
+        <label class="col-span-2 text-xs text-slate-300 flex items-center gap-2"><input type="checkbox" id="pv-active" checked> Activo (puede entrar a su oficina)</label>
+      </div>
+      <p id="pv-error" class="text-xs text-rose-400 hidden"></p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal('m-provider')" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">Cancelar</button>
+        <button class="px-4 py-2 bg-orange-500 text-white font-bold rounded-xl text-xs">Guardar proveedor</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- MODAL ORDEN -->
+  <div id="m-order" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+    <form id="order-form" class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+      <h3 class="font-bold text-white">Nueva orden de pedido al proveedor</h3>
+      <label class="block text-xs text-slate-400">Proveedor *<select id="or-provider" required class="in mt-1"></select></label>
+      <label class="block text-xs text-slate-400">Trabajo a realizar *<textarea id="or-desc" required rows="2" placeholder="Ej: 1.000 tarjetas personales mate con reserva UV" class="in mt-1"></textarea></label>
+      <div class="grid grid-cols-3 gap-2">
+        <label class="text-xs text-slate-400">Cantidad<input id="or-qty" type="number" min="0" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Valor acordado (COP)<input id="or-value" type="number" min="0" class="in mt-1"></label>
+        <label class="text-xs text-slate-400">Fecha de entrega<input id="or-date" type="date" class="in mt-1"></label>
+      </div>
+      <label class="block text-xs text-slate-400">Cliente final (opcional, para saber la ganancia por cliente)<input id="or-client" class="in mt-1"></label>
+      <p id="or-error" class="text-xs text-rose-400 hidden"></p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" onclick="closeModal('m-order')" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">Cancelar</button>
+        <button class="px-4 py-2 bg-sky-600 text-white font-bold rounded-xl text-xs">Enviar orden</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- MODAL CLAVE GENERADA -->
+  <div id="m-pass" class="hidden fixed inset-0 bg-slate-950/80 flex items-center justify-center p-4 z-50">
+    <div class="w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 text-center">
+      <h3 class="font-bold text-white">Acceso del proveedor</h3>
+      <p class="text-xs text-slate-400">Envíaselo por WhatsApp. <b class="text-amber-300">Esta clave solo se muestra ahora.</b></p>
+      <pre id="pass-text" class="mono text-sm bg-slate-950 border border-slate-800 rounded-xl p-3 text-left whitespace-pre-wrap"></pre>
+      <div class="flex gap-2 justify-center">
+        <button onclick="copyPass()" class="px-3 py-2 bg-slate-800 rounded-xl text-xs">Copiar</button>
+        <a id="pass-wa" target="_blank" rel="noopener" class="px-3 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold">Enviar por WhatsApp</a>
+        <button onclick="closeModal('m-pass')" class="px-3 py-2 bg-orange-500 text-white rounded-xl text-xs font-bold">Listo</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STATE = {
+      enviada: ['Nueva', 'bg-sky-500/20 text-sky-300'],
+      en_produccion: ['En producción', 'bg-amber-500/20 text-amber-300'],
+      despachada: ['Despachada — confirma que la recibiste', 'bg-violet-500/20 text-violet-300'],
+      recibida: ['Recibida — esperando factura del proveedor', 'bg-emerald-500/20 text-emerald-300'],
+      facturada: ['Orden de pago pendiente', 'bg-orange-500/20 text-orange-300'],
+      pagada: ['Pagada', 'bg-emerald-600/30 text-emerald-200']
+    };
+    let providers = [], orders = [];
+    const cop = (n) => '$' + Number(n || 0).toLocaleString('es-CO');
+    const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const closeModal = (id) => document.getElementById(id).classList.add('hidden');
+    const $ = (id) => document.getElementById(id);
+
+    async function api(path, body) {
+      const res = await fetch('/api/' + path, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) { $('app').classList.add('hidden'); $('need-login').classList.remove('hidden'); throw new Error('Sesión vencida'); }
+      if (!res.ok || data.success === false) throw new Error(data.error || 'No se pudo completar la acción.');
+      return data;
+    }
+
+    // One-time copy of what the old provider office left in THIS browser (nothing is deleted)
+    async function importFromBrowser() {
+      const read = (keys) => keys.flatMap((k) => { try { const v = JSON.parse(localStorage.getItem(k) || '[]'); return Array.isArray(v) ? v : []; } catch (_) { return []; } });
+      const proveedores = read(['atziluth_proveedores_list', 'atziluth_proveedores_records']);
+      const ordenes = read(['atziluth_prov_ordenes_list', 'atziluth_ordenes_produccion']);
+      const pagos = read(['atziluth_prov_pagos_list', 'atziluth_pagos_proveedores']);
+      const signature = JSON.stringify([proveedores.length, ordenes.length, pagos.length]);
+      if (!proveedores.length && !ordenes.length && !pagos.length) return;
+      try { if (localStorage.getItem('atziluth_prov_import_done') === signature) return; } catch (_) {}
+      const data = await api('admin/proveedores/importar', { proveedores, ordenes, pagos });
+      try { localStorage.setItem('atziluth_prov_import_done', signature); } catch (_) {}
+      $('import-note').textContent = `Se copiaron los datos de la oficina anterior guardados en este navegador: ${data.nuevos} proveedor(es) nuevo(s), ${ordenes.length} orden(es) y ${pagos.length} pago(s) quedaron respaldados. No se borró nada.`;
+      $('import-note').classList.remove('hidden');
+    }
+
+    async function load() {
+      const me = await fetch('/api/auth/me').then(r => r.json()).catch(() => ({}));
+      if (!['admin', 'supervisor'].includes(me.role)) { $('need-login').classList.remove('hidden'); return; }
+      $('app').classList.remove('hidden');
+      try { await importFromBrowser(); } catch (_) {}
+      await refresh();
+    }
+
+    async function refresh() {
+      providers = (await api('admin/proveedores')).proveedores;
+      orders = (await api('admin/ordenes-proveedor')).ordenes;
+      render();
+    }
+
+    function totalsFor(id) {
+      const mine = orders.filter(o => o.proveedorId === id);
+      return {
+        count: mine.length,
+        pending: mine.filter(o => o.ordenPago && o.ordenPago.estado === 'pendiente').reduce((s, o) => s + o.ordenPago.valor, 0),
+        paid: mine.filter(o => o.ordenPago && o.ordenPago.estado === 'pagada').reduce((s, o) => s + o.ordenPago.valor, 0)
+      };
+    }
+
+    function render() {
+      const pending = orders.filter(o => o.ordenPago && o.ordenPago.estado === 'pendiente');
+      const toReceive = orders.filter(o => o.estado === 'despachada').length;
+      $('stats').innerHTML = [
+        ['Proveedores activos', providers.filter(p => p.activo !== false).length],
+        ['Por confirmar recibido', toReceive],
+        ['Órdenes de pago pendientes', pending.length],
+        ['Total por pagar', cop(pending.reduce((s, o) => s + o.ordenPago.valor, 0))]
+      ].map(([t, v]) => `<div class="bg-slate-900 border border-slate-800 rounded-2xl p-3"><p class="text-[11px] text-slate-400">${t}</p><p class="text-lg font-bold text-white mono">${v}</p></div>`).join('');
+
+      $('providers').innerHTML = providers.map(p => {
+        const t = totalsFor(p.id);
+        return `<tr class="${p.activo === false ? 'opacity-50' : ''}">
+          <td class="p-3"><b class="text-white">${esc(p.nombreComercial)}</b><br><span class="mono text-[10px] text-orange-400">${esc(p.codigo)}</span> <span class="text-slate-500">${esc(p.telefonoWhatsapp)}</span></td>
+          <td class="p-3 text-slate-300">${esc((p.servicios || []).join(', '))}</td>
+          <td class="p-3 mono">${esc(p.username)}</td>
+          <td class="p-3">${p.tieneClave ? '<span class="text-emerald-400">Con clave</span>' : '<span class="text-amber-400">Sin clave</span>'}</td>
+          <td class="p-3 text-right mono">${t.count}</td>
+          <td class="p-3 text-right mono text-orange-300">${cop(t.pending)}</td>
+          <td class="p-3 text-right mono text-emerald-300">${cop(t.paid)}</td>
+          <td class="p-3 text-right whitespace-nowrap space-x-1">
+            <button onclick="openProvider('${p.id}')" class="px-2 py-1 bg-slate-800 rounded-lg">Editar</button>
+            <button onclick="generatePass('${p.id}')" class="px-2 py-1 bg-emerald-900 text-emerald-200 rounded-lg">Generar clave</button>
+          </td></tr>`;
+      }).join('') || '<tr><td colspan="8" class="p-6 text-center text-slate-500">Todavía no hay proveedores.</td></tr>';
+
+      $('orders').innerHTML = orders.slice().reverse().map(o => {
+        const [label, cls] = STATE[o.estado] || [o.estado, 'bg-slate-800'];
+        let actions = '';
+        if (o.estado === 'despachada') actions += `<button onclick="receive('${o.id}')" class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold">Confirmar recibido completo</button>`;
+        if (o.factura) actions += `<a href="/api/admin/ordenes-proveedor/${o.id}/factura-archivo" target="_blank" class="px-3 py-1.5 bg-slate-800 rounded-lg text-xs">Ver factura ${esc(o.factura.numero)}</a>`;
+        if (o.ordenPago && o.ordenPago.estado === 'pendiente') actions += `<button onclick="pay('${o.id}')" class="px-3 py-1.5 bg-orange-500 text-white rounded-lg text-xs font-bold">Pagar ${esc(o.ordenPago.numero)}</button>`;
+        const diff = o.factura && o.valorAcordado && o.factura.valor !== o.valorAcordado
+          ? `<span class="text-amber-300"> · ¡La factura (${cop(o.factura.valor)}) no coincide con lo acordado!</span>` : '';
+        return `<div class="p-4 flex flex-wrap gap-3 justify-between items-start">
+          <div class="space-y-1 min-w-0">
+            <p class="text-xs"><span class="mono text-orange-400">${esc(o.numero)}</span> · <b class="text-white">${esc(o.proveedorNombre)}</b> <span class="ml-1 px-2 py-0.5 rounded-full text-[10px] ${cls}">${label}</span></p>
+            <p class="text-sm text-slate-200">${esc(o.descripcion)}</p>
+            <p class="text-[11px] text-slate-400">Cant.: ${o.cantidad || '-'} · Acordado: ${cop(o.valorAcordado)}${o.clienteNombre ? ' · Cliente: ' + esc(o.clienteNombre) : ''}${o.fechaEntrega ? ' · Entrega: ' + esc(o.fechaEntrega) : ''}${diff}</p>
+            ${o.ordenPago ? `<p class="text-[11px] text-slate-400">Orden de pago <b class="mono">${esc(o.ordenPago.numero)}</b>: ${cop(o.ordenPago.valor)} · ${o.ordenPago.estado === 'pagada' ? 'pagada el ' + new Date(o.ordenPago.fechaPago).toLocaleDateString('es-CO') + (o.ordenPago.referencia ? ' (ref. ' + esc(o.ordenPago.referencia) + ')' : '') : 'pendiente'}</p>` : ''}
+          </div>
+          <div class="flex flex-wrap gap-2">${actions}</div>
+        </div>`;
+      }).join('') || '<p class="p-6 text-center text-sm text-slate-500">Todavía no hay órdenes de pedido.</p>';
+    }
+
+    function openProvider(id) {
+      const p = providers.find(x => x.id === id) || {};
+      $('pv-title').textContent = id ? 'Editar proveedor' : 'Nuevo proveedor';
+      $('pv-id').value = p.id || '';
+      $('pv-name').value = p.nombreComercial || '';
+      $('pv-nit').value = p.nit || '';
+      $('pv-contact').value = p.contactoNombre || '';
+      $('pv-phone').value = p.telefonoWhatsapp || '';
+      $('pv-email').value = p.email || '';
+      $('pv-muni').value = p.municipio || '';
+      $('pv-address').value = p.direccionTaller || '';
+      $('pv-services').value = (p.servicios || []).join(', ');
+      $('pv-user').value = p.username || '';
+      $('pv-pass').value = '';
+      $('pv-notes').value = p.notasInternas || '';
+      $('pv-active').checked = p.activo !== false;
+      $('pv-error').classList.add('hidden');
+      $('m-provider').classList.remove('hidden');
+    }
+
+    $('provider-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('admin/proveedores', {
+          id: $('pv-id').value || undefined,
+          nombreComercial: $('pv-name').value.trim(),
+          nit: $('pv-nit').value.trim(),
+          contactoNombre: $('pv-contact').value.trim(),
+          telefonoWhatsapp: $('pv-phone').value.trim(),
+          email: $('pv-email').value.trim(),
+          municipio: $('pv-muni').value.trim(),
+          direccionTaller: $('pv-address').value.trim(),
+          servicios: $('pv-services').value.split(',').map(s => s.trim()).filter(Boolean),
+          username: $('pv-user').value.trim(),
+          password: $('pv-pass').value,
+          notasInternas: $('pv-notes').value.trim(),
+          activo: $('pv-active').checked
+        });
+        closeModal('m-provider'); await refresh();
+      } catch (ex) { $('pv-error').textContent = ex.message; $('pv-error').classList.remove('hidden'); }
+    });
+
+    async function generatePass(id) {
+      const p = providers.find(x => x.id === id);
+      if (p.tieneClave && !confirm(`${p.nombreComercial} ya tiene clave. ¿Generar una nueva? La anterior dejará de funcionar.`)) return;
+      try {
+        const data = await api(`admin/proveedores/${id}/generar-clave`, {});
+        const text = `Oficina de proveedores Atziluth\n${location.origin}/proveedor/\nUsuario: ${data.username}\nContraseña: ${data.password}`;
+        $('pass-text').textContent = text;
+        const phone = String(p.telefonoWhatsapp || '').replace(/\D/g, '');
+        $('pass-wa').href = `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
+        $('m-pass').classList.remove('hidden');
+        await refresh();
+      } catch (ex) { alert(ex.message); }
+    }
+    function copyPass() { navigator.clipboard.writeText($('pass-text').textContent).catch(() => {}); }
+
+    function openOrder() {
+      const active = providers.filter(p => p.activo !== false);
+      if (!active.length) { alert('Primero crea un proveedor.'); return; }
+      $('or-provider').innerHTML = active.map(p => `<option value="${p.id}">${esc(p.nombreComercial)} — ${esc((p.servicios || []).slice(0, 3).join(', '))}</option>`).join('');
+      $('order-form').reset();
+      $('or-error').classList.add('hidden');
+      $('m-order').classList.remove('hidden');
+    }
+
+    $('order-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        await api('admin/ordenes-proveedor', {
+          proveedorId: $('or-provider').value,
+          descripcion: $('or-desc').value.trim(),
+          cantidad: Number($('or-qty').value) || 0,
+          valorAcordado: Number($('or-value').value) || 0,
+          fechaEntrega: $('or-date').value,
+          clienteNombre: $('or-client').value.trim()
+        });
+        closeModal('m-order'); await refresh();
+      } catch (ex) { $('or-error').textContent = ex.message; $('or-error').classList.remove('hidden'); }
+    });
+
+    async function receive(id) {
+      const o = orders.find(x => x.id === id);
+      if (!confirm(`¿Confirmas que recibiste COMPLETO el trabajo ${o.numero} de ${o.proveedorNombre}?\nDespués de esto el proveedor podrá cargar su factura.`)) return;
+      try { await api(`admin/ordenes-proveedor/${id}/recibir`, {}); await refresh(); } catch (ex) { alert(ex.message); }
+    }
+
+    async function pay(id) {
+      const o = orders.find(x => x.id === id);
+      const referencia = prompt(`Marcar como PAGADA la orden de pago ${o.ordenPago.numero} por ${cop(o.ordenPago.valor)} a ${o.proveedorNombre}.\n\nEscribe la referencia o número de la transferencia (opcional):`, '');
+      if (referencia === null) return;
+      try { await api(`admin/ordenes-proveedor/${id}/pagar`, { metodo: 'Transferencia', referencia }); await refresh(); } catch (ex) { alert(ex.message); }
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -25,7 +25,8 @@
     (function() {
       const currentSearch = window.location.search || '';
       // Forward any token or provider parameter straight to the SPA provider workspace
-      window.location.replace('/' + currentSearch + '#proveedor');
+      // The old office was retired: the new provider office lives at /proveedor/
+      window.location.replace('/proveedor/');
     })();
   </script>
 </head>

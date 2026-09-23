@@ -547,8 +547,8 @@
             <div>
               <img src="/imagenes/logo_atziluth.jpg" alt="Atziluth Gráfic Digital" class="h-12 w-auto mb-2" onerror="this.src='/logo_atziluth.jpg'">
               <h2 class="font-display font-extrabold text-base text-slate-900">Atziluth Gráfic Digital S.A.S.</h2>
-              <p class="text-[10px] text-slate-600 font-mono">NIT: 901.458.962-1 &bull; Régimen Común</p>
-              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 300 123 4567</p>
+              <p class="text-[10px] text-slate-600 font-mono">NIT: (pendiente de registrar)</p>
+              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 320 711 5878</p>
             </div>
             <div class="text-right font-mono">
               <span id="doc-type-badge" class="px-2.5 py-1 bg-slate-900 text-white font-bold text-xs rounded-lg block mb-2">RECIBO DE ABONO</span>
@@ -762,8 +762,8 @@
             <div>
               <img src="/imagenes/logo_atziluth.jpg" alt="Atziluth Gráfic Digital" class="h-12 w-auto mb-2" onerror="this.src='/logo_atziluth.jpg'">
               <h2 class="font-display font-extrabold text-base text-slate-900">Atziluth Gráfic Digital S.A.S.</h2>
-              <p class="text-[10px] text-slate-600 font-mono">NIT: 901.458.962-1 &bull; Régimen Común</p>
-              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 300 123 4567</p>
+              <p class="text-[10px] text-slate-600 font-mono">NIT: (pendiente de registrar)</p>
+              <p class="text-[10px] text-slate-600">Medellín, Antioquia &bull; Tel/WhatsApp: 320 711 5878</p>
             </div>
             <div class="text-right font-mono">
               <span class="px-2.5 py-1 bg-emerald-950 text-emerald-300 font-bold text-xs rounded-lg block mb-2 border border-emerald-800">REPORTE MENSUAL DE VENTAS</span>
@@ -1026,13 +1026,39 @@
             <button onclick="generatePdfDocument('${o.id}', 'remision')" class="px-2.5 py-1 bg-sky-950 border border-sky-800 text-sky-300 rounded-lg text-[10px] font-mono hover:bg-sky-900 cursor-pointer" title="Generar Remisión">
               📋 Remisión
             </button>
-            <button onclick="generatePdfDocument('${o.id}', 'factura')" class="px-2.5 py-1 bg-brand-orange text-white rounded-lg text-[10px] font-mono hover:opacity-90 cursor-pointer" title="Generar Factura Final">
-              📄 Factura Final
-            </button>
+            ${deliveryActions(o)}
           </td>
         </tr>
       `).join('');
     }
+
+    // Delivery with double confirmation: the seller marks "delivered", the admin confirms,
+    // and only then the server assigns the invoice number (FAC-0001) and the final invoice is enabled.
+    function deliveryActions(o) {
+      const isAdmin = currentUser && currentUser.role === 'admin';
+      const btn = 'px-2.5 py-1 rounded-lg text-[10px] font-mono cursor-pointer';
+      if (o.invoice) {
+        return `<button onclick="generatePdfDocument('${o.id}', 'factura')" class="${btn} bg-brand-orange text-white hover:opacity-90" title="Factura final">📄 Factura ${o.invoice.numero}</button>`;
+      }
+      if (!o.entrega || !o.entrega.vendedor) {
+        return `<button onclick="markDelivered('${o.id}')" class="${btn} bg-violet-950 border border-violet-800 text-violet-300 hover:bg-violet-900">🚚 Marcar entregado</button>`;
+      }
+      return isAdmin
+        ? `<button onclick="confirmDelivery('${o.id}')" class="${btn} bg-emerald-600 text-white hover:bg-emerald-500">✅ Confirmar entrega y facturar</button>`
+        : `<span class="${btn} bg-slate-800 text-slate-400">Entregado · esperando confirmación</span>`;
+    }
+
+    async function postOrderAction(id, action, question) {
+      if (!confirm(question)) return;
+      try {
+        const res = await fetch(`/api/sales/orders/${id}/${action}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const data = await res.json();
+        if (!res.ok || !data.success) { alert(data.error || 'No se pudo completar la acción.'); return; }
+        await fetchOrders();
+      } catch (_) { alert('Error de conexión con el servidor.'); }
+    }
+    const markDelivered = (id) => postOrderAction(id, 'entregado', '¿Confirmas que el pedido se entregó COMPLETO al cliente?');
+    const confirmDelivery = (id) => postOrderAction(id, 'confirmar-entrega', '¿Confirmas la entrega completa? Se generará la factura final del cliente.');
 
     // Render Clients
     function renderClientsTable() {
@@ -1218,7 +1244,7 @@
         const data = await res.json();
         if (data.success) {
           closeModal('modal-abono');
-          fetchOrders();
+          await fetchOrders();
           generatePdfDocument(id, 'recibo');
         }
       } catch(e) {}
@@ -1228,6 +1254,7 @@
       let activeDocType = 'remision';
 
       function getFormattedDocNumber(order, type) {
+        if (type === 'factura' && order.invoice && order.invoice.numero) return order.invoice.numero;
         const rawNit = (order.clientNit || order.clientId || 'CLI').replace(/[^a-zA-Z0-9]/g, '');
         const cleanNit = rawNit.length > 0 ? rawNit : 'CLI';
         

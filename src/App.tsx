@@ -577,6 +577,9 @@ export default function App() {
   const isCustomerRegistrationRoute = currentHash === "#customer-registration" || currentHash === "#nuevo-cliente";
 
   if (isProveedorRoute) {
+    // The old provider office was retired: everything goes to the new office (server login per provider)
+    if (typeof window !== "undefined") window.location.replace("/proveedor/");
+    return null;
     let provToken = "";
     if (typeof window !== "undefined") {
       try {
