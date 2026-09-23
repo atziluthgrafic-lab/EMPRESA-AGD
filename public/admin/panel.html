@@ -1466,7 +1466,7 @@
 
         <div>
           <label class="block text-xs font-mono text-slate-400 uppercase mb-1 font-bold">Contraseña / Clave</label>
-          <input type="text" id="edit-seller-password" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono">
+          <input type="text" id="edit-seller-password" placeholder="Vacío = conserva la clave actual" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 font-mono">
         </div>
 
         <div>
@@ -4128,8 +4128,9 @@
       const commission = Number(document.getElementById('edit-seller-commission')?.value) || 5;
       const municipalities = getSelectedPanelMunicipalities('edit-seller-muni-checkboxes');
 
-      if (!id || !name || !username || !password) {
-        alert('Nombre, usuario y contraseña son requeridos.');
+      // Empty password = keep the seller's current password (the server never sends it to the browser)
+      if (!id || !name || !username) {
+        alert('Nombre y usuario son requeridos.');
         return;
       }
 

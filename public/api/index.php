@@ -579,6 +579,11 @@ if ($route === 'auth/logout') {
             "zone" => $input['zone'] ?? ($existing['zone'] ?? 'General'),
             "municipalities" => $input['municipalities'] ?? ($existing['municipalities'] ?? []),
             "categories" => $input['categories'] ?? ($existing['categories'] ?? []),
+            "phone" => $input['phone'] ?? ($existing['phone'] ?? ''),
+            "commission" => $input['commission'] ?? $input['commissionRate'] ?? ($existing['commission'] ?? 5),
+            "commissionRate" => $input['commissionRate'] ?? $input['commission'] ?? ($existing['commissionRate'] ?? 5),
+            "supervisor" => $input['supervisor'] ?? ($existing['supervisor'] ?? ''),
+            "status" => $input['status'] ?? ($existing['status'] ?? 'ACTIVO'),
             "updatedAt" => date("c")
         ]);
         $deleted = readJsonFile(SELLERS_DELETED_FILE);
