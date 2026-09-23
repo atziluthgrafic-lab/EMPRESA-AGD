@@ -197,6 +197,8 @@ export interface SellerRecord {
   municipalities: string[];
   categories: string[];
   createdAt: string;
+  updatedAt?: string;
+  mergedIds?: string[];
 }
 
 const DEFAULT_SELLERS: SellerRecord[] = [
@@ -1267,6 +1269,21 @@ export default function AdminDashboard() {
     }
   }, [sellers]);
 
+  // Uploads this browser's sellers to the server, which merges duplicates (one per username)
+  // and keeps each seller's password. The server list becomes the single source of truth.
+  const syncSellersWithServer = async (list: SellerRecord[]) => {
+    try {
+      const res = await fetch("/api/admin/sellers/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sellers: list }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success && Array.isArray(data.sellers)) setSellers(data.sellers);
+    } catch (_) {}
+  };
+
   // Edit Seller Modal State
   const [editingSeller, setEditingSeller] = useState<SellerRecord | null>(null);
   const [editSellerName, setEditSellerName] = useState("");
@@ -1441,10 +1458,12 @@ export default function AdminDashboard() {
       commissionRate: Number(editSellerCommission) || 5.0,
       municipalities: editSellerMunicipalities.length > 0 ? editSellerMunicipalities : ["Medellín"],
       categories: editSellerCategories.length > 0 ? editSellerCategories : ["Gran Formato & Pendones"],
+      updatedAt: new Date().toISOString(),
     };
 
     const updatedList = sellers.map((s) => (s.id === editingSeller.id ? updatedSeller : s));
     setSellers(updatedList);
+    syncSellersWithServer(updatedList);
 
     // If currently logged-in user is updated, update active session
     if (authSession && authSession.sellerId === editingSeller.id) {
@@ -1511,6 +1530,7 @@ export default function AdminDashboard() {
       setAuthSession(session);
       localStorage.setItem("atziluth_admin_session", JSON.stringify(session));
       if (session.role === "vendedor") setOrdSellerId(seller.id);
+      else syncSellersWithServer(sellers);
       setLoginUsername("");
       setLoginPassword("");
     } catch (_) {
@@ -1579,10 +1599,12 @@ export default function AdminDashboard() {
       municipalities: newSellerMunicipalities.length > 0 ? newSellerMunicipalities : ["Medellín"],
       categories: newSellerCategories.length > 0 ? newSellerCategories : ["Gran Formato & Pendones"],
       createdAt: new Date().toISOString().split("T")[0],
+      updatedAt: new Date().toISOString(),
     };
 
     const updated = [newSeller, ...sellers];
     setSellers(updated);
+    syncSellersWithServer(updated);
 
     // Reset Form
     setNewSellerName("");

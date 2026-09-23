@@ -82,6 +82,42 @@ function writeJsonFile($file, $data) {
     return file_put_contents($file, json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE), LOCK_EX);
 }
 
+// ==================== VENDEDORES: una sola ficha por usuario ====================
+define('SELLERS_FILE', PRIVATE_DIR . '/sellers_data.json');
+define('SELLERS_DELETED_FILE', PRIVATE_DIR . '/sellers_deleted.json');
+// Demo accounts shipped in the code (password "123"): never uploaded to the server
+define('DEMO_SELLERS', ['sel_1' => 'carlos.ventas', 'sel_2' => 'camila.comercial', 'sel_3' => 'andres.oriente']);
+
+function sellerKey($s) { return strtolower(trim((string)($s['username'] ?? ''))); }
+function sellerStamp($s) { return strtotime((string)($s['updatedAt'] ?? $s['createdAt'] ?? '')) ?: 0; }
+
+// Merges seller lists: one record per username, the most recent one wins,
+// the password is never lost, and the ids of the removed duplicates are kept in mergedIds.
+function mergeSellers(array $lists, array $deleted = []) {
+    $byUser = [];
+    foreach ($lists as $list) {
+        foreach ((array)$list as $s) {
+            $k = is_array($s) ? sellerKey($s) : '';
+            if ($k === '') continue;
+            if (isset($deleted[$k]) && sellerStamp($s) <= $deleted[$k]) continue; // deleted by the admin
+            if (isset(DEMO_SELLERS[$s['id'] ?? '']) && DEMO_SELLERS[$s['id']] === $k && ($s['password'] ?? '') === '123') continue;
+            if (!isset($byUser[$k])) { $byUser[$k] = $s; continue; }
+            $old = $byUser[$k];
+            $win = sellerStamp($s) >= sellerStamp($old) ? $s : $old;
+            $lose = $win === $s ? $old : $s;
+            if (empty($win['password']) && !empty($lose['password'])) $win['password'] = $lose['password'];
+            $ids = array_merge((array)($old['mergedIds'] ?? []), (array)($s['mergedIds'] ?? []), [$lose['id'] ?? null]);
+            $win['mergedIds'] = array_values(array_unique(array_filter($ids, function ($id) use ($win) { return $id && $id !== ($win['id'] ?? null); })));
+            $byUser[$k] = $win;
+        }
+    }
+    return array_values($byUser);
+}
+
+function sellersWithoutPasswords(array $sellers) {
+    return array_map(function ($s) { unset($s['password']); return $s; }, $sellers);
+}
+
 // Only these file types can be uploaded (never .php or other executables)
 function safeUploadName($fileName, array $allowedExt) {
     $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
@@ -518,37 +554,73 @@ if ($route === 'auth/logout') {
         exit;
     }
 } elseif ($route === 'admin/sellers') {
-    $sellersFile = PRIVATE_DIR . '/sellers_data.json';
     if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         requireRole(STAFF);
-        // Never send passwords to the browser
-        $sellers = array_map(function ($s) { unset($s['password']); return $s; }, readJsonFile($sellersFile));
-        echo json_encode(["success" => true, "sellers" => $sellers]);
+        $sellers = mergeSellers([readJsonFile(SELLERS_FILE)], readJsonFile(SELLERS_DELETED_FILE));
+        echo json_encode(["success" => true, "sellers" => sellersWithoutPasswords($sellers)]);
         exit;
     } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        // Create OR update by username: the same seller is never created twice
         requireRole(ADMINS);
-        if (empty($input['username']) || empty($input['password']) || strlen((string)$input['password']) < 6) {
+        $username = strtolower(trim((string)($input['username'] ?? '')));
+        $current = readJsonFile(SELLERS_FILE);
+        $existing = null;
+        foreach ($current as $s) { if (sellerKey($s) === $username) { $existing = $s; break; } }
+        $password = (string)($input['password'] ?? '');
+        if ($username === '' || (!$existing && strlen($password) < 6)) {
             http_response_code(400);
             echo json_encode(["success" => false, "error" => "Usuario y contraseña (mínimo 6 caracteres) son obligatorios."]);
             exit;
         }
-        $sellers = readJsonFile($sellersFile);
-        $newSeller = [
-            "id" => "sel-" . time(),
-            "name" => isset($input['name']) ? $input['name'] : 'Vendedor',
-            "username" => $input['username'],
-            "password" => (string)$input['password'],
-            "zone" => isset($input['zone']) ? $input['zone'] : 'General',
-            "municipalities" => isset($input['municipalities']) ? $input['municipalities'] : [],
-            "categories" => isset($input['categories']) ? $input['categories'] : [],
-            "status" => "ACTIVO",
-            "createdAt" => date("c")
-        ];
-        array_unshift($sellers, $newSeller);
-        writeJsonFile($sellersFile, $sellers);
-        $public = array_map(function ($s) { unset($s['password']); return $s; }, $sellers);
-        unset($newSeller['password']);
-        echo json_encode(["success" => true, "seller" => $newSeller, "sellers" => $public]);
+        $seller = array_merge($existing ?: ["id" => "sel-" . time(), "status" => "ACTIVO", "createdAt" => date("c")], [
+            "name" => $input['name'] ?? ($existing['name'] ?? 'Vendedor'),
+            "username" => $username,
+            "password" => $password !== '' ? $password : ($existing['password'] ?? ''),
+            "zone" => $input['zone'] ?? ($existing['zone'] ?? 'General'),
+            "municipalities" => $input['municipalities'] ?? ($existing['municipalities'] ?? []),
+            "categories" => $input['categories'] ?? ($existing['categories'] ?? []),
+            "updatedAt" => date("c")
+        ]);
+        $deleted = readJsonFile(SELLERS_DELETED_FILE);
+        unset($deleted[$username]); // re-created on purpose
+        writeJsonFile(SELLERS_DELETED_FILE, $deleted);
+        $sellers = mergeSellers([$current, [$seller]], $deleted);
+        writeJsonFile(SELLERS_FILE, $sellers);
+        unset($seller['password']);
+        echo json_encode(["success" => true, "seller" => $seller, "sellers" => sellersWithoutPasswords($sellers)]);
+        exit;
+    }
+} elseif ($route === 'admin/sellers/sync') {
+    // The admin's browser uploads its seller list: duplicates are merged and passwords are kept
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        requireRole(ADMINS);
+        $current = readJsonFile(SELLERS_FILE);
+        $incoming = isset($input['sellers']) && is_array($input['sellers']) ? $input['sellers'] : [];
+        $deleted = readJsonFile(SELLERS_DELETED_FILE);
+        $sellers = mergeSellers([$current, $incoming], $deleted);
+        writeJsonFile(SELLERS_FILE, $sellers);
+        echo json_encode([
+            "success" => true,
+            "sellers" => $sellers, // with passwords: admins manage them in the panel
+            "received" => count($incoming) + count($current),
+            "unique" => count($sellers)
+        ]);
+        exit;
+    }
+} elseif (preg_match('#^admin/sellers/([A-Za-z0-9_\-]+)$#', $route, $m)) {
+    if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
+        requireRole(ADMINS);
+        $current = readJsonFile(SELLERS_FILE);
+        $deleted = readJsonFile(SELLERS_DELETED_FILE);
+        $kept = [];
+        foreach ($current as $s) {
+            $ids = array_merge([$s['id'] ?? ''], (array)($s['mergedIds'] ?? []));
+            if (in_array($m[1], $ids, true)) { $deleted[sellerKey($s)] = time(); continue; }
+            $kept[] = $s;
+        }
+        writeJsonFile(SELLERS_DELETED_FILE, $deleted);
+        writeJsonFile(SELLERS_FILE, $kept);
+        echo json_encode(["success" => true, "sellers" => $kept]);
         exit;
     }
 }
