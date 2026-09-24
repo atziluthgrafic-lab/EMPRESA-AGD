@@ -210,6 +210,7 @@
           <td class="p-3 text-right whitespace-nowrap space-x-1">
             <button onclick="openProvider('${p.id}')" class="px-2 py-1 bg-slate-800 rounded-lg">Editar</button>
             <button onclick="generatePass('${p.id}')" class="px-2 py-1 bg-emerald-900 text-emerald-200 rounded-lg">Generar clave</button>
+            <button onclick="deleteProvider('${p.id}')" class="px-2 py-1 bg-rose-950 border border-rose-900 text-rose-300 rounded-lg">Eliminar</button>
           </td></tr>`;
       }).join('') || '<tr><td colspan="8" class="p-6 text-center text-slate-500">Todavía no hay proveedores.</td></tr>';
 
@@ -288,6 +289,19 @@
         await refresh();
       } catch (ex) { alert(ex.message); }
     }
+    async function deleteProvider(id) {
+      const p = providers.find(x => x.id === id);
+      if (!confirm(`¿Eliminar definitivamente a "${p.nombreComercial}"?
+
+Ya no podrá entrar a su oficina y desaparecerá de la lista. Sus órdenes ya pagadas se conservan en el historial para tu contabilidad.`)) return;
+      try {
+        const res = await fetch(`/api/admin/proveedores/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || !data.success) { alert(data.error || 'No se pudo eliminar.'); return; }
+        await refresh();
+      } catch (_) { alert('Error de conexión con el servidor.'); }
+    }
+
     function copyPass() { navigator.clipboard.writeText($('pass-text').textContent).catch(() => {}); }
 
     function openOrder() {

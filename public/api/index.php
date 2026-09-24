@@ -191,6 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 define('PROV_FILE', PRIVATE_DIR . '/proveedores_v2.json');
 define('PROV_ORD_FILE', PRIVATE_DIR . '/ordenes_proveedor.json');
 define('PROV_INVOICE_DIR', PRIVATE_DIR . '/facturas_proveedor');
+define('PROV_DELETED_FILE', PRIVATE_DIR . '/proveedores_eliminados.json');
 define('PROV_EDITABLE', ['nombreComercial', 'nit', 'contactoNombre', 'telefonoWhatsapp', 'email', 'municipio', 'direccionTaller', 'servicios', 'datosBancarios', 'notasInternas', 'activo']);
 
 function jsonFail($code, $message) {
@@ -389,6 +390,22 @@ if ($route === 'proveedor/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(["success" => true, "proveedor" => proveedorPublico($p), "proveedores" => array_map('proveedorPublico', $list)]);
         exit;
     }
+} elseif (preg_match('#^admin/proveedores/([A-Za-z0-9_\-]+)$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'DELETE') {
+    // Deletes the provider. Blocked while it has open orders or unpaid payment orders;
+    // paid orders stay in the history (they keep the provider's name) so the accounting still adds up.
+    requireRole(ADMINS);
+    $list = loadProveedores();
+    $i = findIndexById($list, $m[1]);
+    if ($i < 0) jsonFail(404, "Proveedor no encontrado.");
+    $open = array_filter(readJsonFile(PROV_ORD_FILE), function ($o) use ($m) { return ($o['proveedorId'] ?? '') === $m[1] && ($o['estado'] ?? '') !== 'pagada'; });
+    if ($open) jsonFail(400, "No se puede eliminar: tiene " . count($open) . " orden(es) en curso o por pagar. Termínalas primero.");
+    $deleted = readJsonFile(PROV_DELETED_FILE);
+    $deleted[$m[1]] = ["fecha" => date("c"), "nombre" => $list[$i]['nombreComercial'] ?? '', "registro" => $list[$i]];
+    writeJsonFile(PROV_DELETED_FILE, $deleted);
+    array_splice($list, $i, 1);
+    writeJsonFile(PROV_FILE, $list);
+    echo json_encode(["success" => true, "proveedores" => array_map('proveedorPublico', $list)]);
+    exit;
 } elseif (preg_match('#^admin/proveedores/([A-Za-z0-9_\-]+)/generar-clave$#', $route, $m) && $_SERVER['REQUEST_METHOD'] === 'POST') {
     // The server creates the password and shows it ONCE so the admin can send it to the provider
     requireRole(ADMINS);
@@ -406,8 +423,9 @@ if ($route === 'proveedor/login' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     requireRole(ADMINS);
     $list = loadProveedores();
     $added = 0;
+    $deleted = readJsonFile(PROV_DELETED_FILE);
     foreach ((array)($input['proveedores'] ?? []) as $legacy) {
-        if (!is_array($legacy) || empty($legacy['id'])) continue;
+        if (!is_array($legacy) || empty($legacy['id']) || isset($deleted[$legacy['id']])) continue;
         $i = findIndexById($list, $legacy['id']);
         if ($i >= 0) { $list[$i] = mergeLegacyProveedor($list[$i], $legacy); }
         else { $list[] = mergeLegacyProveedor([], $legacy); $added++; }
