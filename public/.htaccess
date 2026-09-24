@@ -11,6 +11,17 @@ Options -Indexes
   Require all denied
 </FilesMatch>
 
+# 1c. CACHÉ: las páginas y los datos se revisan SIEMPRE con el servidor (así se ven los cambios al publicar);
+#     los archivos de /assets llevan un código único en el nombre y se pueden guardar un año.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|json|php)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "^index-[A-Za-z0-9_-]+\.(js|css)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+</IfModule>
+
 # 2. CONFIGURACIÓN DE MIME-TYPES (Evita errores de carga de CSS/JS en Apache/Hostinger)
 <IfModule mod_mime.c>
   AddType application/javascript .js
