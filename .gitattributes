@@ -1,0 +1,8 @@
+# Imágenes y PDF siempre binarios: evita que se corrompan como texto
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
