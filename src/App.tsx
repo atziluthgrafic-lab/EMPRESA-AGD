@@ -52,6 +52,33 @@ import imageWebDesign from "./assets/images/web_design_mockup_1781555140934.jpg"
 // @ts-ignore
 import imageRestaurantApp from "./assets/images/restaurant_app_mockup_1781556838053.jpg";
 
+// Imágenes de prueba que quedaron guardadas en navegadores y en el servidor
+// (1 píxel verde, dominios de ejemplo). Nunca deben mostrarse en el sitio.
+const isPlaceholderImage = (url: unknown): boolean =>
+  typeof url === "string" && /_test_|example\.com/i.test(url);
+
+const stripPlaceholderImages = (config: any) => {
+  if (!config || typeof config !== "object") return config;
+  const clean = { ...config };
+  ["logoUrl", "faviconUrl", "webDesignMockup", "restaurantAppMockup", "municipalDirectoryBanner"].forEach((key) => {
+    if (isPlaceholderImage(clean[key])) delete clean[key];
+  });
+  if (clean.customLithoImages && typeof clean.customLithoImages === "object" && !Array.isArray(clean.customLithoImages)) {
+    clean.customLithoImages = Object.fromEntries(
+      Object.entries(clean.customLithoImages).filter(([, url]) => !isPlaceholderImage(url))
+    );
+  }
+  if (Array.isArray(clean.customBusinesses)) {
+    clean.customBusinesses = clean.customBusinesses.map((b: any) =>
+      b && isPlaceholderImage(b.imageUrl) ? { ...b, imageUrl: "" } : b
+    );
+  }
+  if (Array.isArray(clean.customAds)) {
+    clean.customAds = clean.customAds.filter((a: any) => !(a && isPlaceholderImage(a.imageUrl)));
+  }
+  return clean;
+};
+
 export default function App() {
   // Shared state connecting Mapa, Directorio, and AI Workspace
   const [activeMuni, setActiveMuni] = useState<string | null>(null);
@@ -183,7 +210,7 @@ export default function App() {
     try {
       const stored = localStorage.getItem("atziluth_custom_config");
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed = stripPlaceholderImages(JSON.parse(stored));
         if (parsed && typeof parsed === "object") {
           return {
             logoUrl: parsed.logoUrl || "/logo_atziluth.jpg",
@@ -289,7 +316,7 @@ export default function App() {
         const response = await fetch("/api/config/images");
         const data = await response.json();
         if (response.ok && data.success && data.config) {
-          const serverConfig = data.config;
+          const serverConfig = stripPlaceholderImages(data.config);
           if (!serverConfig.customLithoImages || Array.isArray(serverConfig.customLithoImages)) {
             serverConfig.customLithoImages = {};
           }
@@ -300,7 +327,7 @@ export default function App() {
 
           if (localStored) {
             try {
-              localParsed = JSON.parse(localStored);
+              localParsed = stripPlaceholderImages(JSON.parse(localStored));
               if (localParsed && typeof localParsed === "object") {
                 if (!localParsed.customLithoImages || Array.isArray(localParsed.customLithoImages)) {
                   localParsed.customLithoImages = {};
@@ -390,7 +417,7 @@ export default function App() {
         const localStored = localStorage.getItem("atziluth_custom_config");
         if (localStored) {
           try {
-            setImageConfig(JSON.parse(localStored));
+            setImageConfig(stripPlaceholderImages(JSON.parse(localStored)));
           } catch (_) {}
         }
       }

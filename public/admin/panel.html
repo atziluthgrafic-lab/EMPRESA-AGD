@@ -1959,6 +1959,22 @@
       safeCreateIcons();
     }
 
+    // Imágenes de prueba (1 píxel verde, dominios de ejemplo) que no deben volver al sitio
+    function isPlaceholderImage(url) {
+      return typeof url === "string" && /_test_|example.com/i.test(url);
+    }
+    function stripPlaceholderImages(cfg) {
+      if (!cfg || typeof cfg !== "object") return cfg;
+      const clean = { ...cfg };
+      ["logoUrl", "faviconUrl", "webDesignMockup", "restaurantAppMockup", "municipalDirectoryBanner"].forEach(k => {
+        if (isPlaceholderImage(clean[k])) delete clean[k];
+      });
+      if (clean.customLithoImages && typeof clean.customLithoImages === "object" && !Array.isArray(clean.customLithoImages)) {
+        clean.customLithoImages = Object.fromEntries(Object.entries(clean.customLithoImages).filter(([, u]) => !isPlaceholderImage(u)));
+      }
+      return clean;
+    }
+
     function showDashboard() {
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('admin-panel').classList.remove('hidden');
@@ -1967,9 +1983,9 @@
       const localStored = localStorage.getItem("atziluth_custom_config");
       if (localStored) {
         try {
-          const parsed = JSON.parse(localStored);
+          const parsed = stripPlaceholderImages(JSON.parse(localStored));
           if (parsed && typeof parsed === 'object') {
-            state.config = { ...state.config, ...parsed };
+            state.config = stripPlaceholderImages({ ...state.config, ...parsed });
           }
         } catch (_) {}
       }
@@ -2006,7 +2022,7 @@
         const response = await fetch('/api/config/images');
         const data = await response.json();
         if (response.ok && data.config) {
-          let serverConfig = data.config;
+          let serverConfig = stripPlaceholderImages(data.config);
           if (!serverConfig.customLithoImages || Array.isArray(serverConfig.customLithoImages)) {
             serverConfig.customLithoImages = {};
           }
@@ -2027,7 +2043,7 @@
           const localStored = localStorage.getItem("atziluth_custom_config");
           if (localStored) {
             try {
-              const parsedLocal = JSON.parse(localStored);
+              const parsedLocal = stripPlaceholderImages(JSON.parse(localStored));
               if (parsedLocal) {
                 // Merge businesses by ID (local items not present on server are preserved)
                 const serverBizMap = new Map((serverConfig.customBusinesses || []).map(b => [b.id, b]));
@@ -2106,7 +2122,7 @@
             }
           }
 
-          state.config = serverConfig;
+          state.config = stripPlaceholderImages(serverConfig);
           localStorage.setItem("atziluth_custom_config", JSON.stringify(state.config));
           
           // Silently ensure server has the merged config
